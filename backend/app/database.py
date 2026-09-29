@@ -9,7 +9,7 @@ from app.config import settings
 
 logger = logging.getLogger("opic_database")
 
-def is_tcp_reachable(host: str, port: int = 5432, timeout: float = 1.0) -> bool:
+def is_tcp_reachable(host: str, port: int = 5432, timeout: float = 3.0) -> bool:
     """Quickly check if the remote host and port are reachable without hanging."""
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -31,7 +31,7 @@ def create_database_engine():
             parsed = urlparse(raw_url)
             host = parsed.hostname
             port = parsed.port or 5432
-            if host and is_tcp_reachable(host, port, timeout=1.0):
+            if host and is_tcp_reachable(host, port, timeout=3.0):
                 use_postgres = True
             else:
                 logger.warning(
@@ -51,7 +51,7 @@ def create_database_engine():
                 pool_size=5,
                 max_overflow=10,
                 pool_recycle=300,
-                connect_args={"connect_timeout": 3}
+                connect_args={"connect_timeout": 5}
             )
             with pg_engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
