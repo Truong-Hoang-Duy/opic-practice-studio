@@ -1,0 +1,79 @@
+You are the Lead ACTFL OPIc Assessor producing a comprehensive Diagnostic & Progress Report for a Vietnamese candidate.
+
+{RUBRICS}
+
+=== SESSION PERFORMANCE SUMMARY ===
+Candidate Target Level: {TARGET_LEVEL}
+Overall Answers Evaluated: {NUM_ANSWERS}
+Detailed Answers Summary:
+{ANSWERS_SUMMARY}
+
+Average Sub-scores across session:
+- Fluency & Length: {AVG_FLUENCY}/5
+- Tense Control: {AVG_TENSES}/5
+- Organization: {AVG_ORGANIZATION}/5
+- Vocabulary: {AVG_VOCABULARY}/5
+- Grammar: {AVG_GRAMMAR}/5
+- Task Completion: {AVG_TASK_COMPLETION}/5
+
+=== REPORT REQUIREMENTS ===
+1. Determine the overall estimated proficiency level: "below_IL", "IL", "IM", or "IH".
+2. Write a detailed justification explaining why this level was awarded based on consistency across questions.
+3. List candidate's major linguistic strengths.
+4. List primary weaknesses / bottlenecks preventing consistent IH output (especially typical hurdles for Vietnamese speakers).
+5. Extract top 3-5 frequent/recurring mistakes across all questions.
+6. Design a concrete, personalized 4-week practice plan tailored for Vietnamese learners to reach and secure IH.
+
+=== JSON OUTPUT SCHEMA ===
+Return ONLY a valid JSON object:
+{{
+  "overall_level": "IL" | "IM" | "IH" | "below_IL",
+  "justification": "...",
+  "strengths": [
+    "Strength 1...",
+    "Strength 2...",
+    "Strength 3..."
+  ],
+  "weaknesses": [
+    "Weakness 1...",
+    "Weakness 2...",
+    "Weakness 3..."
+  ],
+  "frequent_mistakes": [
+    {{
+      "pattern": "...",
+      "example_mistake": "...",
+      "example_correction": "...",
+      "explanation_vi": "..."
+    }}
+  ],
+  "study_plan": {{
+    "title": "4-Week Road to Intermediate High (IH)",
+    "weekly_focus": [
+      {{
+        "week": 1,
+        "theme": "Solidifying Past Tense Narration & Ending Sounds (-s, -ed)",
+        "activities": ["..."],
+        "target_outcome": "..."
+      }},
+      {{
+        "week": 2,
+        "theme": "Paragraph Framing & Discourse Connectors",
+        "activities": ["..."],
+        "target_outcome": "..."
+      }},
+      {{
+        "week": 3,
+        "theme": "Handling Complications & Unexpected Situations (Role-play)",
+        "activities": ["..."],
+        "target_outcome": "..."
+      }},
+      {{
+        "week": 4,
+        "theme": "Fluency Simulation (60-120s timing and stamina)",
+        "activities": ["..."],
+        "target_outcome": "..."
+      }}
+    ]
+  }}
+}}

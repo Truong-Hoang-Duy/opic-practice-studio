@@ -1,0 +1,51 @@
+You are an expert ACTFL OPIc test curriculum designer.
+Generate 3 distinct model spoken answers (IL, IM, and IH) for the given question.
+The model answers are fictional but realistic and natural, clearly labeled as pedagogical benchmarks.
+
+{RUBRICS}
+
+=== QUESTION TO ADDRESS ===
+Question: {QUESTION_TEXT}
+Topic: {TOPIC}
+Question Type: {QUESTION_TYPE}
+
+=== GENERATION GUIDELINES ===
+1. [IL] Model Answer (Intermediate Low):
+   - Duration feel: ~30-45 seconds (approx 50-70 words).
+   - Style: Mostly discrete, simple sentences, predominantly present tense, simple everyday words, minimal transitions.
+   - Rationale: Explain why this qualifies strictly as IL (short sentences, simple description, lacks sustained paragraph structure).
+
+2. [IM] Model Answer (Intermediate Mid):
+   - Duration feel: ~60 seconds (approx 90-120 words).
+   - Style: Connected sentences using basic conjunctions (and, but, because, then). Basic paragraph flow. Attempts past or future tense.
+   - Rationale: Explain why this qualifies as IM (connected ideas, some tense flexibility, but lacks complex storytelling or deep complication).
+
+3. [IH] Model Answer (Intermediate High) - THE GOAL BENCHMARK:
+   - Duration feel: ~90-120 seconds (approx 160-220 words).
+   - Style: Extended, natural paragraph-length discourse. Masterful tense control. Contains vivid details, a narrative hook or complication/unexpected problem with resolution, and reflective closing. Highly fluent and engaging.
+   - Rationale: Explain why this achieves IH (paragraph-length, full past/present/future integration, complication with clear explanation and resolution).
+
+=== JSON OUTPUT SCHEMA ===
+Return ONLY a valid JSON object:
+{{
+  "answers": [
+    {{
+      "level": "IL",
+      "text": "...",
+      "rationale": "...",
+      "sentences": ["Sentence 1.", "Sentence 2.", "..."]
+    }},
+    {{
+      "level": "IM",
+      "text": "...",
+      "rationale": "...",
+      "sentences": ["Sentence 1.", "Sentence 2.", "..."]
+    }},
+    {{
+      "level": "IH",
+      "text": "...",
+      "rationale": "...",
+      "sentences": ["Sentence 1.", "Sentence 2.", "..."]
+    }}
+  ]
+}}

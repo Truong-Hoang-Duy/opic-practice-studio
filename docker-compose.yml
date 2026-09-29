@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: opic_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: opic_studio
+      POSTGRES_USER: opic_user
+      POSTGRES_PASSWORD: opic_password_secure
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: opic_backend
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://opic_user:opic_password_secure@db:5432/opic_studio
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.6-luna}
+      TTS_MODEL: ${TTS_MODEL:-gpt-4o-mini-tts}
+      SONIOX_API_KEY: ${SONIOX_API_KEY}
+      SECRET_KEY: ${SECRET_KEY:-development_super_secret_jwt_key_2026}
+      COMPANY_MAGIC_CODE: ${COMPANY_MAGIC_CODE:-OPIC-IH-2026}
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
+    volumes:
+      - ./backend/data:/app/data
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: opic_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+volumes:
+  postgres_data:
