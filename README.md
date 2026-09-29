@@ -123,7 +123,6 @@ TTS_MODEL=gpt-4o-mini-tts
 SONIOX_API_KEY=...
 DATABASE_URL=sqlite:///./data/opic_studio.db
 SECRET_KEY=secure_random_key_here
-COMPANY_MAGIC_CODE=OPIC-IH-2026
 ```
 
 > **Offline/Mock Mode**: If `OPENAI_API_KEY` or `SONIOX_API_KEY` are not set, the studio automatically switches to built-in pedagogical mock generators and chimes, allowing 100% full testing and demonstration offline.

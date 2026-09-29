@@ -18,7 +18,5 @@ services:
         sync: false
       - key: SECRET_KEY
         generateValue: true
-      - key: COMPANY_MAGIC_CODE
-        value: OPIC-IH-2026
       - key: ENVIRONMENT
         value: production

@@ -25,7 +25,6 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "super_secret_opic_jwt_key_development_2026_secure"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
-    COMPANY_MAGIC_CODE: str = "OPIC-IH-2026"
 
     # CORS
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000"
