@@ -8,7 +8,7 @@ export const Login = ({ onLoginSuccess }) => {
   
   // Default candidate credentials pre-assigned
   const [email, setEmail] = useState('candidate@opicstudio.com');
-  const [password, setPassword] = useState('password123');
+  const [password, setPassword] = useState('OpicStudio@2026!IH');
   const [fullName, setFullName] = useState('OPIc Candidate');
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [error, setError] = useState('');
@@ -26,7 +26,7 @@ export const Login = ({ onLoginSuccess }) => {
         await register(email, password, fullName || undefined);
       } else {
         // Standard or default login
-        if (email === 'candidate@opicstudio.com' && password === 'password123') {
+        if (email === 'candidate@opicstudio.com' && password === 'OpicStudio@2026!IH') {
           await defaultLogin();
         } else {
           await login(email, password);
@@ -111,7 +111,7 @@ export const Login = ({ onLoginSuccess }) => {
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">Mật khẩu</label>
-              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Mặc định: password123</span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Mặc định: OpicStudio@2026!IH</span>
             </div>
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-3" />
@@ -133,7 +133,7 @@ export const Login = ({ onLoginSuccess }) => {
                 if (isRegisterMode) {
                   setIsRegisterMode(false);
                   setEmail('candidate@opicstudio.com');
-                  setPassword('password123');
+                  setPassword('OpicStudio@2026!IH');
                 } else {
                   setIsRegisterMode(true);
                   setEmail('');

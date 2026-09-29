@@ -10,7 +10,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 DEFAULT_EMAIL = "candidate@opicstudio.com"
 DEFAULT_NAME = "OPIc Candidate"
-DEFAULT_PASSWORD = "password123"
+DEFAULT_PASSWORD = "OpicStudio@2026!IH"
 
 @router.post("/default-login", response_model=Token)
 def default_login(db: Session = Depends(get_db)):
@@ -23,6 +23,11 @@ def default_login(db: Session = Depends(get_db)):
             hashed_password=get_password_hash(DEFAULT_PASSWORD)
         )
         db.add(user)
+        db.commit()
+        db.refresh(user)
+    else:
+        # Auto-sync password hash to the new secure default password
+        user.hashed_password = get_password_hash(DEFAULT_PASSWORD)
         db.commit()
         db.refresh(user)
 
@@ -73,6 +78,11 @@ def login(login_in: UserLogin, db: Session = Depends(get_db)):
         db.add(user)
         db.commit()
         db.refresh(user)
+    elif user and login_in.email == DEFAULT_EMAIL and login_in.password == DEFAULT_PASSWORD:
+        if not verify_password(login_in.password, user.hashed_password):
+            user.hashed_password = get_password_hash(DEFAULT_PASSWORD)
+            db.commit()
+            db.refresh(user)
 
     if not user or not user.hashed_password or not verify_password(login_in.password, user.hashed_password):
         raise HTTPException(
