@@ -5,6 +5,7 @@ services:
     dockerfilePath: Dockerfile
     plan: free
     region: singapore
+    autoDeploy: true
     envVars:
       - key: DATABASE_URL
         sync: false # Paste your Neon.tech PostgreSQL connection string here
