@@ -11,6 +11,8 @@ from app.core.security import get_current_user
 from app.services.evaluation_service import exam_level_for
 from app.services.playlist_service import request_playlist
 from app.services.tts_service import cached_speech_url
+from app.core.question_meta import CATEGORY_LABELS, derive_category, question_timing
+from app.schemas.question import UNSCORED_QUESTION_TYPES
 
 router = APIRouter(prefix="/library", tags=["Question Library"])
 
@@ -52,10 +54,15 @@ def get_library(
                 if v.evaluations:
                     latest_eval = v.evaluations[0]
                     break
+            category = q.category or derive_category(q.order_index, q.question_type, q.topic, s.topics)
             items.append({
                 "id": q.id,
                 "order_index": q.order_index,
                 "topic": q.topic,
+                "category": category,
+                "category_label": CATEGORY_LABELS.get(category, category),
+                "difficulty": q.difficulty,
+                "timing": question_timing(q.question_type, q.difficulty),
                 "question_type": q.question_type,
                 "question_text": q.question_text,
                 "audio_path": cached_speech_url(q.question_text) or q.audio_path,
@@ -64,6 +71,8 @@ def get_library(
                     for m in sorted(models_by_q.get(q.id, []), key=lambda m: MODEL_LEVELS.index(m.level) if m.level in MODEL_LEVELS else 9)
                 ],
                 "practice_count": len(versions),
+                "last_audio_path": next((v.audio_path for v in reversed(answer.versions) if v.audio_path), answer.audio_path) if answer else None,
+                "last_transcript": (versions[-1].transcript if versions else None),
                 "answer_id": answer.id if answer else None,
                 "last_level": latest_eval.estimated_level if latest_eval else None,
             })
@@ -72,6 +81,7 @@ def get_library(
             "session_id": s.id,
             "mode": s.mode,
             "status": s.status,
+            "dev_mock": bool(getattr(s, "dev_mock", False)),
             "started_at": s.started_at,
             "self_assessment_level": s.self_assessment_level,
             "default_model_level": default_model_level(s),
@@ -113,6 +123,8 @@ def build_playlist(
     segments, missing = [], []
     for qid in req.question_ids:
         q, s = by_id[qid]
+        if q.question_type in UNSCORED_QUESTION_TYPES:
+            continue  # the fixed self-introduction isn't useful for listening practice
         level = req.level or default_model_level(s)
         model = db.query(ModelAnswer).filter(ModelAnswer.question_id == q.id, ModelAnswer.level == level).first()
         if not model:
@@ -122,6 +134,8 @@ def build_playlist(
             segments.append({"kind": "question", "text": q.question_text})
         segments.append({"kind": "answer", "text": model.text})
 
+    if not segments and not missing:
+        raise HTTPException(status_code=422, detail="Chọn ít nhất một câu (câu 1 không có trong bài nghe).")
     if missing:
         raise HTTPException(status_code=409, detail={"message": "Model answers not generated yet.", "missing_question_ids": missing})
 

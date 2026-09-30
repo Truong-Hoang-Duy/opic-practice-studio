@@ -76,6 +76,31 @@ def create_database_engine():
     )
 
 engine = create_database_engine()
+
+
+# Columns added after the first release. create_all() never alters existing tables and the project has
+# no migration tool, so missing columns are added here (idempotent, works on SQLite and PostgreSQL).
+ADDED_COLUMNS = {
+    "questions": {"category": "VARCHAR(50)"},
+    "answer_versions": {"audio_path": "VARCHAR(255)", "duration_seconds": "FLOAT"},
+    "test_sessions": {"dev_mock": "BOOLEAN DEFAULT FALSE"},
+}
+
+
+def ensure_schema(db_engine=None):
+    from sqlalchemy import inspect
+    db_engine = db_engine or engine
+    inspector = inspect(db_engine)
+    existing_tables = set(inspector.get_table_names())
+    with db_engine.begin() as conn:
+        for table, columns in ADDED_COLUMNS.items():
+            if table not in existing_tables:
+                continue
+            present = {c["name"] for c in inspector.get_columns(table)}
+            for name, ddl in columns.items():
+                if name not in present:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+                    logger.info(f"Added column {table}.{name}")
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

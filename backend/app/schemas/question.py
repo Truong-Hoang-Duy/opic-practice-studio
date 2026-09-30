@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict, Any, Literal
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from app.core.question_meta import question_timing, CATEGORY_LABELS
 
 # Q1 (self-introduction) is fixed and never scored
 UNSCORED_QUESTION_TYPES = {"self_intro"}
@@ -25,6 +26,18 @@ class QuestionResponse(BaseModel):
     difficulty: str
     audio_path: Optional[str] = None
     vietnamese_guide: Optional[Dict[str, Any]] = None
+    category: Optional[str] = None
+
+    @computed_field
+    @property
+    def timing(self) -> Dict[str, int]:
+        """Recommended speaking window and hard limit for this question."""
+        return question_timing(self.question_type, self.difficulty)
+
+    @computed_field
+    @property
+    def category_label(self) -> Optional[str]:
+        return CATEGORY_LABELS.get(self.category) if self.category else None
 
     model_config = ConfigDict(from_attributes=True)
 

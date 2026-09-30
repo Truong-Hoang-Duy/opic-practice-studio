@@ -27,6 +27,7 @@ def test_strict_mode_skips_are_final_and_report_lists_all_questions(client):
     # "Exit and resume": no after_order -> continues at Q3, skipped questions never come back
     q3 = client.get(f"/api/sessions/{session_id}/next-question", headers=headers).json()
     assert q3["order_index"] == 3
+    assert q3["category"] == "home" and q3["timing"]["time_limit_sec"] == 90
 
     ans = client.post("/api/answers", data={
         "question_id": q3["id"], "session_id": session_id, "duration_seconds": 70,
@@ -56,3 +57,12 @@ def test_practice_mode_skip_keeps_question_open(client):
     assert nxt["order_index"] == 3
     q2 = client.get(f"/api/sessions/{session_id}/questions/2", headers=headers)
     assert q2.status_code == 200
+
+
+def test_levels_1_and_2_are_no_longer_accepted(client):
+    reg = client.post("/api/auth/register", json={"email": "levels@example.com", "password": "Password123!", "full_name": "L"})
+    headers = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+    sid = client.post("/api/sessions", json={"mode": "practice"}, headers=headers).json()["id"]
+    for level in (1, 2):
+        assert client.post(f"/api/sessions/{sid}/self-assessment", json={"level": level}, headers=headers).status_code == 422
+    assert client.post(f"/api/sessions/{sid}/self-assessment", json={"level": 3}, headers=headers).status_code == 200

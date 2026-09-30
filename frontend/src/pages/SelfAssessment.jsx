@@ -1,25 +1,9 @@
 import React, { useState } from 'react';
-import { ArrowRight, Sliders, CheckCircle2, Star, Sparkles } from 'lucide-react';
+import { ArrowRight, Sliders, CheckCircle2, Star } from 'lucide-react';
 import { sessionApi, formatApiError } from '../api/client';
 import { ViTooltip } from '../components/Tooltip';
 
 const ASSESSMENT_LEVELS = [
-  {
-    level: 1,
-    label: "Level 1: Novice Low-Mid",
-    target: "NL",
-    en: "I can only say individual words and memorized phrases like greetings.",
-    vi: "Tôi chỉ có thể nói các từ đơn lẻ và cụm từ quen thuộc học vẹt như lời chào hỏi.",
-    difficultyNote: "Bao gồm các câu hỏi miêu tả đơn giản nhất."
-  },
-  {
-    level: 2,
-    label: "Level 2: Novice High",
-    target: "NH",
-    en: "I can make simple sentences in the present tense about basic personal facts.",
-    vi: "Tôi có thể nói các câu đơn giản thì hiện tại về thông tin cá nhân cơ bản.",
-    difficultyNote: "Tập trung vào miêu tả người và sự vật ở thì hiện tại."
-  },
   {
     level: 3,
     label: "Level 3: Intermediate Low",
@@ -32,7 +16,6 @@ const ASSESSMENT_LEVELS = [
     level: 4,
     label: "Level 4: Intermediate Mid",
     target: "IM",
-    recommended: true,
     en: "I can speak in full sentences and describe my routine and past events with some errors.",
     vi: "Tôi có thể nói thành câu hoàn chỉnh, miêu tả thói quen và sự kiện quá khứ (vẫn có vài lỗi sai).",
     difficultyNote: "Bao gồm các câu hỏi miêu tả chi tiết, thói quen và trải nghiệm quá khứ."
@@ -55,18 +38,28 @@ const ASSESSMENT_LEVELS = [
   }
 ];
 
-export const SelfAssessment = ({ sessionId, defaultStrict = false, onAssessmentCompleted }) => {
-  const [selectedLevel, setSelectedLevel] = useState(4); // Default level 4 for IH aspirants
+// Local dev build only: generate the test from the curated bank to avoid LLM cost while checking the UI
+const SHOW_NO_AI_OPTION = import.meta.env.DEV;
+
+export const SelfAssessment = ({ sessionId, defaultStrict = false, initialLevel = null, onAssessmentCompleted }) => {
+  // Levels 1-2 are no longer offered; older sessions with those levels fall back to the default
+  const [selectedLevel, setSelectedLevel] = useState(initialLevel >= 3 ? initialLevel : 4);
   const [strictMode, setStrictMode] = useState(defaultStrict);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e, useAi = true) => {
+    if (e) e.preventDefault();
+    if (!sessionId) {
+      setError("Phiên thi chưa được khởi tạo. Vui lòng quay lại màn hình chính để bắt đầu bài thi.");
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
-      const res = await sessionApi.submitSelfAssessment(sessionId, { level: selectedLevel, strict_mode: strictMode });
+      const payload = { level: selectedLevel, strict_mode: strictMode };
+      if (!useAi) payload.use_ai = false;
+      const res = await sessionApi.submitSelfAssessment(sessionId, payload);
       onAssessmentCompleted(res.data?.mode || (strictMode ? 'exam' : 'practice'));
     } catch (err) {
       console.error("Self-assessment submission failed:", err);
@@ -106,13 +99,6 @@ export const SelfAssessment = ({ sessionId, defaultStrict = false, onAssessmentC
                     : 'bg-white dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-sm'
                 }`}
               >
-                {item.recommended && (
-                  <div className="absolute -top-2.5 right-4 px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-bold text-[10px] flex items-center gap-1 shadow">
-                    <Sparkles className="w-3 h-3 fill-current" />
-                    <span>Recommended for IH Target</span>
-                  </div>
-                )}
-
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -147,7 +133,7 @@ export const SelfAssessment = ({ sessionId, defaultStrict = false, onAssessmentC
 
                 <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800/80 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
                   <span>{item.difficultyNote}</span>
-                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">Target: {item.target}</span>
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">Mức chấm: {item.target}</span>
                 </div>
               </div>
             );
@@ -188,6 +174,17 @@ export const SelfAssessment = ({ sessionId, defaultStrict = false, onAssessmentC
         <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 pt-4">
           {error && (
             <span className="text-xs font-medium text-rose-600 dark:text-rose-400 sm:mr-auto">{error}</span>
+          )}
+          {SHOW_NO_AI_OPTION && (
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => handleSubmit(null, false)}
+              title="Chỉ hiện khi chạy local (npm run dev). Giả lập toàn bộ: bộ đề mặc định, nhận dạng giọng nói, chấm điểm, bài mẫu, báo cáo — không gọi AI/Soniox."
+              className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-dashed border-amber-400 dark:border-amber-500/50 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 font-semibold text-xs cursor-pointer disabled:opacity-60"
+            >
+              <span>DEV: Giả lập toàn bộ (không gọi AI)</span>
+            </button>
           )}
           <button
             type="submit"

@@ -1,5 +1,5 @@
-You are an OPIc coach for Vietnamese learners aiming for ACTFL Intermediate High (IH).
-For EACH question below, write a Vietnamese step-by-step answer guide that helps the learner reach IH.
+You are an OPIc coach for Vietnamese learners.
+For EACH question below, write a Vietnamese step-by-step answer guide that helps the learner answer well at their target band ({BASE_DIFFICULTY}).
 
 Learner self-assessment level: {LEVEL} / 6 (target band {BASE_DIFFICULTY})
 

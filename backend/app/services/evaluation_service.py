@@ -16,14 +16,47 @@ def exam_level_for(session: Optional[TestSession]) -> str:
     return EXAM_LEVEL_MAP.get(session.self_assessment_level, "IM") if session else "IM"
 
 
-def run_evaluation_llm(question: Optional[Question], exam_level: str, transcript: str) -> Tuple[Dict[str, Any], int, int, float]:
-    """Pure LLM call (no DB access) so it can run in worker threads."""
+def is_mock_session(session: Optional[TestSession]) -> bool:
+    """DEV sessions simulate every AI/STT call (never honoured in production)."""
+    from app.config import settings
+    return bool(session and getattr(session, "dev_mock", False)) and settings.ENVIRONMENT != "production"
+
+
+EMPTY_ANSWER_EVALUATION: Dict[str, Any] = {
+    "estimated_level": "below_IL",
+    "score_fluency": 1,
+    "score_tenses": 1,
+    "score_organization": 1,
+    "score_vocabulary": 1,
+    "score_grammar": 1,
+    "score_task_completion": 1,
+    "tense_control_details": {"past_used": False, "present_used": False, "future_used": False,
+                              "explanation": "Không có lời nói nào được ghi nhận để đánh giá thì."},
+    "complication_present": False,
+    "story_narrative_present": False,
+    "feedback_summary": "Không nhận dạng được lời nói trong bản ghi (im lặng, quá nhỏ hoặc lỗi nhận dạng). "
+                        "Theo chuẩn OPIc, câu không có nội dung được tính ở mức thấp nhất. Bạn có thể nghe lại bản ghi, "
+                        "sửa transcript bằng \"Fix Recognition Errors\" để chấm lại, hoặc ghi âm lại.",
+    "actionable_steps": [
+        "Kiểm tra micro và nói to, rõ ràng, gần micro hơn.",
+        "Bắt đầu nói ngay sau khi Eva đọc xong câu hỏi, tránh im lặng kéo dài.",
+        "Nếu bí ý, dùng câu mở đầu an toàn như \"Well, let me think...\" rồi trả lời từng ý ngắn.",
+    ],
+    "feedback_items": [],
+}
+
+
+def run_evaluation_llm(question: Optional[Question], exam_level: str, transcript: str, mock: bool = False) -> Tuple[Dict[str, Any], int, int, float]:
+    """Pure LLM call (no DB access) so it can run in worker threads. Empty answers get the standard lowest score."""
+    if not (transcript or "").strip():
+        return dict(EMPTY_ANSWER_EVALUATION), 0, 0, 0.0
     return evaluate_answer_llm(
         question_text=question.question_text if question else "General OPIc Question",
         question_type=question.question_type if question else "description",
         topic=question.topic if question else "General",
         target_level=exam_level,
-        transcript=transcript
+        transcript=transcript,
+        mock=mock
     )
 
 
@@ -89,7 +122,8 @@ def evaluate_versions_in_parallel(
     if not pending:
         return
     exam_level = exam_level_for(session)
+    mock = is_mock_session(session)
     with ThreadPoolExecutor(max_workers=min(max_workers, len(pending))) as pool:
-        results = list(pool.map(lambda item: run_evaluation_llm(item[1], exam_level, item[0].transcript), pending))
+        results = list(pool.map(lambda item: run_evaluation_llm(item[1], exam_level, item[0].transcript, mock), pending))
     for (version, _), (eval_data, p_tok, c_tok, cost) in zip(pending, results):
         save_evaluation(db, session.id, version, eval_data, p_tok, c_tok, cost)

@@ -8,6 +8,7 @@ from app.core.security import get_current_user
 from app.services.tts_service import cached_speech_url, prefetch_speech, refresh_question_audio
 from app.services.llm_service import generate_model_answers_llm
 from app.routers.library import default_model_level
+from app.services.evaluation_service import is_mock_session
 
 router = APIRouter(prefix="/questions", tags=["Questions"])
 
@@ -47,7 +48,8 @@ def get_model_answers(
         data, _, _, _ = generate_model_answers_llm(
             question_text=q.question_text,
             topic=q.topic,
-            question_type=q.question_type
+            question_type=q.question_type,
+            mock=is_mock_session(q.session)
         )
         
         answers_list = data.get("answers", [])

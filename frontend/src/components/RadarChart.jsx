@@ -152,7 +152,7 @@ export const RadarChart = ({
         </div>
         <div className="flex items-center gap-1.5 text-emerald-400">
           <span className="w-3 h-0.5 border-t-2 border-dashed border-emerald-400 inline-block" />
-          <span>IH Target Benchmark (4.0+)</span>
+          <span>Reference benchmark (4.0 / 5)</span>
         </div>
       </div>
     </div>

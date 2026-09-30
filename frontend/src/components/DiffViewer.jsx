@@ -117,7 +117,7 @@ export const DiffViewer = ({
       {/* Key Expressions Added */}
       {key_expressions_added && key_expressions_added.length > 0 && (
         <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400 mb-2 block">Key IH Expressions Injected:</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400 mb-2 block">Key Expressions Injected:</span>
           <div className="flex flex-wrap gap-2">
             {key_expressions_added.map((expr, i) => (
               <span key={i} className="text-xs px-2.5 py-1 rounded-lg bg-brand-50 dark:bg-brand-500/10 text-brand-800 dark:text-brand-300 border border-brand-200 dark:border-brand-500/20 font-medium">

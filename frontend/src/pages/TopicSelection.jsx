@@ -41,12 +41,10 @@ const TOPIC_CHOICES = [
   }
 ];
 
-export const TopicSelection = ({ sessionId, onTopicsConfirmed }) => {
-  const [selectedTopics, setSelectedTopics] = useState([
-    'environment',
-    'socio_cultural',
-    'communication_media'
-  ]);
+export const TopicSelection = ({ sessionId, initialTopics = null, onTopicsConfirmed }) => {
+  const [selectedTopics, setSelectedTopics] = useState(
+    initialTopics?.length === 3 ? initialTopics : ['environment', 'socio_cultural', 'communication_media']
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -66,6 +64,11 @@ export const TopicSelection = ({ sessionId, onTopicsConfirmed }) => {
   const handleGenerateQuestions = async () => {
     if (selectedTopics.length !== 3) {
       setError("Please select exactly 3 topics before continuing.");
+      return;
+    }
+
+    if (!sessionId) {
+      setError("Phiên thi chưa được khởi tạo. Vui lòng quay lại màn hình chính để bắt đầu bài thi.");
       return;
     }
 
@@ -155,7 +158,7 @@ export const TopicSelection = ({ sessionId, onTopicsConfirmed }) => {
               </div>
 
               <div className="pt-2 border-t border-slate-200 dark:border-slate-800/80 text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-between font-medium">
-                <span>Trọng tâm OPIc IH: Tự tin miêu tả, so sánh & sự cố</span>
+                <span>Dạng câu: miêu tả, kể trải nghiệm, so sánh & sự cố</span>
                 <span className={isSelected ? 'text-brand-600 dark:text-brand-400 font-semibold' : 'text-slate-500 dark:text-slate-400'}>
                   {isSelected ? '✓ Included in Test' : 'Click to select'}
                 </span>

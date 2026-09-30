@@ -33,8 +33,11 @@
   - `browser`: không tạo audio ở server.
   - Nếu server không có audio (model chưa sẵn sàng/lỗi), `EvaAvatar.jsx` tự đọc câu hỏi bằng Web Speech API của trình duyệt (ưu tiên giọng nữ en-US). Không dùng âm "chime" giả.
   - Cache trên đĩa: Lưu tại `backend/data/audio_cache/` theo `md5(text + voice + model)` (.mp3). Sau khi tạo đề, audio của cả 15 câu được tổng hợp nền theo thứ tự.
-- **Speech-to-Text (Nhận diện giọng nói):** Soniox STT API.
-  - **Quy tắc bảo mật:** Không bao giờ để lộ key Soniox vĩnh viễn cho Frontend. Backend cung cấp WebSocket Proxy `/ws/stt` kết nối tới `wss://api.soniox.com/transcribe-websocket` hoặc cấp token tạm thời qua `/api/stt/token`.
+- **Speech-to-Text (Nhận diện giọng nói):** Soniox **async (batch) API**, không stream realtime.
+  - Trình duyệt chỉ ghi âm (`AudioRecorder.jsx`) rồi upload file qua `POST /api/answers`; backend gửi file tới Soniox (`SONIOX_ASYNC_MODEL`, mặc định `stt-async-v5`), nhận transcript + độ tin cậy từng từ (`stt_service.transcribe_audio_file`), xóa bản sao trên Soniox, rồi mới chấm điểm.
+  - **Quy tắc bảo mật:** Key Soniox chỉ nằm ở backend, không bao giờ gửi xuống Frontend.
+  - Mỗi lần ghi được lưu thành file riêng (`data/uploads/user_{id}_q{qid}_{timestamp}_{rand}.webm`) và gắn với `AnswerVersion.audio_path`, nên có thể nghe lại ở trang coaching (kèm các lần ghi trước), báo cáo (mở từ History) và Question Bank.
+  - Nhận dạng lỗi hoặc không có lời nói **không chặn** người học: bản ghi vẫn được lưu (`notes` = `transcription_failed` / `no_speech`) và câu vẫn được chấm theo chuẩn — không có nội dung thì mức thấp nhất (`below_IL`, 1/5, không gọi LLM). Có thể sửa transcript để chấm lại.
   - Phân tích độ tin cậy từ: Highlight các từ nhận diện tự tin thấp (< 0.8) để người học phát hiện lỗi phát âm.
 
 ### Frontend:
@@ -132,8 +135,15 @@ Hệ thống được thiết kế để **dùng chung 1 Database duy nhất**:
      - Bật: sau khi Eva đọc xong có **5 giây** để nghe lại (1 lần, hết giờ là mất); không hiện câu hỏi/transcript; không lùi/nhảy câu; Next = bỏ qua vĩnh viễn (`POST /sessions/{id}/questions/{order}/skip` lưu câu trả lời rỗng); thoát giữa chừng vẫn lưu tiến trình và Resume tiếp tục từ câu chưa làm; kết quả chỉ hiện sau khi thi xong — báo cáo chấm song song toàn bộ câu trả lời và liệt kê đủ 15 câu (câu hỏi, câu trả lời, trạng thái).
      - Tắt: luyện tập như cũ; bấm Next vẫn mở trang coaching (câu hỏi, gợi ý, bài mẫu) nhưng không chấm điểm.
    - System Check không bắt buộc: có thể bấm Next bỏ qua.
+   - **Thời gian nói theo từng câu** (`core/question_meta.py → question_timing`, trả về trong `QuestionResponse.timing`): câu dễ (tự giới thiệu, role-play hỏi) ~1 phút; miêu tả/thói quen 1:30; kể chuyện/so sánh/sự cố 2 phút; bộ đề mức IL được rút ngắn.
+   - **Phân loại chủ đề** (`questions.category`, gán lúc tạo đề qua `derive_category`): self_intro, home, leisure, role_play và 5 chủ đề chính. Cột được thêm tự động bằng `ensure_schema()` khi khởi động (dự án không dùng Alembic).
+   - Không còn mục tiêu cố định IH: báo cáo, lộ trình học và nhận xét được đánh giá theo mức người học đã chọn.
+   - Tiếp tục phiên dở dang (Dashboard/History) sẽ quay về đúng bước setup còn thiếu (survey → chủ đề → mức độ) hoặc vào thi nếu đã có đề.
+   - Chỉ khi chạy local (`npm run dev`): nút "DEV: Giả lập toàn bộ (không gọi AI)" ở bước Self-Assessment (`use_ai=false` → `test_sessions.dev_mock=true`, backend bỏ qua khi `ENVIRONMENT=production`). Phiên DEV dùng bộ đề mặc định và **giả lập mọi lệnh gọi AI/Soniox**: nhận dạng (ghi < 3 giây = im lặng, ≥ 3 giây = transcript mẫu có từ độ tin cậy thấp), chấm điểm, Improve, bài mẫu, báo cáo (dữ liệu mock trong `llm_service.get_mock_json_response`). Giao diện hiện badge "DEV".
+   - Self-Assessment chỉ còn Level 3–6 (API từ chối level 1–2).
 8. **Question Bank (tab "Bộ đề", `QuestionLibrary.jsx`, router `/api/library`):**
-   - Liệt kê mọi bộ đề AI đã ra theo từng lần thi: chủ đề, câu hỏi, bài mẫu (IL/IM/IH, mặc định theo mức đã thi), số lần đã luyện và level gần nhất.
+   - Hai chế độ xem: **Theo bộ đề** (từng lần thi) và **Theo chủ đề** (gom câu hỏi của mọi bộ đề theo `category`). Mỗi câu có bài mẫu (IL/IM/IH, mặc định theo mức đã thi), số lần đã luyện và level gần nhất.
+   - Câu 1 (tự giới thiệu) không nằm trong bài nghe.
    - "Luyện lại": nghe Eva đọc, ghi âm, chấm điểm, sửa lỗi (dùng lại `AnswerCoaching`); mỗi lần luyện tạo `AnswerVersion` mới.
    - Nghe hằng ngày: chọn câu → `POST /api/library/playlist` ghép "câu hỏi + bài mẫu" thành **một file MP3** (`playlist_service.py`, tạo nền, client poll tiến độ, cache tại `data/audio_cache/playlists/`). Một file liền mạch giúp điện thoại vẫn phát khi tắt màn hình (kèm Media Session cho điều khiển trên màn hình khóa); có nút Lặp lại và Tải MP3.
 7. **Coaching & Results (Trang phản hồi & Báo cáo):**

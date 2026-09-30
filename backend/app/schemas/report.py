@@ -24,5 +24,6 @@ class SessionReportResponse(BaseModel):
     study_plan: Dict[str, Any] = {}
     pdf_path: Optional[str] = None
     created_at: datetime
+    target_level: Optional[str] = None  # level the learner chose (the report is judged against it)
 
     model_config = ConfigDict(from_attributes=True)

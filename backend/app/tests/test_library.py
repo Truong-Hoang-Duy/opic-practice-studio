@@ -28,6 +28,13 @@ def test_library_lists_question_sets_and_requires_model_answers_for_playlist(cli
     assert len(qset["questions"]) == 15
     assert qset["questions"][0]["model_answers"] == []
 
+    assert qset["questions"][1]["category"] == "home"
+    assert qset["questions"][1]["timing"]["time_limit_sec"] > 0
+
+    # Q1 (fixed self-introduction) is never part of a listening playlist
+    q1 = qset["questions"][0]["id"]
+    assert client.post("/api/library/playlist", json={"question_ids": [q1]}, headers=headers).status_code == 422
+
     q2 = qset["questions"][1]["id"]
     resp = client.post("/api/library/playlist", json={"question_ids": [q2]}, headers=headers)
     assert resp.status_code == 409

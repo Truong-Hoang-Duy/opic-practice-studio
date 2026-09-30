@@ -25,20 +25,28 @@ export const authApi = {
   getMe: () => api.get('/auth/me'),
 };
 
+const validateSessionId = (id) => {
+  const num = Number(id);
+  if (!id || isNaN(num) || num <= 0) {
+    throw new Error(`Invalid session ID: "${id}". A valid integer session ID is required.`);
+  }
+  return num;
+};
+
 export const sessionApi = {
   create: (data) => api.post('/sessions', data),
-  submitSurvey: (id, data) => api.post(`/sessions/${id}/survey`, data),
-  submitSelfAssessment: (id, data) => api.post(`/sessions/${id}/self-assessment`, data),
-  submitTopics: (id, data) => api.post(`/sessions/${id}/topics`, data),
-  getStatus: (id) => api.get(`/sessions/${id}/status`),
-  getNextQuestion: (id, afterOrder) => api.get(`/sessions/${id}/next-question`, {
+  submitSurvey: (id, data) => api.post(`/sessions/${validateSessionId(id)}/survey`, data),
+  submitSelfAssessment: (id, data) => api.post(`/sessions/${validateSessionId(id)}/self-assessment`, data),
+  submitTopics: (id, data) => api.post(`/sessions/${validateSessionId(id)}/topics`, data),
+  getStatus: (id) => api.get(`/sessions/${validateSessionId(id)}/status`),
+  getNextQuestion: (id, afterOrder) => api.get(`/sessions/${validateSessionId(id)}/next-question`, {
     params: afterOrder ? { after_order: afterOrder } : undefined
   }),
-  getQuestions: (id) => api.get(`/sessions/${id}/questions`),
-  getQuestionByIndex: (id, orderIndex) => api.get(`/sessions/${id}/questions/${orderIndex}`),
-  finishSession: (id) => api.post(`/sessions/${id}/finish`),
-  skipQuestion: (id, orderIndex) => api.post(`/sessions/${id}/questions/${orderIndex}/skip`),
-  getReport: (id) => api.get(`/sessions/${id}/report`),
+  getQuestions: (id) => api.get(`/sessions/${validateSessionId(id)}/questions`),
+  getQuestionByIndex: (id, orderIndex) => api.get(`/sessions/${validateSessionId(id)}/questions/${orderIndex}`),
+  finishSession: (id) => api.post(`/sessions/${validateSessionId(id)}/finish`),
+  skipQuestion: (id, orderIndex) => api.post(`/sessions/${validateSessionId(id)}/questions/${orderIndex}/skip`),
+  getReport: (id) => api.get(`/sessions/${validateSessionId(id)}/report`),
 };
 
 export const questionApi = {
@@ -88,6 +96,13 @@ export const formatApiError = (err, fallback = 'Đã có lỗi xảy ra. Vui lò
   if (Array.isArray(detail)) return detail.map(d => d.msg || JSON.stringify(d)).join('; ');
   if (detail?.message) return detail.message;
   return `${fallback} (HTTP ${err.response.status})`;
+};
+
+// Upload filename whose extension matches the recorded format (webm on Chrome/Android, mp4 on Safari/iOS)
+export const recordingFileName = (blob, base) => {
+  const type = blob?.type || '';
+  const ext = type.includes('mp4') ? 'mp4' : type.includes('ogg') ? 'ogg' : 'webm';
+  return `${base}.${ext}`;
 };
 
 // Backend-served media (e.g. /data/audio_cache/...) must point at the API host when frontend and backend are split

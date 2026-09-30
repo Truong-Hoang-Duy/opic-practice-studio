@@ -24,7 +24,7 @@ from app.services.question_generator import build_session_questions, generate_pe
 from app.services.tts_service import prefetch_speech, refresh_question_audio
 from app.services.llm_service import generate_session_report_llm
 from app.services.pdf_service import generate_session_pdf
-from app.services.evaluation_service import evaluate_versions_in_parallel
+from app.services.evaluation_service import evaluate_versions_in_parallel, exam_level_for, is_mock_session
 
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
 
@@ -89,7 +89,7 @@ def _log_llm_usage(db: Session, session_id: int, call_type: str, p_tok: int, c_t
         session.total_tokens = (session.total_tokens or 0) + p_tok + c_tok
         session.estimated_cost = (session.estimated_cost or 0.0) + cost
 
-def _generate_session_questions(session: TestSession, db: Session, background_tasks: BackgroundTasks):
+def _generate_session_questions(session: TestSession, db: Session, background_tasks: BackgroundTasks, use_ai: bool = True):
     session.status = "in_progress"
     # Remove any existing questions if re-generating
     db.query(Question).filter(Question.session_id == session.id).delete()
@@ -98,7 +98,8 @@ def _generate_session_questions(session: TestSession, db: Session, background_ta
     generated_qs, usage, source = build_session_questions(
         survey_data=session.survey_data or {},
         self_assessment_level=level,
-        chosen_topics=session.topics or ["environment", "socio_cultural", "communication_media"]
+        chosen_topics=session.topics or ["environment", "socio_cultural", "communication_media"],
+        use_ai=use_ai
     )
 
     created_questions = []
@@ -110,6 +111,7 @@ def _generate_session_questions(session: TestSession, db: Session, background_ta
             question_type=q_data["question_type"],
             topic=q_data["topic"],
             difficulty=q_data["difficulty"],
+            category=q_data.get("category"),
             vietnamese_guide=q_data.get("vietnamese_guide")
         )
         db.add(question)
@@ -147,7 +149,11 @@ def submit_self_assessment(
 
     # If topics have already been chosen (TopicSelection before SelfAssessment), generate questions!
     if session.topics and len(session.topics) == 3:
-        created, source = _generate_session_questions(session, db, background_tasks)
+        # The "no AI" shortcut exists only for local UI testing
+        use_ai = assessment.use_ai is not False or settings.ENVIRONMENT == "production"
+        # DEV sessions also simulate transcription, scoring, model answers and the report
+        session.dev_mock = not use_ai
+        created, source = _generate_session_questions(session, db, background_tasks, use_ai=use_ai)
         return {
             "message": "Self-assessment recorded and questions generated successfully.",
             "total_questions": len(created),
@@ -208,6 +214,8 @@ def get_session_status(
         "answered_count": answered_count,
         "self_assessment_level": session.self_assessment_level,
         "topics": session.topics,
+        "has_survey": bool(session.survey_data),
+        "dev_mock": is_mock_session(session),
         "started_at": session.started_at,
         "completed_at": session.completed_at
     }
@@ -347,6 +355,7 @@ def get_session_report(
 
     existing_report = db.query(SessionReport).filter(SessionReport.session_id == session.id).first()
     if existing_report:
+        existing_report.target_level = exam_level_for(session)
         return existing_report
 
     # Generate new report
@@ -363,7 +372,8 @@ def get_session_report(
         if not a or q.question_type in UNSCORED_QUESTION_TYPES:
             continue
         ver = latest_version(a)
-        if ver and (ver.transcript or "").strip() and not ver.evaluations:
+        # Recorded answers are always scored, even when nothing was recognised (standard lowest score)
+        if ver and not ver.evaluations and ((ver.transcript or "").strip() or a.audio_path):
             pending.append((ver, q))
     evaluate_versions_in_parallel(db, session, pending)
 
@@ -379,12 +389,14 @@ def get_session_report(
             "question_text": q.question_text,
             "question_type": q.question_type,
             "transcript": transcript,
+            "audio_path": (ver.audio_path if ver and ver.audio_path else None) or (a.audio_path if a else None),
+            "duration_seconds": a.duration_seconds if a else None,
         }
         if q.question_type in UNSCORED_QUESTION_TYPES:
             row["status"] = "unscored"
         elif not a:
             row["status"] = "unanswered"
-        elif not transcript:
+        elif not transcript and not a.audio_path:
             row["status"] = "skipped"
         elif ver and ver.evaluations:
             ev = ver.evaluations[0]
@@ -428,7 +440,7 @@ def get_session_report(
     ])
 
     report_data, p_tok, c_tok, cost = generate_session_report_llm(
-        target_level="IH",
+        target_level=exam_level_for(session),
         num_answers=len(evaluations),
         answers_summary=answers_summary_text or "No detailed answers available.",
         avg_fluency=avg_fluency,
@@ -436,7 +448,8 @@ def get_session_report(
         avg_organization=avg_org,
         avg_vocabulary=avg_vocab,
         avg_grammar=avg_grammar,
-        avg_task_completion=avg_task
+        avg_task_completion=avg_task,
+        mock=is_mock_session(session)
     )
 
     # Log LLM usage
@@ -480,5 +493,6 @@ def get_session_report(
     db.add(new_report)
     db.commit()
     db.refresh(new_report)
+    new_report.target_level = exam_level_for(session)
 
     return new_report

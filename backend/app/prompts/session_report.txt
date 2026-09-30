@@ -20,9 +20,9 @@ Average Sub-scores across session:
 1. Determine the overall estimated proficiency level: "below_IL", "IL", "IM", or "IH".
 2. Write a detailed justification explaining why this level was awarded based on consistency across questions.
 3. List candidate's major linguistic strengths.
-4. List primary weaknesses / bottlenecks preventing consistent IH output (especially typical hurdles for Vietnamese speakers).
+4. List primary weaknesses / bottlenecks preventing consistent output at the candidate target level ({TARGET_LEVEL}) (especially typical hurdles for Vietnamese speakers).
 5. Extract top 3-5 frequent/recurring mistakes across all questions.
-6. Design a concrete, personalized 4-week practice plan tailored for Vietnamese learners to reach and secure IH.
+6. Design a concrete, personalized 4-week practice plan tailored for Vietnamese learners to reach and secure the target level ({TARGET_LEVEL}).
 
 === JSON OUTPUT SCHEMA ===
 Return ONLY a valid JSON object:
@@ -48,7 +48,7 @@ Return ONLY a valid JSON object:
     }}
   ],
   "study_plan": {{
-    "title": "4-Week Road to Intermediate High (IH)",
+    "title": "4-Week Road to {TARGET_LEVEL}",
     "weekly_focus": [
       {{
         "week": 1,

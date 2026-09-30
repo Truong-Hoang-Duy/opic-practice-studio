@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
@@ -18,13 +18,57 @@ import { QuestionLibrary } from './pages/QuestionLibrary';
 
 import { sessionApi } from './api/client';
 
+const TEST_FLOW_TABS = ['system_check', 'survey', 'topic_selection', 'self_assessment', 'pre_test', 'test'];
+
 export const App = () => {
   const { user, loading } = useAuth();
 
-  const [currentTab, setCurrentTab] = useState('dashboard');
-  const [activeSessionId, setActiveSessionId] = useState(null);
-  const [activeSessionMode, setActiveSessionMode] = useState('practice'); // 'exam' or 'practice'
+  const [currentTab, setCurrentTab] = useState(() => {
+    return sessionStorage.getItem('opic_active_tab') || 'dashboard';
+  });
+  const [activeSessionId, setActiveSessionId] = useState(() => {
+    const saved = sessionStorage.getItem('opic_active_session_id');
+    const num = Number(saved);
+    return Number.isInteger(num) && num > 0 ? num : null;
+  });
+  const [activeSessionMode, setActiveSessionMode] = useState(() => {
+    return sessionStorage.getItem('opic_active_session_mode') || 'practice';
+  });
   const [isRubricModalOpen, setIsRubricModalOpen] = useState(false);
+  const [sessionSetup, setSessionSetup] = useState({}); // saved topics / level when resuming an unfinished setup
+
+  // Sync session state to sessionStorage
+  useEffect(() => {
+    if (activeSessionId) {
+      sessionStorage.setItem('opic_active_session_id', String(activeSessionId));
+    } else {
+      sessionStorage.removeItem('opic_active_session_id');
+    }
+  }, [activeSessionId]);
+
+  useEffect(() => {
+    if (activeSessionMode) {
+      sessionStorage.setItem('opic_active_session_mode', activeSessionMode);
+    }
+  }, [activeSessionMode]);
+
+  useEffect(() => {
+    sessionStorage.setItem('opic_active_tab', currentTab);
+  }, [currentTab]);
+
+  // Safety guard: If inside test flow without an active session, auto-initialize
+  useEffect(() => {
+    if (user && TEST_FLOW_TABS.includes(currentTab) && !activeSessionId) {
+      sessionApi.create({ mode: activeSessionMode || 'practice' })
+        .then((res) => {
+          setActiveSessionId(res.data.id);
+        })
+        .catch((err) => {
+          console.error("Auto session initialization failed:", err);
+          setCurrentTab('dashboard');
+        });
+    }
+  }, [user, currentTab, activeSessionId, activeSessionMode]);
 
   if (loading) {
     return (
@@ -55,26 +99,57 @@ export const App = () => {
     try {
       const res = await sessionApi.create({ mode });
       setActiveSessionId(res.data.id);
+      setSessionSetup({});
       setCurrentTab('system_check');
     } catch (err) {
       console.error("Failed to initialize test session", err);
     }
   };
 
+  const handleTakeTestNav = async () => {
+    if (activeSessionId && TEST_FLOW_TABS.includes(currentTab)) {
+      return;
+    }
+    await handleStartNewTest('practice');
+  };
+
+  // Resume where the learner left off: unfinished setups go back to the right setup step
   const handleResumeSession = async (sessionId) => {
     setActiveSessionId(sessionId);
+    let nextTab = 'test';
     try {
-      const res = await sessionApi.getStatus(sessionId);
-      if (res.data?.mode) setActiveSessionMode(res.data.mode);
+      const { data } = await sessionApi.getStatus(sessionId);
+      if (data?.mode) setActiveSessionMode(data.mode);
+      setSessionSetup({ topics: data?.topics || null, level: data?.self_assessment_level || null });
+      if (!data?.total_questions) {
+        if (!data?.has_survey) nextTab = 'survey';
+        else if (!data?.topics || data.topics.length !== 3) nextTab = 'topic_selection';
+        else nextTab = 'self_assessment';
+      }
     } catch (err) {
-      console.warn("Could not load session mode", err);
+      console.warn("Could not load session status", err);
     }
-    setCurrentTab('test');
+    setCurrentTab(nextTab);
+  };
+
+  // "Take Test" in the menu always starts a fresh session
+  const navigate = (tab) => {
+    if (tab === 'system_check') {
+      handleStartNewTest('practice');
+    } else {
+      setCurrentTab(tab);
+    }
   };
 
   const handleViewReport = (sessionId) => {
     setActiveSessionId(sessionId);
     setCurrentTab('report');
+  };
+
+  const handleReturnHome = () => {
+    setActiveSessionId(null);
+    sessionStorage.removeItem('opic_active_session_id');
+    setCurrentTab('dashboard');
   };
 
   const isExamScreen = currentTab === 'test';
@@ -90,7 +165,8 @@ export const App = () => {
       {!isExamScreen && (
         <Navbar
           currentTab={currentTab}
-          setTab={setCurrentTab}
+          setTab={navigate}
+          onTakeTest={handleTakeTestNav}
           onOpenRubric={() => setIsRubricModalOpen(true)}
         />
       )}
@@ -121,6 +197,7 @@ export const App = () => {
         {currentTab === 'topic_selection' && (
           <TopicSelection
             sessionId={activeSessionId}
+            initialTopics={sessionSetup.topics}
             onTopicsConfirmed={() => setCurrentTab('self_assessment')}
           />
         )}
@@ -129,6 +206,7 @@ export const App = () => {
           <SelfAssessment
             sessionId={activeSessionId}
             defaultStrict={activeSessionMode === 'exam'}
+            initialLevel={sessionSetup.level}
             onAssessmentCompleted={(mode) => {
               if (mode) setActiveSessionMode(mode);
               setCurrentTab('pre_test');
@@ -147,14 +225,14 @@ export const App = () => {
             sessionId={activeSessionId}
             sessionMode={activeSessionMode}
             onTestComplete={() => setCurrentTab('report')}
-            onExit={() => setCurrentTab('dashboard')}
+            onExit={handleReturnHome}
           />
         )}
 
         {currentTab === 'report' && (
           <SessionReport
             sessionId={activeSessionId}
-            onReturnHome={() => setCurrentTab('dashboard')}
+            onReturnHome={handleReturnHome}
           />
         )}
 

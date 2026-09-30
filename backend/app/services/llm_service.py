@@ -51,13 +51,13 @@ def _create_json_completion(client: OpenAI, prompt: str, temperature: float, sys
 def calculate_cost(prompt_tokens: int, completion_tokens: int) -> float:
     return (prompt_tokens / 1000.0 * COST_PER_1K_PROMPT) + (completion_tokens / 1000.0 * COST_PER_1K_COMPLETION)
 
-def call_openai_json(prompt: str, temperature: float = 0.2) -> Tuple[Dict[str, Any], int, int, float]:
+def call_openai_json(prompt: str, temperature: float = 0.2, mock: bool = False) -> Tuple[Dict[str, Any], int, int, float]:
     """
     Calls OpenAI chat completions requesting json_object format.
     Retries once on JSON parsing error.
     Returns (parsed_json, prompt_tokens, completion_tokens, cost).
     """
-    client = get_openai_client()
+    client = None if mock else get_openai_client()
 
     if not client:
         # Fallback Mock response for test/offline environments
@@ -94,7 +94,8 @@ def evaluate_answer_llm(
     question_type: str,
     topic: str,
     target_level: str,
-    transcript: str
+    transcript: str,
+    mock: bool = False
 ) -> Tuple[Dict[str, Any], int, int, float]:
     prompt = get_evaluate_prompt(
         question_text=question_text,
@@ -103,13 +104,14 @@ def evaluate_answer_llm(
         target_level=target_level,
         transcript=transcript
     )
-    return call_openai_json(prompt, temperature=0.2)
+    return call_openai_json(prompt, temperature=0.2, mock=mock)
 
 def rewrite_answer_llm(
     question_text: str,
     current_level: str,
     target_level: str,
-    transcript: str
+    transcript: str,
+    mock: bool = False
 ) -> Tuple[Dict[str, Any], int, int, float]:
     prompt = get_rewrite_prompt(
         question_text=question_text,
@@ -117,19 +119,20 @@ def rewrite_answer_llm(
         target_level=target_level,
         transcript=transcript
     )
-    return call_openai_json(prompt, temperature=0.7)
+    return call_openai_json(prompt, temperature=0.7, mock=mock)
 
 def generate_model_answers_llm(
     question_text: str,
     topic: str,
-    question_type: str
+    question_type: str,
+    mock: bool = False
 ) -> Tuple[Dict[str, Any], int, int, float]:
     prompt = get_model_answers_prompt(
         question_text=question_text,
         topic=topic,
         question_type=question_type
     )
-    return call_openai_json(prompt, temperature=0.7)
+    return call_openai_json(prompt, temperature=0.7, mock=mock)
 
 def generate_session_report_llm(
     target_level: str,
@@ -140,7 +143,8 @@ def generate_session_report_llm(
     avg_organization: float,
     avg_vocabulary: float,
     avg_grammar: float,
-    avg_task_completion: float
+    avg_task_completion: float,
+    mock: bool = False
 ) -> Tuple[Dict[str, Any], int, int, float]:
     prompt = get_session_report_prompt(
         target_level=target_level,
@@ -153,7 +157,7 @@ def generate_session_report_llm(
         avg_grammar=avg_grammar,
         avg_task_completion=avg_task_completion
     )
-    return call_openai_json(prompt, temperature=0.3)
+    return call_openai_json(prompt, temperature=0.3, mock=mock)
 
 def get_mock_json_response(prompt: str) -> Dict[str, Any]:
     """Generates realistic structured responses for local development / test without API key."""

@@ -24,9 +24,11 @@ class SurveySubmit(BaseModel):
     travel: List[str] = Field(default_factory=list)
 
 class SelfAssessmentSubmit(BaseModel):
-    level: int = Field(ge=1, le=6, description="Self-assessment level from 1 to 6")
+    level: int = Field(ge=3, le=6, description="Self-assessment level from 3 to 6 (levels 1-2 are no longer offered)")
     # True -> strict exam ("exam" mode), False -> coached practice ("practice" mode), None -> keep current mode
     strict_mode: Optional[bool] = None
+    # Local testing only: False -> use the curated question bank instead of calling the LLM (ignored in production)
+    use_ai: Optional[bool] = None
 
 class TopicsSubmit(BaseModel):
     topics: List[str]

@@ -3,7 +3,7 @@ import { ArrowRight, Check, Sparkles, BookmarkCheck, RotateCcw, AlertCircle } fr
 import { sessionApi } from '../api/client';
 import { ViTooltip } from '../components/Tooltip';
 
-// The User's authentic Golden Survey choices for OPIc IH Strategy
+// The user's preset survey choices
 export const USER_DEFAULT_PRESET = {
   occupation: 'No work experience',
   studentStatus: 'No',
@@ -233,6 +233,12 @@ export const Survey = ({ sessionId, onSurveyCompleted }) => {
       return;
     }
 
+    if (!sessionId) {
+      console.warn("Survey submission skipped: missing sessionId, proceeding to topics");
+      onSurveyCompleted();
+      return;
+    }
+
     setSubmitting(true);
     try {
       await sessionApi.submitSurvey(sessionId, {
@@ -326,7 +332,7 @@ export const Survey = ({ sessionId, onSurveyCompleted }) => {
         <section className="bg-white dark:bg-slate-900/80 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-4">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">Part 1 of 4</h2>
-            <ViTooltip text="Mẹo IH: Chọn 'No work experience' giúp tránh hoàn toàn các câu hỏi combo phức tạp về dự án kỹ thuật hay văn hóa công sở." />
+            <ViTooltip text="Mẹo: Chọn 'No work experience' giúp tránh hoàn toàn các câu hỏi combo phức tạp về dự án kỹ thuật hay văn hóa công sở." />
           </div>
           <p className="text-base font-semibold text-slate-800 dark:text-slate-200">
             {SURVEY_DATA.part1.question}
@@ -356,7 +362,7 @@ export const Survey = ({ sessionId, onSurveyCompleted }) => {
         <section className="bg-white dark:bg-slate-900/80 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-6">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">Part 2 of 4</h2>
-            <ViTooltip text="Mẹo IH: Chọn 'No' và '> 5 years' để loại trừ các câu hỏi về trường học, giáo sư hay bài tập nhóm." />
+            <ViTooltip text="Mẹo: Chọn 'No' và '> 5 years' để loại trừ các câu hỏi về trường học, giáo sư hay bài tập nhóm." />
           </div>
           
           {/* Question 1 */}
@@ -414,7 +420,7 @@ export const Survey = ({ sessionId, onSurveyCompleted }) => {
         <section className="bg-white dark:bg-slate-900/80 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-4">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">Part 3 of 4</h2>
-            <ViTooltip text="Mẹo IH: 'I live with family members' là chủ đề lý tưởng để miêu tả các phòng trong nhà, phân chia việc nhà và kể kỷ niệm gia đình." />
+            <ViTooltip text="Mẹo: 'I live with family members' là chủ đề lý tưởng để miêu tả các phòng trong nhà, phân chia việc nhà và kể kỷ niệm gia đình." />
           </div>
           <p className="text-base font-semibold text-slate-800 dark:text-slate-200">
             {SURVEY_DATA.part3.question}

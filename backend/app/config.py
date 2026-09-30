@@ -31,6 +31,7 @@ class Settings(BaseSettings):
 
     # Soniox Speech-to-Text
     SONIOX_API_KEY: str = ""
+    SONIOX_ASYNC_MODEL: str = "stt-async-v5"  # batch transcription of finished recordings
 
     # Database
     DATABASE_URL: str = "sqlite:///./data/opic_studio.db"

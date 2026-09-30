@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { sessionApi, questionApi, answerApi } from '../api/client';
+import { sessionApi, questionApi, answerApi, formatApiError, recordingFileName } from '../api/client';
 import { 
   ArrowRight, 
   Eye, 
@@ -129,7 +129,7 @@ export const TestSession = ({
     fetchNext();
   }, [sessionId]);
 
-  const handleRecordingComplete = async ({ audioBlob, durationSeconds, transcript }) => {
+  const handleRecordingComplete = async ({ audioBlob, durationSeconds }) => {
     if (!currentQuestion) return;
     setSubmittingAnswer(true);
 
@@ -138,9 +138,9 @@ export const TestSession = ({
       formData.append('question_id', currentQuestion.id);
       formData.append('session_id', sessionId);
       formData.append('duration_seconds', durationSeconds);
-      formData.append('transcript_raw', transcript);
+      // Speech is transcribed on the server from the uploaded recording
       if (audioBlob) {
-        formData.append('audio_file', audioBlob, `q${currentQuestion.order_index}.webm`);
+        formData.append('audio_file', audioBlob, recordingFileName(audioBlob, `q${currentQuestion.order_index}`));
       }
 
       const res = await answerApi.submit(formData);
@@ -161,6 +161,7 @@ export const TestSession = ({
       }
     } catch (err) {
       console.error("Failed to submit answer:", err);
+      alert(formatApiError(err, 'Không lưu được câu trả lời. Vui lòng ghi âm lại.'));
     } finally {
       setSubmittingAnswer(false);
     }
@@ -206,6 +207,7 @@ export const TestSession = ({
     return (
       <AnswerCoaching
         answerId={latestAnswer?.id || null}
+        answer={latestAnswer}
         question={currentQuestion}
         assessmentLevel={sessionInfo?.self_assessment_level || 4}
         onNextQuestion={() => {
@@ -339,7 +341,7 @@ export const TestSession = ({
               ? 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20'
               : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
           }`}>
-            {isStrictExam ? 'Strict Exam' : 'Practice Mode'}
+            {isStrictExam ? 'Strict Exam' : 'Practice Mode'}{sessionInfo?.dev_mock ? ' · DEV' : ''}
           </span>
           {onExit && (
             <button
@@ -443,15 +445,15 @@ export const TestSession = ({
           <AudioRecorder
             onRecordingComplete={handleRecordingComplete}
             isPracticeMode={!isStrictExam}
-            hideTranscript={isStrictExam}
-            targetDurationMin={60}
-            targetDurationMax={120}
+            key={currentQuestion?.id}
+            targetDurationMin={currentQuestion?.timing?.target_min_sec || 45}
+            targetDurationMax={currentQuestion?.timing?.time_limit_sec || 90}
           />
 
           {submittingAnswer && (
             <div className="absolute inset-0 z-20 rounded-2xl bg-slate-950/80 backdrop-blur-xs flex flex-col items-center justify-center gap-3 text-sky-400 animate-in fade-in">
               <div className="w-8 h-8 border-3 border-sky-500 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm font-semibold">Đang lưu câu trả lời & AI chấm điểm chẩn đoán...</span>
+              <span className="text-sm font-semibold">Đang nhận dạng giọng nói & lưu câu trả lời...</span>
             </div>
           )}
         </div>
@@ -459,7 +461,12 @@ export const TestSession = ({
       </div>
 
       {/* Bottom-right: Next (skip without recording) */}
-      <div className="flex justify-end pb-[env(safe-area-inset-bottom)]">
+      <div className="flex items-center justify-end gap-3 pb-[env(safe-area-inset-bottom)]">
+        {sessionInfo?.dev_mock && (
+          <p className="mr-auto min-w-0 px-3 py-1.5 rounded-lg border border-dashed border-amber-400 dark:border-amber-500/50 bg-amber-50 dark:bg-amber-500/10 text-[11px] leading-snug text-amber-800 dark:text-amber-300">
+            DEV (giả lập, không gọi AI/Soniox): ghi dưới 3 giây = giả lập im lặng; từ 3 giây trở lên = transcript mẫu có từ phát âm chưa rõ.
+          </p>
+        )}
         <ViTooltip vi="Sang câu tiếp theo mà không cần ghi âm câu này.">
           <button
             onClick={handleSkipQuestion}

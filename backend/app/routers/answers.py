@@ -6,6 +6,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.question import Question
 from app.models.answer import Answer, AnswerVersion
+from app.models.session import TestSession
 from app.models.evaluation import Evaluation
 from app.models.report import LLMUsageLog
 from app.schemas.answer import (
@@ -20,9 +21,16 @@ from app.schemas.evaluation import (
     DiffChunk,
 )
 from app.core.security import get_current_user
-from app.services.evaluation_service import run_evaluation_llm, save_evaluation, exam_level_for
+from app.services.evaluation_service import run_evaluation_llm, save_evaluation, exam_level_for, is_mock_session
 from app.schemas.question import UNSCORED_QUESTION_TYPES
-from app.services.stt_service import save_raw_audio, parse_words_with_confidence
+import logging
+import os
+import uuid
+from datetime import datetime
+from fastapi.concurrency import run_in_threadpool
+from app.services.stt_service import save_raw_audio, parse_words_with_confidence, transcribe_audio_file, TranscriptionError, mock_transcribe
+
+logger = logging.getLogger("opic_answers")
 from app.services.llm_service import rewrite_answer_llm
 
 router = APIRouter(prefix="/answers", tags=["Answers"])
@@ -57,18 +65,46 @@ async def submit_answer(
     question_id: int = Form(...),
     session_id: int = Form(...),
     duration_seconds: float = Form(0.0),
-    transcript_raw: str = Form(...),
+    transcript_raw: str = Form(""),
     audio_file: Optional[UploadFile] = File(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     audio_url = None
+    file_bytes = b""
+    filename = None
     if audio_file:
         file_bytes = await audio_file.read()
-        filename = f"user_{current_user.id}_q{question_id}_{audio_file.filename or 'record.webm'}"
+        # Unique name per take so re-recordings never overwrite earlier ones
+        ext = os.path.splitext(audio_file.filename or "")[1] or ".webm"
+        filename = f"user_{current_user.id}_q{question_id}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:6]}{ext}"
         audio_url = await save_raw_audio(file_bytes, filename)
 
-    word_confidences = parse_words_with_confidence(transcript_raw)
+    stt_note = None
+
+    if transcript_raw.strip():
+        # Transcript supplied by the client (tests / manual entry)
+        word_confidences = parse_words_with_confidence(transcript_raw)
+    else:
+        # Normal flow: the finished recording is transcribed here (no real-time streaming).
+        # Recognition problems never block the learner: the recording is kept and the answer is still scored.
+        if not file_bytes:
+            raise HTTPException(status_code=422, detail="Không có bản ghi âm. Vui lòng ghi âm lại.")
+        try:
+            session_for_answer = db.query(TestSession).filter(TestSession.id == session_id).first()
+            if is_mock_session(session_for_answer):
+                result = mock_transcribe(duration_seconds)
+            else:
+                result = await run_in_threadpool(
+                    transcribe_audio_file, file_bytes, filename, audio_file.content_type if audio_file else None
+                )
+            transcript_raw = result["text"]
+            word_confidences = result["words"]
+            if not transcript_raw:
+                stt_note = "no_speech"
+        except TranscriptionError as e:
+            logger.error(f"Transcription failed for question {question_id}: {e}")
+            transcript_raw, word_confidences, stt_note = "", [], "transcription_failed"
 
     # Check if answer exists for this question
     existing = db.query(Answer).filter(Answer.question_id == question_id, Answer.session_id == session_id).first()
@@ -87,7 +123,9 @@ async def submit_answer(
             version_number=max_ver + 1,
             transcript=transcript_raw,
             source="stt",
-            notes="Re-recorded answer"
+            notes=stt_note or "Re-recorded answer",
+            audio_path=audio_url,
+            duration_seconds=duration_seconds
         )
         db.add(new_version)
         db.commit()
@@ -113,7 +151,9 @@ async def submit_answer(
         version_number=1,
         transcript=transcript_raw,
         source="stt",
-        notes="Initial STT recognition"
+        notes=stt_note or "Initial STT recognition",
+        audio_path=audio_url,
+        duration_seconds=duration_seconds
     )
     db.add(v1)
     db.commit()
@@ -176,7 +216,7 @@ def evaluate_answer(
 
     q = answer.question
     session = answer.session or db.query(TestSession).filter(TestSession.id == answer.session_id).first()
-    eval_data, p_tok, c_tok, cost = run_evaluation_llm(q, exam_level_for(session), ver.transcript)
+    eval_data, p_tok, c_tok, cost = run_evaluation_llm(q, exam_level_for(session), ver.transcript, is_mock_session(session))
     eval_obj = save_evaluation(db, answer.session_id, ver, eval_data, p_tok, c_tok, cost)
 
     return eval_obj
@@ -211,7 +251,8 @@ def rewrite_answer(
         question_text=q.question_text if q else "General question",
         current_level=current_lvl,
         target_level=target_lvl,
-        transcript=ver.transcript
+        transcript=ver.transcript,
+        mock=is_mock_session(answer.session)
     )
 
     improved_text = data.get("improved_text", ver.transcript)

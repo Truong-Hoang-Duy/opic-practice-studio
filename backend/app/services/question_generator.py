@@ -10,6 +10,7 @@ from app.core.seed_data import (
     SELF_INTRO_QUESTION,
 )
 from app.services.llm_service import generate_questions_llm, generate_guides_llm
+from app.core.question_meta import derive_category
 
 logger = logging.getLogger("opic_questions")
 
@@ -216,10 +217,17 @@ def generate_15_opic_questions(
     return questions
 
 
+def _with_categories(questions: List[Dict[str, Any]], chosen_topics: List[str]) -> List[Dict[str, Any]]:
+    for q in questions:
+        q["category"] = derive_category(q["order_index"], q["question_type"], q.get("topic"), chosen_topics)
+    return questions
+
+
 def build_session_questions(
     survey_data: Dict[str, Any],
     self_assessment_level: int,
-    chosen_topics: List[str]
+    chosen_topics: List[str],
+    use_ai: bool = True
 ) -> Tuple[List[Dict[str, Any]], Optional[Tuple[int, int, float]], str]:
     """
     Builds the 15-question set: Q1 is the fixed self-introduction, Q2-Q15 are personalised
@@ -227,7 +235,7 @@ def build_session_questions(
     Falls back to the curated bank when AI generation is disabled or fails.
     Returns (questions, usage=(prompt_tokens, completion_tokens, cost) or None, source="ai"|"bank").
     """
-    if settings.AI_QUESTION_GENERATION:
+    if settings.AI_QUESTION_GENERATION and use_ai:
         base_diff = DIFFICULTY_MAP.get(self_assessment_level, "IM")
         result = generate_questions_llm(survey_data, self_assessment_level, base_diff, chosen_topics)
         if result:
@@ -239,11 +247,11 @@ def build_session_questions(
                 }
                 for q in question_set.questions
             ]
-            return questions, (p_tok, c_tok, cost), "ai"
+            return _with_categories(questions, chosen_topics), (p_tok, c_tok, cost), "ai"
         logger.warning("AI question generation failed; using curated question bank.")
 
     questions = generate_15_opic_questions(survey_data, self_assessment_level, chosen_topics)
-    return questions, None, "bank"
+    return _with_categories(questions, chosen_topics), None, "bank"
 
 
 def generate_personalised_guides(

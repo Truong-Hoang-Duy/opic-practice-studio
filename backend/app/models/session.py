@@ -1,5 +1,5 @@
 import datetime
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, JSON, Boolean
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -14,6 +14,7 @@ class TestSession(Base):
     self_assessment_level = Column(Integer, nullable=True) # 1-6
     topics = Column(JSON, nullable=True) # List of exactly 3 chosen topics
     mode = Column(String(50), default="exam") # "exam" or "practice"
+    dev_mock = Column(Boolean, default=False) # local UI testing: every AI/STT call is simulated (ignored in production)
     status = Column(String(50), default="setup") # "setup", "in_progress", "completed"
 
     # Token and Cost Tracking

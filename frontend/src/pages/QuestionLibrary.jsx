@@ -3,7 +3,7 @@ import {
   Library, ChevronDown, ChevronRight, Mic, Sparkles, Headphones, Download, Repeat,
   ListMusic, Loader2, ArrowLeft, CheckSquare, Square, X
 } from 'lucide-react';
-import { libraryApi, questionApi, answerApi, resolveMediaUrl } from '../api/client';
+import { libraryApi, questionApi, answerApi, resolveMediaUrl, formatApiError, recordingFileName } from '../api/client';
 import { EvaAvatar } from '../components/EvaAvatar';
 import { AudioRecorder } from '../components/AudioRecorder';
 import { AnswerCoaching } from './AnswerCoaching';
@@ -33,19 +33,19 @@ const LibraryPractice = ({ question, session, onBack }) => {
   const [answer, setAnswer] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const handleRecordingComplete = async ({ audioBlob, durationSeconds, transcript }) => {
+  const handleRecordingComplete = async ({ audioBlob, durationSeconds }) => {
     setSubmitting(true);
     try {
       const formData = new FormData();
       formData.append('question_id', question.id);
       formData.append('session_id', session.session_id);
       formData.append('duration_seconds', durationSeconds);
-      formData.append('transcript_raw', transcript);
-      if (audioBlob) formData.append('audio_file', audioBlob, `library_q${question.id}.webm`);
+      if (audioBlob) formData.append('audio_file', audioBlob, recordingFileName(audioBlob, `library_q${question.id}`));
       const res = await answerApi.submit(formData);
       setAnswer(res.data);
     } catch (err) {
       console.error('Failed to submit practice answer', err);
+      alert(formatApiError(err, 'Không lưu được câu trả lời. Vui lòng ghi âm lại.'));
     } finally {
       setSubmitting(false);
     }
@@ -55,6 +55,7 @@ const LibraryPractice = ({ question, session, onBack }) => {
     return (
       <AnswerCoaching
         answerId={answer.id}
+        answer={answer}
         question={question}
         assessmentLevel={session.self_assessment_level || 4}
         nextLabel="Quay lại bộ đề"
@@ -81,11 +82,16 @@ const LibraryPractice = ({ question, session, onBack }) => {
           </div>
         </div>
         <div className="lg:col-span-7 relative">
-          <AudioRecorder onRecordingComplete={handleRecordingComplete} isPracticeMode targetDurationMin={60} targetDurationMax={120} />
+          <AudioRecorder
+            onRecordingComplete={handleRecordingComplete}
+            isPracticeMode
+            targetDurationMin={question.timing?.target_min_sec || 45}
+            targetDurationMax={question.timing?.time_limit_sec || 90}
+          />
           {submitting && (
             <div className="absolute inset-0 z-20 rounded-2xl bg-slate-950/80 flex items-center justify-center gap-2 text-sky-400 text-sm font-semibold">
               <Loader2 className="w-5 h-5 animate-spin" />
-              <span>Đang lưu câu trả lời...</span>
+              <span>Đang nhận dạng giọng nói...</span>
             </div>
           )}
         </div>
@@ -106,6 +112,8 @@ export const QuestionLibrary = () => {
   const [generating, setGenerating] = useState({}); // question id -> true while model answers are generated
   const [player, setPlayer] = useState(null); // { status: 'preparing'|'building'|'ready'|'error', done, total, url, message }
   const [practice, setPractice] = useState(null); // { question, session }
+  const [view, setView] = useState('sets'); // 'sets' | 'topics'
+  const [activeCategory, setActiveCategory] = useState(null);
   const audioRef = useRef(null);
   const pollRef = useRef(null);
 
@@ -135,12 +143,29 @@ export const QuestionLibrary = () => {
   const levelFor = (s) => (levelOverride === 'auto' ? s.default_model_level : levelOverride);
   const modelFor = (q, s) => q.model_answers.find(m => m.level === levelFor(s));
 
+  // Q1 (fixed self-introduction) is not part of listening practice
+  const isListenable = (q) => q.question_type !== 'self_intro';
+
   const toggleSelect = (id) => setSelected(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
-  const toggleSelectSet = (s) => {
-    const ids = s.questions.map(q => q.id);
-    const allIn = ids.every(id => selected.includes(id));
+  const toggleSelectMany = (ids) => {
+    const allIn = ids.length > 0 && ids.every(id => selected.includes(id));
     setSelected(prev => (allIn ? prev.filter(id => !ids.includes(id)) : [...prev, ...ids.filter(id => !prev.includes(id))]));
   };
+
+  // Topic view: every question across all sets, grouped by normalised category
+  const categories = useMemo(() => {
+    const map = {};
+    sets.forEach(set => set.questions.forEach(q => {
+      if (!map[q.category]) map[q.category] = { key: q.category, label: q.category_label, items: [] };
+      map[q.category].items.push({ q, s: set });
+    }));
+    const order = ['home', 'leisure', 'role_play', 'environment', 'human_rights', 'global_workplace', 'socio_cultural', 'communication_media', 'self_intro'];
+    return Object.values(map).sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
+  }, [sets]);
+
+  useEffect(() => {
+    if (view === 'topics' && !activeCategory && categories.length) setActiveCategory(categories[0].key);
+  }, [view, categories, activeCategory]);
 
   const markGenerating = (ids, value) => setGenerating(prev => {
     const next = { ...prev };
@@ -209,6 +234,90 @@ export const QuestionLibrary = () => {
     if (audioRef.current) audioRef.current.loop = loop;
   }, [loop, player?.url]);
 
+  // One question card, shared by the "by set" and "by topic" views
+  const renderQuestion = (q, s, showSet = false) => {
+    const model = modelFor(q, s);
+    const isSelected = selected.includes(q.id);
+    const listenable = isListenable(q);
+    return (
+      <div key={q.id} className={`p-4 flex gap-3 ${isSelected ? 'bg-brand-50/60 dark:bg-brand-500/5' : ''}`}>
+        {listenable ? (
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => toggleSelect(q.id)}
+            aria-label={`Chọn câu ${q.order_index}`}
+            className="mt-1 w-4 h-4 flex-shrink-0 cursor-pointer"
+          />
+        ) : (
+          <span className="w-4 flex-shrink-0" />
+        )}
+        <div className="min-w-0 flex-1 flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold text-brand-600 dark:text-brand-400">Q{q.order_index}</span>
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">{q.category_label || q.topic}</span>
+            {showSet && (
+              <span className="text-[10px] text-slate-500 dark:text-slate-400">Bộ đề #{s.session_id} · {new Date(s.started_at).toLocaleDateString()}</span>
+            )}
+            {q.practice_count > 0 && (
+              <span className="text-[10px] text-slate-500 dark:text-slate-400">Đã luyện {q.practice_count} lần{q.last_level ? ` · gần nhất ${q.last_level}` : ''}</span>
+            )}
+          </div>
+          <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed">{q.question_text}</p>
+
+          {model ? (
+            <details className="group">
+              <summary className="cursor-pointer text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                Bài mẫu {model.level}
+              </summary>
+              <p className="mt-2 text-[13px] leading-relaxed text-slate-700 dark:text-slate-300 bg-emerald-50/60 dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20 rounded-xl p-3">
+                {model.text}
+              </p>
+            </details>
+          ) : (
+            <button
+              onClick={() => handleGenerate([q.id])}
+              disabled={!!generating[q.id]}
+              className="self-start flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 cursor-pointer disabled:opacity-60"
+            >
+              {generating[q.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+              <span>{generating[q.id] ? 'Đang tạo bài mẫu...' : 'Tạo bài mẫu'}</span>
+            </button>
+          )}
+
+          {q.last_audio_path && (
+            <details>
+              <summary className="cursor-pointer text-xs font-semibold text-sky-700 dark:text-sky-400">Bản ghi gần nhất của bạn</summary>
+              <div className="mt-2 flex flex-col gap-1.5">
+                <audio src={resolveMediaUrl(q.last_audio_path)} controls preload="none" className="w-full max-w-md h-8" />
+                <p className="text-[12px] leading-relaxed text-slate-600 dark:text-slate-400">{q.last_transcript || '(không nhận dạng được lời nói)'}</p>
+              </div>
+            </details>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setPractice({ question: q, session: s })}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-brand-500 hover:bg-brand-600 text-white shadow-sm cursor-pointer"
+            >
+              <Mic className="w-3.5 h-3.5" />
+              <span>Luyện lại</span>
+            </button>
+            {listenable && (
+              <button
+                onClick={() => { setSelected([q.id]); handleBuildPlaylist([q.id]); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 cursor-pointer"
+              >
+                <Headphones className="w-3.5 h-3.5" />
+                <span>Chỉ nghe câu này</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (practice) {
     return (
       <LibraryPractice
@@ -250,7 +359,66 @@ export const QuestionLibrary = () => {
         </label>
       </div>
 
-      {loading ? (
+      {/* View switcher */}
+      <div className="inline-flex self-start p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+        {[{ key: 'sets', label: 'Theo bộ đề' }, { key: 'topics', label: 'Theo chủ đề' }].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setView(tab.key)}
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+              view === tab.key ? 'bg-brand-500 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'topics' && !loading && sets.length > 0 && (() => {
+        const current = categories.find(c => c.key === activeCategory) || categories[0];
+        const ids = current ? current.items.filter(({ q }) => isListenable(q)).map(({ q }) => q.id) : [];
+        const allSelected = ids.length > 0 && ids.every(id => selected.includes(id));
+        return (
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap gap-2">
+              {categories.map(c => (
+                <button
+                  key={c.key}
+                  onClick={() => setActiveCategory(c.key)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer transition-colors ${
+                    current?.key === c.key
+                      ? 'bg-brand-500 border-brand-500 text-white'
+                      : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  {c.label} <span className="opacity-70">({c.items.length})</span>
+                </button>
+              ))}
+            </div>
+            {current && (
+              <div className="glass-card bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{current.label} · {current.items.length} câu</p>
+                  {ids.length > 0 && (
+                    <button
+                      onClick={() => toggleSelectMany(ids)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 cursor-pointer"
+                    >
+                      {allSelected ? <CheckSquare className="w-3.5 h-3.5 text-brand-500" /> : <Square className="w-3.5 h-3.5" />}
+                      <span>{allSelected ? 'Bỏ chọn' : 'Chọn tất cả'}</span>
+                    </button>
+                  )}
+                </div>
+                <div className="divide-y divide-slate-200 dark:divide-slate-800 border-t border-slate-200 dark:border-slate-800">
+                  {current.items.map(({ q, s }) => renderQuestion(q, s, true))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {view !== 'sets' ? null : loading ? (
         <div className="flex items-center justify-center py-16 text-slate-400 gap-2 text-sm">
           <Loader2 className="w-5 h-5 animate-spin" /> Đang tải bộ đề...
         </div>
@@ -260,7 +428,8 @@ export const QuestionLibrary = () => {
         </div>
       ) : sets.map(s => {
         const isOpen = !!expanded[s.session_id];
-        const allSelected = s.questions.every(q => selected.includes(q.id));
+        const setIds = s.questions.filter(isListenable).map(q => q.id);
+        const allSelected = setIds.length > 0 && setIds.every(id => selected.includes(id));
         const missingModels = s.questions.filter(q => !modelFor(q, s)).map(q => q.id);
         return (
           <div key={s.session_id} className="glass-card bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
@@ -274,6 +443,7 @@ export const QuestionLibrary = () => {
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-slate-900 dark:text-white">
                     Bộ đề #{s.session_id} · {new Date(s.started_at).toLocaleDateString()}
+                    {s.dev_mock && <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded border border-dashed border-amber-400 text-amber-700 dark:text-amber-300">DEV</span>}
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                     Level {s.self_assessment_level || '?'} · {s.mode === 'exam' ? 'Strict exam' : 'Practice'} · {s.topics.map(t => t.replace(/_/g, ' ')).join(', ')}
@@ -292,7 +462,7 @@ export const QuestionLibrary = () => {
                   </button>
                 )}
                 <button
-                  onClick={() => toggleSelectSet(s)}
+                  onClick={() => toggleSelectMany(setIds)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 cursor-pointer"
                 >
                   {allSelected ? <CheckSquare className="w-3.5 h-3.5 text-brand-500" /> : <Square className="w-3.5 h-3.5" />}
@@ -304,68 +474,7 @@ export const QuestionLibrary = () => {
             {/* Questions */}
             {isOpen && (
               <div className="divide-y divide-slate-200 dark:divide-slate-800 border-t border-slate-200 dark:border-slate-800">
-                {s.questions.map(q => {
-                  const model = modelFor(q, s);
-                  const isSelected = selected.includes(q.id);
-                  return (
-                    <div key={q.id} className={`p-4 flex gap-3 ${isSelected ? 'bg-brand-50/60 dark:bg-brand-500/5' : ''}`}>
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleSelect(q.id)}
-                        aria-label={`Chọn câu ${q.order_index}`}
-                        className="mt-1 w-4 h-4 flex-shrink-0 cursor-pointer"
-                      />
-                      <div className="min-w-0 flex-1 flex flex-col gap-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-xs font-bold text-brand-600 dark:text-brand-400">Q{q.order_index}</span>
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">{q.topic}</span>
-                          {q.practice_count > 0 && (
-                            <span className="text-[10px] text-slate-500 dark:text-slate-400">Đã luyện {q.practice_count} lần{q.last_level ? ` · gần nhất ${q.last_level}` : ''}</span>
-                          )}
-                        </div>
-                        <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed">{q.question_text}</p>
-
-                        {model ? (
-                          <details className="group">
-                            <summary className="cursor-pointer text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                              Bài mẫu {model.level}
-                            </summary>
-                            <p className="mt-2 text-[13px] leading-relaxed text-slate-700 dark:text-slate-300 bg-emerald-50/60 dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20 rounded-xl p-3">
-                              {model.text}
-                            </p>
-                          </details>
-                        ) : (
-                          <button
-                            onClick={() => handleGenerate([q.id])}
-                            disabled={!!generating[q.id]}
-                            className="self-start flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 cursor-pointer disabled:opacity-60"
-                          >
-                            {generating[q.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                            <span>{generating[q.id] ? 'Đang tạo bài mẫu...' : 'Tạo bài mẫu'}</span>
-                          </button>
-                        )}
-
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            onClick={() => setPractice({ question: q, session: s })}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-brand-500 hover:bg-brand-600 text-white shadow-sm cursor-pointer"
-                          >
-                            <Mic className="w-3.5 h-3.5" />
-                            <span>Luyện lại</span>
-                          </button>
-                          <button
-                            onClick={() => { setSelected([q.id]); handleBuildPlaylist([q.id]); }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 cursor-pointer"
-                          >
-                            <Headphones className="w-3.5 h-3.5" />
-                            <span>Chỉ nghe câu này</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                {s.questions.map(q => renderQuestion(q, s))}
               </div>
             )}
           </div>

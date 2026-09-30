@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, Square, AlertCircle, RefreshCw, Volume2 } from 'lucide-react';
-import { ViTooltip } from './Tooltip';
+import { Mic, Square, AlertCircle } from 'lucide-react';
 
 export const AudioRecorder = ({
   onRecordingComplete,
   isPracticeMode = false,
-  hideTranscript = false, // strict exam: speech is still recognised, but the text isn't shown
+  compact = false, // embedded in another card (warm-up): no fixed height, tighter spacing
   targetDurationMin = 60,
   targetDurationMax = 120,
 }) => {
@@ -13,8 +12,7 @@ export const AudioRecorder = ({
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [micError, setMicError] = useState(null);
   const [audioLevel, setAudioLevel] = useState(0);
-  const [liveTranscript, setLiveTranscript] = useState('');
-  const [tokens, setTokens] = useState([]);
+  const [lastDuration, setLastDuration] = useState(null); // seconds of the last finished take
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -22,7 +20,7 @@ export const AudioRecorder = ({
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const animFrameRef = useRef(null);
-  const wsRef = useRef(null);
+  const startedAtRef = useRef(0);
 
   // Clean up on unmount
   useEffect(() => {
@@ -46,15 +44,11 @@ export const AudioRecorder = ({
     if (audioContextRef.current) {
       try { audioContextRef.current.close(); } catch (e) {}
     }
-    if (wsRef.current) {
-      try { wsRef.current.close(); } catch (e) {}
-    }
   };
 
   const startRecording = async () => {
     setMicError(null);
-    setLiveTranscript('');
-    setTokens([]);
+    setLastDuration(null);
     setTimerSeconds(0);
     audioChunksRef.current = [];
 
@@ -93,86 +87,34 @@ export const AudioRecorder = ({
       };
       updateLevel();
 
-      // 2. Setup WebSocket connection to backend Soniox proxy
-      try {
-        let wsUrl;
-        const envApi = import.meta.env.VITE_API_BASE_URL;
-        if (import.meta.env.VITE_WS_URL) {
-          wsUrl = import.meta.env.VITE_WS_URL;
-        } else if (envApi && envApi.startsWith('http')) {
-          const parsed = new URL(envApi);
-          const proto = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
-          wsUrl = `${proto}//${parsed.host}/ws/stt`;
-        } else {
-          const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-          wsUrl = `${protocol}//${window.location.host}/ws/stt`;
-        }
-        const ws = new WebSocket(wsUrl);
-        wsRef.current = ws;
-
-        ws.onopen = () => {
-          console.log("Connected to STT stream");
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data.transcript) {
-              setLiveTranscript(data.transcript);
-            }
-            if (data.tokens) {
-              setTokens(data.tokens);
-            }
-          } catch (e) {
-            console.warn("STT parse error", e);
-          }
-        };
-
-        ws.onerror = (e) => {
-          console.warn("STT WebSocket error, fallback to client recognition if needed", e);
-        };
-      } catch (wsErr) {
-        console.warn("WebSocket init failed:", wsErr);
-      }
-
-      // 3. Setup MediaRecorder
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/webm';
-
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      // 2. Record only. The finished file is uploaded and transcribed on the server (no real-time streaming).
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find(t => MediaRecorder.isTypeSupported(t)) || '';
+      const mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
           audioChunksRef.current.push(event.data);
-          // Stream raw audio to Soniox WebSocket if open
-          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-            wsRef.current.send(event.data);
-          }
         }
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-        const finalTranscript = liveTranscript.trim() || 
-          "In my opinion, this experience was deeply meaningful to me. I was able to learn important lessons and connect with people.";
-        
+        const type = mediaRecorder.mimeType || mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type });
+        // Wall-clock duration (the timer state is stale inside this callback)
+        const durationSeconds = Math.round((Date.now() - startedAtRef.current) / 1000);
+        setLastDuration(durationSeconds);
+
         if (onRecordingComplete) {
-          onRecordingComplete({
-            audioBlob,
-            durationSeconds: timerSeconds,
-            transcript: finalTranscript,
-            tokens: tokens.length > 0 ? tokens : []
-          });
+          onRecordingComplete({ audioBlob, durationSeconds, mimeType: type });
         }
 
-        // Stop all audio tracks
         stream.getTracks().forEach(track => track.stop());
         stopAllStreams();
       };
 
-      mediaRecorder.start(250); // Emit audio chunk every 250ms for low-latency streaming
+      mediaRecorder.start(1000);
+      startedAtRef.current = Date.now();
       setIsRecording(true);
 
       // Start timer
@@ -231,7 +173,9 @@ export const AudioRecorder = ({
   };
 
   return (
-    <div className="w-full h-full md:h-[500px] md:min-h-[500px] md:max-h-[500px] flex-shrink-0 glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex flex-col justify-between shadow-sm">
+    <div className={compact
+      ? "w-full flex flex-col gap-2"
+      : "w-full h-full md:h-[500px] md:min-h-[500px] md:max-h-[500px] flex-shrink-0 glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex flex-col justify-between shadow-sm"}>
       
       {/* Microphone Error Notification */}
       {micError && (
@@ -267,11 +211,11 @@ export const AudioRecorder = ({
           </div>
           
           <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden relative border border-slate-300 dark:border-slate-700/60">
-            {/* Visual marker for 60s minimum IH target */}
+            {/* Marker: the bar has depleted to here once the recommended minimum has been spoken */}
             <div 
               className="absolute top-0 bottom-0 w-0.5 bg-slate-400/50 dark:bg-slate-500/50 z-10" 
-              style={{ left: '50%' }} 
-              title="Vạch 60s: Mức tối thiểu để đạt band IH"
+              style={{ left: `${Math.max(0, Math.min(100, ((targetDurationMax - targetDurationMin) / targetDurationMax) * 100))}%` }} 
+              title={`Nên nói tối thiểu ${targetDurationMin}s`}
             />
             {/* Depleting progress bar */}
             <div
@@ -282,16 +226,16 @@ export const AudioRecorder = ({
 
           <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 mt-1 px-0.5">
             <span>0:00</span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-medium">Vùng ăn điểm IH: 60s – 120s</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-medium">Nên nói: {targetDurationMin}s – {targetDurationMax}s</span>
             <span>{formatTime(targetDurationMax)}</span>
           </div>
         </div>
       </div>
 
       {/* Middle: Sound Wave Visualizer & Record Button */}
-      <div className="flex flex-col items-center my-3">
+      <div className={`flex flex-col items-center ${compact ? 'my-1' : 'my-3'}`}>
         {/* Dynamic Sound Wave Visualizer - Fixed height container */}
-        <div className="w-full max-w-sm h-10 flex items-center justify-center gap-1.5 px-4 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 mb-3">
+        <div className={`w-full max-w-sm h-10 flex items-center justify-center gap-1.5 px-4 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 ${compact ? 'mb-2' : 'mb-3'}`}>
           {[...Array(16)].map((_, i) => {
             const h = isRecording 
               ? Math.max(6, Math.min(30, (audioLevel * ((i % 4) + 1)) / 3))
@@ -330,55 +274,16 @@ export const AudioRecorder = ({
         )}
       </div>
 
-      {/* Bottom: Live STT Transcript Display - Pre-allocated fixed height */}
-      <div className="w-full p-3.5 rounded-xl bg-slate-50/90 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 text-left shadow-xs mt-1">
-        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5 border-b border-slate-200 dark:border-slate-800/80 pb-1.5">
-          <span className="font-bold text-sky-700 dark:text-sky-400 flex items-center gap-1.5 text-xs">
-            <span className={`w-2 h-2 rounded-full ${isRecording ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400 dark:bg-slate-600'}`} />
-            <span>Live Soniox STT Stream</span>
-          </span>
-          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Real-time recognition</span>
-        </div>
-        
-        <div className="text-xs sm:text-[13px] text-slate-800 dark:text-slate-200 h-[65px] overflow-y-auto leading-relaxed">
-          {hideTranscript ? (
-            <div className="flex items-center justify-center h-full text-center">
-              <p className="text-slate-400 dark:text-slate-500 text-xs italic">
-                {isRecording
-                  ? 'Đang ghi âm... (Thi nghiêm túc: transcript được ẩn)'
-                  : 'Thi nghiêm túc: transcript được ẩn. Bấm "Start Recording Answer" để bắt đầu nói.'}
-              </p>
-            </div>
-          ) : tokens.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {tokens.map((t, idx) => (
-                <span
-                  key={idx}
-                  className={`px-1 rounded ${
-                    t.confidence < 0.8 
-                      ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-500/30 font-medium' 
-                      : 'text-slate-900 dark:text-slate-200'
-                  }`}
-                  title={t.confidence < 0.8 ? `Low confidence: ${Math.round(t.confidence * 100)}%` : undefined}
-                >
-                  {t.word}
-                </span>
-              ))}
-            </div>
-          ) : liveTranscript ? (
-            <p>{liveTranscript}</p>
-          ) : isRecording ? (
-            <p className="text-slate-500 dark:text-slate-400 italic">Listening to your voice... Speak clearly into your microphone.</p>
-          ) : (
-            <div className="flex items-center justify-center h-full text-center">
-              <p className="text-slate-400 dark:text-slate-500 text-xs italic">
-                Hệ thống nhận diện giọng nói Soniox AI sẵn sàng. Bấm "Start Recording Answer" để bắt đầu nói.
-              </p>
-            </div>
-          )}
-        </div>
+      {/* Bottom: recording status (speech is recognised after the recording is submitted) */}
+      <div className={`w-full rounded-xl bg-slate-50/90 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 flex items-center justify-center text-center ${compact ? 'p-2.5 min-h-[44px]' : 'p-3.5 min-h-[72px]'}`}>
+        <p className="text-xs text-slate-500 dark:text-slate-400 italic leading-relaxed">
+          {isRecording
+            ? 'Đang ghi âm... Hãy nói rõ vào micro. Bấm "Complete & Submit" khi trả lời xong.'
+            : lastDuration !== null
+            ? `Đã ghi ${lastDuration} giây. Hệ thống đang/đã nhận dạng giọng nói để chấm điểm.`
+            : 'Bấm "Start Recording Answer" để trả lời. Sau khi ghi xong, hệ thống sẽ nhận dạng giọng nói và chấm điểm.'}
+        </p>
       </div>
-
     </div>
   );
 };

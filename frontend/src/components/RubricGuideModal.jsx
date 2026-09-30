@@ -12,7 +12,7 @@ export const RubricGuideModal = ({ isOpen, onClose }) => {
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Award className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">ACTFL / OPIc Scoring Standard & IH Rubric</h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">ACTFL / OPIc Scoring Standard</h2>
           </div>
           <button
             onClick={onClose}

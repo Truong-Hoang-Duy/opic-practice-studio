@@ -5,13 +5,21 @@ import { useTheme } from '../context/ThemeContext';
 
 const TEST_FLOW_TABS = ['system_check', 'survey', 'self_assessment', 'topic_selection', 'pre_test', 'test'];
 
-export const Navbar = ({ currentTab, setTab, onOpenRubric }) => {
+export const Navbar = ({ currentTab, setTab, onTakeTest, onOpenRubric }) => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
+  const handleTestClick = () => {
+    if (onTakeTest) {
+      onTakeTest();
+    } else {
+      setTab('system_check');
+    }
+  };
+
   const navItems = [
     { key: 'dashboard', label: 'Studio Home', shortLabel: 'Home', icon: Award, active: currentTab === 'dashboard', onClick: () => setTab('dashboard') },
-    { key: 'test', label: 'Take Test', shortLabel: 'Test', icon: Headphones, active: TEST_FLOW_TABS.includes(currentTab), onClick: () => setTab('system_check') },
+    { key: 'test', label: 'Take Test', shortLabel: 'Test', icon: Headphones, active: TEST_FLOW_TABS.includes(currentTab), onClick: handleTestClick },
     { key: 'history', label: 'History', shortLabel: 'History', icon: History, active: currentTab === 'history', onClick: () => setTab('history') },
     { key: 'library', label: 'Question Bank', shortLabel: 'Bộ đề', icon: Library, active: currentTab === 'library', onClick: () => setTab('library') },
   ];

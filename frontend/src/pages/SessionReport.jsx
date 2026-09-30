@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { sessionApi } from '../api/client';
+import { sessionApi, resolveMediaUrl } from '../api/client';
 import { 
   Award, 
   Download, 
@@ -67,8 +67,12 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
     pdf_path
   } = report;
 
-  const isIH = overall_level === 'IH' || overall_level === 'AL';
-  const isPassed = isIH || report.passed;
+  // The verdict is judged against the level the learner chose for this test (not a fixed IH goal)
+  const LEVEL_RANK = { below_IL: 0, Novice: 0, IL: 1, IM: 2, IH: 3, AL: 4 };
+  const LEVEL_NAME = { Novice: 'Novice', IL: 'Intermediate Low', IM: 'Intermediate Mid', IH: 'Intermediate High', AL: 'Advanced Low', below_IL: 'Below IL' };
+  const targetLevel = report.target_level || 'IM';
+  const targetName = `${LEVEL_NAME[targetLevel] || targetLevel} (${targetLevel})`;
+  const isPassed = (LEVEL_RANK[overall_level] ?? 0) >= (LEVEL_RANK[targetLevel] ?? 2) || report.passed;
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-6">
@@ -86,11 +90,11 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
                   KẾT QUẢ: ĐẬU (PASSED) 🎉
                 </span>
                 <span className="text-xs sm:text-sm font-bold text-emerald-700 dark:text-emerald-400">
-                  ĐẠT CHUẨN ACTFL INTERMEDIATE HIGH (IH)
+                  ĐẠT MỨC ĐÃ CHỌN: {targetName}
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1.5 font-medium leading-relaxed">
-                Chúc mừng bạn! Kỹ năng nói tiếng Anh đã đáp ứng trọn vẹn tiêu chuẩn đánh giá OPIc band IH (nói thành đoạn văn mạch lạc 60s–120s, làm chủ thì quá khứ và xử lý tốt tình huống bất ngờ).
+                Chúc mừng bạn! Bạn đạt band <strong>{overall_level}</strong>, đáp ứng mức {targetName} mà bạn đã chọn cho bài thi này.
               </p>
             </div>
           </div>
@@ -111,11 +115,11 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
                   KẾT QUẢ: CHƯA ĐẠT (FAILED) ⚠️
                 </span>
                 <span className="text-xs sm:text-sm font-bold text-rose-700 dark:text-rose-400">
-                  CHƯA ĐẠT CHỈ TIÊU INTERMEDIATE HIGH (IH)
+                  CHƯA ĐẠT MỨC ĐÃ CHỌN: {targetName}
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1.5 font-medium leading-relaxed">
-                Bạn đạt band <strong>{overall_level} ({overall_level === 'IM' ? 'Intermediate Mid' : overall_level === 'IL' ? 'Intermediate Low' : overall_level})</strong>, chưa đủ ngưỡng tối thiểu để đạt IH. Hãy theo dõi các lỗi sai và lộ trình 4 tuần bên dưới để ôn luyện thi lại.
+                Bạn đạt band <strong>{overall_level} ({overall_level === 'IM' ? 'Intermediate Mid' : overall_level === 'IL' ? 'Intermediate Low' : overall_level})</strong>, chưa đạt mức {targetLevel} đã chọn. Hãy theo dõi các lỗi sai và lộ trình 4 tuần bên dưới để ôn luyện thi lại.
               </p>
             </div>
           </div>
@@ -227,7 +231,7 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
           <div className="glass-card bg-amber-50/70 dark:bg-amber-950/20 rounded-2xl p-5 border border-amber-300/80 dark:border-amber-500/20 flex flex-col gap-3 shadow-sm">
             <h3 className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4" />
-              <span>Primary Obstacles to Reach IH</span>
+              <span>Primary Obstacles to Reach {targetLevel}</span>
             </h3>
             <div className="space-y-2">
               {weaknesses?.map((w, idx) => (
@@ -281,10 +285,15 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
                       {row.question_text && (
                         <p className="mt-0.5 text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">"{row.question_text}"</p>
                       )}
-                      {row.transcript && (
+                      {(row.transcript || row.audio_path) && (
                         <details className="mt-1">
                           <summary className="cursor-pointer text-[11px] font-semibold text-brand-600 dark:text-brand-400">Câu trả lời của bạn</summary>
-                          <p className="mt-1 text-[11px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-lg p-2">{row.transcript}</p>
+                          {row.audio_path && (
+                            <audio src={resolveMediaUrl(row.audio_path)} controls preload="none" className="mt-1 w-full max-w-sm h-8" />
+                          )}
+                          <p className="mt-1 text-[11px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-lg p-2">
+                            {row.transcript || 'Không nhận dạng được lời nói (chấm theo chuẩn: mức thấp nhất).'}
+                          </p>
                         </details>
                       )}
                     </td>

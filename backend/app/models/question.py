@@ -13,6 +13,7 @@ class Question(Base):
     question_text = Column(Text, nullable=False)
     question_type = Column(String(100), nullable=False) # self_intro, description, routine, past_experience, comparison, role_play_ask, role_play_problem, unexpected_situation
     topic = Column(String(100), nullable=False) # topic key or survey category
+    category = Column(String(50), nullable=True) # normalised learning topic (see core/question_meta.py)
     difficulty = Column(String(50), default="IM") # target difficulty based on self-assessment (IL, IM, IH)
     audio_path = Column(String(255), nullable=True) # Cached audio file for Eva TTS
 

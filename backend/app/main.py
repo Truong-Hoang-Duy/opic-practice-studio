@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from app.config import settings
-from app.database import engine, Base
+from app.database import engine, Base, ensure_schema
 import app.models # ensure all models are registered
 from app.routers import (
     auth_router,
@@ -22,6 +22,7 @@ from app.routers import (
 # Auto-create tables on startup (graceful handling if remote DB is unreachable locally)
 try:
     Base.metadata.create_all(bind=engine)
+    ensure_schema(engine)
 except Exception as e:
     import logging
     logging.getLogger("opic_startup").warning(f"Database initialization deferred (remote DB unreachable or port blocked): {e}")

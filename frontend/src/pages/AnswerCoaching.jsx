@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { answerApi, questionApi } from '../api/client';
+import { answerApi, questionApi, resolveMediaUrl } from '../api/client';
 import { 
   Sparkles, 
   Edit3, 
@@ -25,7 +25,8 @@ export const AnswerCoaching = ({
   onNextQuestion,
   onRetryQuestion,
   assessmentLevel = 4,
-  nextLabel = 'Sang câu tiếp theo'
+  nextLabel = 'Sang câu tiếp theo',
+  answer = null // submitted answer: server transcript + per-word confidences
 }) => {
   // Q1 self-introduction is a warm-up and is never scored (same as the real OPIc)
   const isUnscored = question?.question_type === 'self_intro';
@@ -64,8 +65,22 @@ export const AnswerCoaching = ({
   // Scroll to top and load Answer data upon answer change
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
+    setActiveTranscript(answer?.transcript_edited || answer?.transcript_raw || '');
+    setWordTokens(answer?.word_confidences || []);
     loadAnswerData();
   }, [answerId]);
+
+  // Takes with a recording, newest first (older answers only have the answer-level audio)
+  const myTakes = (() => {
+    const takes = [...(answer?.versions || [])].filter(v => v.audio_path).reverse();
+    if (!takes.length && answer?.audio_path) {
+      return [{ id: 'answer', version_number: 1, audio_path: answer.audio_path, transcript: answer.transcript_raw, created_at: answer.created_at }];
+    }
+    return takes;
+  })();
+
+  // Per-word highlighting only applies to the original recognition (not to edited/rewritten text)
+  const showWordConfidence = wordTokens.length > 0 && activeTranscript === (answer?.transcript_raw || '');
 
   useEffect(() => {
     setSelectedModelLevel(defaultModelLevel);
@@ -273,10 +288,54 @@ export const AnswerCoaching = ({
           />
         ) : (
           <div className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed font-normal bg-slate-50 dark:bg-slate-950/40 p-4 rounded-xl border border-slate-200 dark:border-slate-900">
-            {activeTranscript || (
-              <span className="text-slate-500 dark:text-slate-400 italic">
-                Candidate response recorded. Low confidence words are automatically highlighted below during analysis.
+            {showWordConfidence ? (
+              <>
+                <div className="flex flex-wrap gap-x-1 gap-y-0.5">
+                  {wordTokens.map((t, idx) => (
+                    <span
+                      key={idx}
+                      className={t.confidence < 0.8 ? 'px-0.5 rounded bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 underline decoration-dotted' : ''}
+                      title={t.confidence < 0.8 ? `Độ tin cậy nhận dạng ${Math.round(t.confidence * 100)}% - có thể phát âm chưa rõ` : undefined}
+                    >
+                      {t.word}
+                    </span>
+                  ))}
+                </div>
+                {wordTokens.some(t => t.confidence < 0.8) && (
+                  <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-400">Từ tô vàng: nhận dạng dưới 80%, có thể bạn phát âm chưa rõ.</p>
+                )}
+              </>
+            ) : activeTranscript || (
+              <span className="text-amber-700 dark:text-amber-400 italic">
+                Không nhận dạng được lời nói trong bản ghi (im lặng, quá nhỏ hoặc lỗi nhận dạng). Câu này vẫn được chấm theo chuẩn (mức thấp nhất).
+                Hãy nghe lại bản ghi bên dưới; nếu bạn có nói, bấm "Fix Recognition Errors" để gõ lại nội dung và chấm lại, hoặc ghi âm lại.
               </span>
+            )}
+          </div>
+        )}
+
+        {/* Replay the learner's own recording(s) */}
+        {myTakes.length > 0 && (
+          <div className="flex flex-col gap-2 pt-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Bản ghi của bạn</span>
+              <audio src={resolveMediaUrl(myTakes[0].audio_path)} controls preload="none" className="w-full h-8" />
+            </div>
+            {myTakes.length > 1 && (
+              <details>
+                <summary className="cursor-pointer text-[11px] font-semibold text-brand-600 dark:text-brand-400">Các lần ghi trước ({myTakes.length - 1})</summary>
+                <div className="mt-2 flex flex-col gap-2">
+                  {myTakes.slice(1).map(v => (
+                    <div key={v.id} className="flex flex-col gap-1 p-2 rounded-lg bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-500 whitespace-nowrap">Lần {v.version_number} · {new Date(v.created_at).toLocaleString()}</span>
+                        <audio src={resolveMediaUrl(v.audio_path)} controls preload="none" className="w-full h-7" />
+                      </div>
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400">{v.transcript || '(không nhận dạng được lời nói)'}</p>
+                    </div>
+                  ))}
+                </div>
+              </details>
             )}
           </div>
         )}
@@ -329,7 +388,8 @@ export const AnswerCoaching = ({
           <span>Step-by-Step Outline Guide</span>
         </button>
 
-        {!hideScoring && (
+        {/* Nothing to upgrade when no speech was recognised */}
+        {!hideScoring && activeTranscript.trim() && (
         <button
           onClick={handleTriggerRewrite}
           disabled={rewriting}
