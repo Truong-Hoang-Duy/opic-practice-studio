@@ -69,7 +69,7 @@ export const EvaAvatar = ({
         }`} />
 
         {/* Avatar SVG Portrait */}
-        <div className="relative w-36 h-36 rounded-full p-1 bg-gradient-to-b from-sky-400/40 to-slate-700/80 shadow-2xl overflow-hidden flex items-center justify-center">
+        <div className="relative w-32 h-32 rounded-full p-1 bg-gradient-to-b from-sky-400/40 to-slate-700/80 shadow-2xl overflow-hidden flex items-center justify-center">
           <svg viewBox="0 0 160 160" className="w-full h-full rounded-full bg-slate-900">
             {/* Background gradient */}
             <defs>
@@ -163,7 +163,7 @@ export const EvaAvatar = ({
       </div>
 
       {/* Name and State description */}
-      <div className="mt-2.5 text-center">
+      <div className="mt-2 text-center">
         <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center justify-center gap-1.5">
           <span>Eva</span>
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-500/20 font-semibold">
@@ -175,19 +175,21 @@ export const EvaAvatar = ({
         </p>
       </div>
 
-      {/* Equalizer sound wave animation while Eva talks */}
-      {isPlaying && (
-        <div className="flex items-center gap-1 mt-2 h-6 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-sky-500/30 shadow-xs">
-          <div className="w-1 bg-sky-500 dark:bg-sky-400 rounded-full animate-sound-wave" style={{ animationDelay: '0.1s' }} />
-          <div className="w-1 bg-emerald-500 dark:bg-emerald-400 rounded-full animate-sound-wave" style={{ animationDelay: '0.3s' }} />
-          <div className="w-1 bg-sky-500 dark:bg-sky-400 rounded-full animate-sound-wave" style={{ animationDelay: '0.2s' }} />
-          <div className="w-1 bg-cyan-500 dark:bg-cyan-400 rounded-full animate-sound-wave" style={{ animationDelay: '0.4s' }} />
-          <div className="w-1 bg-emerald-500 dark:bg-emerald-400 rounded-full animate-sound-wave" style={{ animationDelay: '0.15s' }} />
-        </div>
-      )}
+      {/* Equalizer sound wave animation while Eva talks - Fixed height reserved */}
+      <div className="h-5 mt-1 flex items-center justify-center">
+        {isPlaying ? (
+          <div className="flex items-center gap-1 h-5 px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-sky-500/30 shadow-xs">
+            <div className="w-1 bg-sky-500 dark:bg-sky-400 rounded-full animate-sound-wave" style={{ animationDelay: '0.1s' }} />
+            <div className="w-1 bg-emerald-500 dark:bg-emerald-400 rounded-full animate-sound-wave" style={{ animationDelay: '0.3s' }} />
+            <div className="w-1 bg-sky-500 dark:bg-sky-400 rounded-full animate-sound-wave" style={{ animationDelay: '0.2s' }} />
+            <div className="w-1 bg-cyan-500 dark:bg-cyan-400 rounded-full animate-sound-wave" style={{ animationDelay: '0.4s' }} />
+            <div className="w-1 bg-emerald-500 dark:bg-emerald-400 rounded-full animate-sound-wave" style={{ animationDelay: '0.15s' }} />
+          </div>
+        ) : null}
+      </div>
 
       {/* Audio controls (Replay question button) */}
-      <div className="flex items-center gap-2 mt-3">
+      <div className="flex items-center gap-2 mt-2">
         <ViTooltip vi="Nghe lại câu hỏi một lần nữa (Quy chế OPIc cho phép nghe lại 1 lần).">
           <button
             onClick={handleReplay}

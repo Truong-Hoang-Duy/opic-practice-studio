@@ -32,6 +32,8 @@ export const sessionApi = {
   submitTopics: (id, data) => api.post(`/sessions/${id}/topics`, data),
   getStatus: (id) => api.get(`/sessions/${id}/status`),
   getNextQuestion: (id) => api.get(`/sessions/${id}/next-question`),
+  getQuestions: (id) => api.get(`/sessions/${id}/questions`),
+  getQuestionByIndex: (id, orderIndex) => api.get(`/sessions/${id}/questions/${orderIndex}`),
   finishSession: (id) => api.post(`/sessions/${id}/finish`),
   getReport: (id) => api.get(`/sessions/${id}/report`),
 };

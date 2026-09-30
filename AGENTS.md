@@ -10,3 +10,4 @@ See full specification in [GEMINI.md](file:///d:/Project/opic-practice-studio/GE
 - **STT**: Soniox WebSocket proxy `/ws/stt` and temporary key issuer `/api/stt/token`. Never expose permanent key to frontend.
 - **VSCode Tasks**: `Ctrl+Shift+B` runs "Start All (Backend + Frontend)" in parallel.
 - **Testing**: `python -m pytest backend/app/tests -v` with `PYTHONPATH="backend"`.
+- **Git Commit & Push**: Tuyệt đối **không tự ý** commit/push code. Chỉ commit và push khi người dùng trực tiếp yêu cầu hoặc xác nhận cho phép. Khi commit, chỉ đưa lên **đúng 1 commit duy nhất** kèm message tóm tắt ngắn gọn các nội dung chính đã chỉnh sửa trong phiên.

@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -190,6 +191,40 @@ def get_next_question(
         db.commit()
 
     return next_q
+
+@router.get("/{session_id}/questions", response_model=List[QuestionResponse])
+def get_session_questions(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    session = db.query(TestSession).filter(TestSession.id == session_id, TestSession.user_id == current_user.id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found.")
+
+    questions = db.query(Question).filter(Question.session_id == session.id).order_by(Question.order_index).all()
+    return questions
+
+@router.get("/{session_id}/questions/{order_index}", response_model=QuestionResponse)
+def get_session_question_by_index(
+    session_id: int,
+    order_index: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    session = db.query(TestSession).filter(TestSession.id == session_id, TestSession.user_id == current_user.id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found.")
+
+    q = db.query(Question).filter(Question.session_id == session.id, Question.order_index == order_index).first()
+    if not q:
+        raise HTTPException(status_code=404, detail=f"Question {order_index} not found.")
+
+    if not q.audio_path:
+        q.audio_path = synthesize_speech(q.question_text)
+        db.commit()
+
+    return q
 
 @router.post("/{session_id}/finish")
 def finish_session(

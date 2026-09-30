@@ -113,10 +113,10 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport }) => {
               <Flame className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
             </div>
             <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-              {sessions.length > 0 ? (sessions[0].session_report?.overall_level || `Level ${sessions[0].self_assessment_level || 4}`) : 'OPIc'}
+              {recentSessions.length > 0 ? (recentSessions[0].session_report?.overall_level || `Level ${recentSessions[0].self_assessment_level || 4}`) : 'OPIc'}
             </div>
             <span className="text-[11px] text-slate-500 dark:text-slate-400">
-              {sessions.length > 0 ? 'Mức bài thi gần nhất' : 'Sẵn sàng thi thử'}
+              {recentSessions.length > 0 ? 'Mức bài thi gần nhất' : 'Sẵn sàng thi thử'}
             </span>
           </div>
         </div>

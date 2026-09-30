@@ -25,6 +25,10 @@ class SessionReport(Base):
     # Relationships
     session = relationship("TestSession", back_populates="report")
 
+    @property
+    def passed(self) -> bool:
+        return self.overall_level in ["IH", "AL"]
+
 class LLMUsageLog(Base):
     __tablename__ = "llm_usage_logs"
 

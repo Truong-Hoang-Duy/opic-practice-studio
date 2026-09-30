@@ -87,11 +87,19 @@ def generate_session_pdf(
     story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#cbd5e1"), spaceAfter=15))
 
     # Overall Result Badge Table
-    level_color = colors.HexColor("#10b981") if overall_level == "IH" else colors.HexColor("#0284c7") if overall_level == "IM" else colors.HexColor("#f59e0b")
+    is_passed = overall_level in ["IH", "AL"]
+    level_color = colors.HexColor("#10b981") if overall_level in ["IH", "AL"] else colors.HexColor("#0284c7") if overall_level == "IM" else colors.HexColor("#f59e0b")
+    status_color = colors.HexColor("#10b981") if is_passed else colors.HexColor("#ef4444")
+    status_text = "PASSED (ĐẬU) - Meets ACTFL IH Benchmark" if is_passed else "FAILED (CHƯA ĐẠT) - Below ACTFL IH Benchmark"
+
     result_data = [
         [
             Paragraph("<b>Estimated Proficiency Level:</b>", body_style),
             Paragraph(f"<font color='{level_color.hexval()}'><b>{overall_level}</b></font>", ParagraphStyle('Lvl', parent=body_style, fontSize=16, leading=18))
+        ],
+        [
+            Paragraph("<b>Final Verdict (Kết quả):</b>", body_style),
+            Paragraph(f"<font color='{status_color.hexval()}'><b>{status_text}</b></font>", ParagraphStyle('Status', parent=body_style, fontSize=12, leading=15))
         ]
     ]
     result_table = Table(result_data, colWidths=[200, 320])

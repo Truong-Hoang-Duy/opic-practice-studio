@@ -10,7 +10,9 @@ import {
   AlertTriangle, 
   FileText,
   ArrowRight,
-  Flame
+  Flame,
+  Trophy,
+  XCircle
 } from 'lucide-react';
 import { RadarChart } from '../components/RadarChart';
 import { ViTooltip } from '../components/Tooltip';
@@ -65,11 +67,65 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
     pdf_path
   } = report;
 
-  const isIH = overall_level === 'IH';
+  const isIH = overall_level === 'IH' || overall_level === 'AL';
+  const isPassed = isIH || report.passed;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-8">
+    <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-6">
       
+      {/* Big Impact Verdict: Pass / Fail Banner */}
+      {isPassed ? (
+        <div className="w-full rounded-3xl p-6 sm:p-7 bg-gradient-to-r from-emerald-500/15 via-emerald-500/10 to-teal-500/15 border-2 border-emerald-500/40 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-5 transition-all">
+          <div className="flex items-center gap-4 sm:gap-5">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30 shrink-0">
+              <Trophy className="w-7 h-7 sm:w-8 sm:h-8" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="px-3.5 py-1 rounded-full bg-emerald-600 text-white font-black text-sm tracking-wide shadow-md">
+                  KẾT QUẢ: ĐẬU (PASSED) 🎉
+                </span>
+                <span className="text-xs sm:text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                  ĐẠT CHUẨN ACTFL INTERMEDIATE HIGH (IH)
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1.5 font-medium leading-relaxed">
+                Chúc mừng bạn! Kỹ năng nói tiếng Anh đã đáp ứng trọn vẹn tiêu chuẩn đánh giá OPIc band IH (nói thành đoạn văn mạch lạc 60s–120s, làm chủ thì quá khứ và xử lý tốt tình huống bất ngờ).
+              </p>
+            </div>
+          </div>
+          <div className="shrink-0 text-center sm:text-right">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Trạng thái</span>
+            <div className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400">ĐÃ ĐẠT CHỈ TIÊU</div>
+          </div>
+        </div>
+      ) : (
+        <div className="w-full rounded-3xl p-6 sm:p-7 bg-gradient-to-r from-rose-500/15 via-rose-500/10 to-amber-500/15 border-2 border-rose-500/40 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-5 transition-all">
+          <div className="flex items-center gap-4 sm:gap-5">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-rose-500 to-red-600 flex items-center justify-center text-white shadow-lg shadow-rose-500/30 shrink-0">
+              <XCircle className="w-7 h-7 sm:w-8 sm:h-8" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="px-3.5 py-1 rounded-full bg-rose-600 text-white font-black text-sm tracking-wide shadow-md">
+                  KẾT QUẢ: CHƯA ĐẠT (FAILED) ⚠️
+                </span>
+                <span className="text-xs sm:text-sm font-bold text-rose-700 dark:text-rose-400">
+                  CHƯA ĐẠT CHỈ TIÊU INTERMEDIATE HIGH (IH)
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1.5 font-medium leading-relaxed">
+                Bạn đạt band <strong>{overall_level} ({overall_level === 'IM' ? 'Intermediate Mid' : overall_level === 'IL' ? 'Intermediate Low' : overall_level})</strong>, chưa đủ ngưỡng tối thiểu để đạt IH. Hãy theo dõi các lỗi sai và lộ trình 4 tuần bên dưới để ôn luyện thi lại.
+              </p>
+            </div>
+          </div>
+          <div className="shrink-0 text-center sm:text-right">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">Trạng thái</span>
+            <div className="text-xl sm:text-2xl font-black text-rose-600 dark:text-rose-400">CẦN THI LẠI</div>
+          </div>
+        </div>
+      )}
+
       {/* Top Banner with Overall Level */}
       <div className="glass-panel rounded-3xl p-8 border border-slate-200 dark:border-slate-800 bg-gradient-to-r from-sky-50/90 via-white to-emerald-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-sky-950/40 shadow-md dark:shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 transition-colors">
         <div>
@@ -111,11 +167,18 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
         {/* Level Badge Circle */}
         <div className="flex flex-col items-center justify-center p-6 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-brand-500/30 shadow-lg dark:shadow-xl shrink-0 min-w-[180px]">
           <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Assessed Level</span>
-          <div className={`text-4xl font-black ${isIH ? 'text-emerald-600 dark:text-emerald-400' : 'text-sky-600 dark:text-sky-400'}`}>
+          <div className={`text-4xl font-black ${isPassed ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
             {overall_level}
           </div>
           <span className="text-xs text-slate-700 dark:text-slate-300 mt-1 font-semibold">
             {overall_level === 'IH' ? 'Intermediate High' : overall_level === 'IM' ? 'Intermediate Mid' : overall_level === 'IL' ? 'Intermediate Low' : overall_level === 'AL' ? 'Advanced Low' : overall_level}
+          </span>
+          <span className={`mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase border ${
+            isPassed 
+              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30' 
+              : 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/30'
+          }`}>
+            {isPassed ? 'ĐẬU (PASSED)' : 'RỚT (FAILED)'}
           </span>
           <div className="mt-3 flex items-center gap-1 text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
             <ShieldCheck className="w-3.5 h-3.5" />

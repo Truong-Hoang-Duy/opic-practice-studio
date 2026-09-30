@@ -14,6 +14,7 @@ class SessionReportResponse(BaseModel):
     id: int
     session_id: int
     overall_level: str
+    passed: Optional[bool] = False
     justification: str
     radar_scores: Dict[str, float]
     per_question_summary: List[Dict[str, Any]] = []
