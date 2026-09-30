@@ -38,7 +38,7 @@ export const PreTestSetup = ({ onStartExam }) => {
       <div className="text-center mb-2">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-semibold mb-2">
           <Headphones className="w-3.5 h-3.5" />
-          <span>Step 5 of 5: Pre-Test Setup & Audio Practice</span>
+          <span>Step 4 of 5: Pre-Test Setup & Audio Practice</span>
         </div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Interviewer Check & Warm-up</h1>
         <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-xl mx-auto">

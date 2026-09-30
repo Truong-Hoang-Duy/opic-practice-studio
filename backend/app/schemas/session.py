@@ -16,6 +16,7 @@ class SessionCreate(BaseModel):
 class SurveySubmit(BaseModel):
     occupation: str
     student_status: str
+    education_experience: Optional[str] = None
     living_situation: str
     leisure_activities: List[str] = Field(default_factory=list)
     hobbies: List[str] = Field(default_factory=list)

@@ -1,59 +1,189 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowRight, Check, ListChecks, Sparkles, BookmarkCheck, RotateCcw } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowRight, Check, Sparkles, BookmarkCheck, RotateCcw, AlertCircle } from 'lucide-react';
 import { sessionApi } from '../api/client';
 import { ViTooltip } from '../components/Tooltip';
 
-// The ACTFL/OPIc Golden Survey Preset for Vietnamese learners targeting Intermediate High (IH)
-const IH_GOLDEN_PRESET = {
-  occupation: 'Employed in business / technology',
-  studentStatus: 'Not a student',
-  livingSituation: 'Live alone in an apartment',
-  leisureActivities: [
-    'Going to cafes / coffee shops',
-    'Going to parks',
-    'Watching movies at the cinema',
-    'Listening to live music'
+// The User's authentic Golden Survey choices for OPIc IH Strategy
+export const USER_DEFAULT_PRESET = {
+  occupation: 'No work experience',
+  studentStatus: 'No',
+  educationExperience: 'It has been more than 5 years since I took a class.',
+  livingSituation: 'I live with family members in a house or an apartment.',
+  activities: [
+    'go to the movies',
+    'go to parks'
   ],
   hobbies: [
-    'Listening to music',
-    'Cooking / trying new recipes',
-    'Reading novels'
+    'listen to music',
+    'cook'
   ],
   sports: [
-    'Jogging / running',
-    'Gym / fitness workout',
-    'Walking'
+    'walk'
   ],
   travel: [
-    'Domestic travel / beach trips',
-    'Overseas vacations'
+    'stay at home for vacation'
   ]
 };
 
+// Full list of options from official OPIc Background Survey
+export const SURVEY_DATA = {
+  part1: {
+    question: "What best describes your field of work?",
+    options: [
+      "Business / Corporation",
+      "Home Business",
+      "Teacher / Educator",
+      "No work experience"
+    ]
+  },
+  part2: {
+    q1: {
+      question: "Are you currently going to school?",
+      options: [
+        "Yes, Full-time or Part-time",
+        "No"
+      ]
+    },
+    q2: {
+      question: "What best describes your last educational experience?",
+      options: [
+        "College or university to earn a degree",
+        "Continuing education to improve professional skills",
+        "Language classes",
+        "It has been more than 5 years since I took a class."
+      ]
+    }
+  },
+  part3: {
+    question: "Where do you live?",
+    options: [
+      "I live alone in a house or an apartment.",
+      "I live with non-family members in a house or an apartment.",
+      "I live with family members in a house or an apartment.",
+      "I live in a school dormitory.",
+      "I live in military barracks."
+    ]
+  },
+  part4: {
+    activities: {
+      title: "What activities do you do?",
+      options: [
+        "go to the movies",
+        "go to clubs/nightclubs",
+        "go to the theater",
+        "go to concerts",
+        "go to museums",
+        "go to parks",
+        "go camping",
+        "go to the beach",
+        "watch professional sports",
+        "watch your children play sports",
+        "coach sports",
+        "play games by yourself (cards, video games, etc.)",
+        "play games with adults (cards, billiards, board games, etc.)",
+        "play games with children (cards, board games, etc.)",
+        "help your children with school assignments",
+        "do home improvement projects",
+        "maintain your car"
+      ]
+    },
+    hobbies: {
+      title: "What interests or hobbies do you enjoy?",
+      options: [
+        "read to children",
+        "listen to music",
+        "play a musical instrument",
+        "sing alone",
+        "sing with a group",
+        "take dance class/lessons",
+        "go out dancing",
+        "write creatively (letters, short stories, poetry)",
+        "draw, paint",
+        "sew, embroider",
+        "knit, crochet",
+        "cook",
+        "garden",
+        "have pets"
+      ]
+    },
+    sports: {
+      title: "What sports or physical activities do you participate in?",
+      options: [
+        "play basketball",
+        "play baseball/softball",
+        "play soccer",
+        "play football",
+        "play rugby",
+        "play ice hockey",
+        "play field hockey",
+        "play cricket",
+        "play golf",
+        "play volleyball",
+        "play tennis",
+        "play badminton",
+        "play table tennis",
+        "swim",
+        "bike",
+        "ride a motorcycle",
+        "scuba dive/snorkel",
+        "ski/snowboard",
+        "waterski",
+        "ice skate",
+        "inline skate",
+        "go horseback riding",
+        "jog",
+        "walk",
+        "do martial arts",
+        "do yoga",
+        "go hiking/trekking",
+        "go fishing",
+        "go boating",
+        "go to a health club or gym",
+        "exercise",
+        "do not participate in sports or physical activities"
+      ]
+    },
+    travel: {
+      title: "What types of vacation or travel do you do?",
+      options: [
+        "travel for business domestically",
+        "travel for business internationally",
+        "stay at home for vacation",
+        "take vacation domestically",
+        "take vacation internationally"
+      ]
+    }
+  }
+};
+
 export const Survey = ({ sessionId, onSurveyCompleted }) => {
-  // Load initial state from saved custom preset if present, else fallback to Golden preset
   const getInitialState = () => {
     try {
-      const saved = localStorage.getItem('opic_custom_survey_preset');
+      const saved = localStorage.getItem('opic_user_survey_preset');
       if (saved) return JSON.parse(saved);
     } catch (e) {
-      console.warn("Failed to parse custom survey preset:", e);
+      console.warn("Failed to load saved preset:", e);
     }
-    return IH_GOLDEN_PRESET;
+    return USER_DEFAULT_PRESET;
   };
 
   const initial = getInitialState();
 
-  const [occupation, setOccupation] = useState(initial.occupation || 'Employed in business / technology');
-  const [studentStatus, setStudentStatus] = useState(initial.studentStatus || 'Not a student');
-  const [livingSituation, setLivingSituation] = useState(initial.livingSituation || 'Live alone in an apartment');
-  const [leisureActivities, setLeisureActivities] = useState(initial.leisureActivities || IH_GOLDEN_PRESET.leisureActivities);
-  const [hobbies, setHobbies] = useState(initial.hobbies || IH_GOLDEN_PRESET.hobbies);
-  const [sports, setSports] = useState(initial.sports || IH_GOLDEN_PRESET.sports);
-  const [travel, setTravel] = useState(initial.travel || IH_GOLDEN_PRESET.travel);
+  const [occupation, setOccupation] = useState(initial.occupation || USER_DEFAULT_PRESET.occupation);
+  const [studentStatus, setStudentStatus] = useState(initial.studentStatus || USER_DEFAULT_PRESET.studentStatus);
+  const [educationExperience, setEducationExperience] = useState(initial.educationExperience || USER_DEFAULT_PRESET.educationExperience);
+  const [livingSituation, setLivingSituation] = useState(initial.livingSituation || USER_DEFAULT_PRESET.livingSituation);
+
+  const [activities, setActivities] = useState(initial.activities || USER_DEFAULT_PRESET.activities);
+  const [hobbies, setHobbies] = useState(initial.hobbies || USER_DEFAULT_PRESET.hobbies);
+  const [sports, setSports] = useState(initial.sports || USER_DEFAULT_PRESET.sports);
+  const [travel, setTravel] = useState(initial.travel || USER_DEFAULT_PRESET.travel);
 
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState('');
+
+  const totalSelectedPart4 = activities.length + hobbies.length + sports.length + travel.length;
+  const isPart4Valid = totalSelectedPart4 >= 6;
 
   const toggleItem = (list, setList, item) => {
     if (list.includes(item)) {
@@ -63,46 +193,54 @@ export const Survey = ({ sessionId, onSurveyCompleted }) => {
     }
   };
 
-  const applyIhGoldenPreset = () => {
-    setOccupation(IH_GOLDEN_PRESET.occupation);
-    setStudentStatus(IH_GOLDEN_PRESET.studentStatus);
-    setLivingSituation(IH_GOLDEN_PRESET.livingSituation);
-    setLeisureActivities(IH_GOLDEN_PRESET.leisureActivities);
-    setHobbies(IH_GOLDEN_PRESET.hobbies);
-    setSports(IH_GOLDEN_PRESET.sports);
-    setTravel(IH_GOLDEN_PRESET.travel);
-    setNotice('Đã nạp Bộ khảo sát Vàng Chuẩn Mục Tiêu IH!');
+  const resetToUserPreset = () => {
+    setOccupation(USER_DEFAULT_PRESET.occupation);
+    setStudentStatus(USER_DEFAULT_PRESET.studentStatus);
+    setEducationExperience(USER_DEFAULT_PRESET.educationExperience);
+    setLivingSituation(USER_DEFAULT_PRESET.livingSituation);
+    setActivities(USER_DEFAULT_PRESET.activities);
+    setHobbies(USER_DEFAULT_PRESET.hobbies);
+    setSports(USER_DEFAULT_PRESET.sports);
+    setTravel(USER_DEFAULT_PRESET.travel);
+    setNotice('Đã khôi phục các lựa chọn vàng mặc định của bạn!');
     setTimeout(() => setNotice(''), 3000);
   };
 
   const saveCustomPreset = () => {
-    const customConfig = {
+    const config = {
       occupation,
       studentStatus,
+      educationExperience,
       livingSituation,
-      leisureActivities,
+      activities,
       hobbies,
       sports,
       travel
     };
     try {
-      localStorage.setItem('opic_custom_survey_preset', JSON.stringify(customConfig));
-      setNotice('Đã lưu các lựa chọn này làm khảo sát mặc định cho các lần thi sau!');
+      localStorage.setItem('opic_user_survey_preset', JSON.stringify(config));
+      setNotice('Đã lưu cấu hình khảo sát này làm mặc định cho các phiên thi sau!');
       setTimeout(() => setNotice(''), 3500);
     } catch (e) {
-      console.error("Failed to save custom preset:", e);
+      console.error("Save preset error:", e);
     }
   };
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
+    if (!isPart4Valid) {
+      alert("Vui lòng chọn tối thiểu 6 mục trong Phần 4 (Part 4) trước khi tiếp tục.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       await sessionApi.submitSurvey(sessionId, {
         occupation,
         student_status: studentStatus,
+        education_experience: educationExperience,
         living_situation: livingSituation,
-        leisure_activities: leisureActivities,
+        leisure_activities: activities,
         hobbies,
         sports,
         travel
@@ -110,7 +248,7 @@ export const Survey = ({ sessionId, onSurveyCompleted }) => {
       onSurveyCompleted();
     } catch (err) {
       console.error("Survey submission failed:", err);
-      // Proceed gracefully
+      // Proceed gracefully to topic selection
       onSurveyCompleted();
     } finally {
       setSubmitting(false);
@@ -120,300 +258,328 @@ export const Survey = ({ sessionId, onSurveyCompleted }) => {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 flex flex-col gap-6">
       
-      {/* Title */}
-      <div className="text-center mb-2">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-600 dark:text-brand-400 text-xs font-semibold mb-2">
-          <ListChecks className="w-3.5 h-3.5" />
-          <span>Step 2 of 5: Candidate Profile Survey</span>
+      {/* Official OPIc Style Steps Banner */}
+      <div className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-lg overflow-hidden flex flex-wrap shadow-sm">
+        <div className="flex-1 min-w-[140px] px-4 py-3 bg-[#e65100] text-white flex flex-col justify-center border-r border-orange-700/50">
+          <span className="text-xs font-bold uppercase tracking-wider">Step 1</span>
+          <span className="text-sm font-semibold">Background Survey</span>
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Background Survey</h1>
-        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-xl mx-auto">
-          The official OPIc selects tailored question combos based on your survey answers. Select your actual occupation, living style, and leisure interests.
-        </p>
+        <div className="flex-1 min-w-[140px] px-4 py-3 text-slate-500 dark:text-slate-400 flex flex-col justify-center border-r border-slate-200 dark:border-slate-800">
+          <span className="text-xs font-semibold uppercase">Step 2</span>
+          <span className="text-sm font-medium">Core Topic Focus</span>
+        </div>
+        <div className="flex-1 min-w-[140px] px-4 py-3 text-slate-500 dark:text-slate-400 flex flex-col justify-center border-r border-slate-200 dark:border-slate-800">
+          <span className="text-xs font-semibold uppercase">Step 3</span>
+          <span className="text-sm font-medium">Self Assessment</span>
+        </div>
+        <div className="flex-1 min-w-[140px] px-4 py-3 text-slate-500 dark:text-slate-400 flex flex-col justify-center border-r border-slate-200 dark:border-slate-800">
+          <span className="text-xs font-semibold uppercase">Step 4</span>
+          <span className="text-sm font-medium">Setup</span>
+        </div>
+        <div className="flex-1 min-w-[140px] px-4 py-3 text-slate-500 dark:text-slate-400 flex flex-col justify-center">
+          <span className="text-xs font-semibold uppercase">Step 5</span>
+          <span className="text-sm font-medium">Begin Test</span>
+        </div>
       </div>
 
-      {/* Preset Banner (Khảo sát mặc định) */}
-      <div className="p-4 rounded-2xl bg-gradient-to-r from-sky-500/10 via-emerald-500/10 to-transparent border border-sky-500/30 dark:border-sky-500/20 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm transition-all">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-emerald-400 p-0.5 flex items-center justify-center shrink-0">
-            <div className="w-full h-full bg-slate-900 rounded-[10px] flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-amber-400" />
-            </div>
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-              <span>Bộ Khảo Sát Vàng Chuẩn Mục Tiêu IH</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-semibold">Tối ưu đề thi</span>
-            </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-              Tự động chọn các chủ đề dễ ăn điểm (Nhà ở, Quán cafe, Công viên, Chạy bộ, Du lịch biển) giúp kiểm soát thì & sự cố bất ngờ.
-            </p>
-          </div>
+      {/* Main Title */}
+      <div className="border-b border-slate-200 dark:border-slate-800 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Background Survey</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+            Answer as accurately as possible. This test will be based on your responses.
+          </p>
         </div>
-
-        <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={applyIhGoldenPreset}
-            className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-semibold text-xs shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
+            onClick={resetToUserPreset}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer shadow-xs"
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Nạp Khảo Sát Chuẩn IH</span>
+            <RotateCcw className="w-3.5 h-3.5 text-orange-500" />
+            <span>Nạp lựa chọn của tôi</span>
           </button>
-          
           <button
             type="button"
             onClick={saveCustomPreset}
-            title="Lưu lựa chọn hiện tại làm mặc định cho các lần thi sau"
-            className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-500/30 bg-brand-500/10 text-xs font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-500/20 transition-all cursor-pointer shadow-xs"
           >
-            <BookmarkCheck className="w-3.5 h-3.5 text-sky-500" />
+            <BookmarkCheck className="w-3.5 h-3.5" />
             <span>Lưu làm mặc định</span>
           </button>
         </div>
       </div>
 
       {notice && (
-        <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-medium flex items-center gap-2 animate-bounce-subtle">
+        <div className="px-4 py-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-medium animate-fadeIn flex items-center gap-2">
           <Check className="w-4 h-4 text-emerald-500" />
           <span>{notice}</span>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+      {/* Survey Form */}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-8">
         
-        {/* 1. Occupation & Student Status */}
-        <div className="glass-card rounded-2xl p-6 border border-slate-200 dark:border-slate-800 flex flex-col gap-4">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-            <span>1. Work & Education</span>
-            <ViTooltip vi="Tình trạng nghề nghiệp và học vấn của bạn sẽ quyết định các câu hỏi liên quan đến nơi làm việc hoặc trường học.">
-              <span className="text-[11px] text-brand-600 dark:text-brand-400 font-normal normal-case">Gợi ý OPIc</span>
-            </ViTooltip>
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">Occupation</label>
-              <div className="space-y-2">
-                {[
-                  'Employed in business / technology',
-                  'Healthcare / education professional',
-                  'Freelancer / remote contractor',
-                  'Currently not employed'
-                ].map((opt) => (
-                  <label key={opt} className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer text-xs text-slate-800 dark:text-slate-200 shadow-sm">
-                    <input
-                      type="radio"
-                      name="occupation"
-                      checked={occupation === opt}
-                      onChange={() => setOccupation(opt)}
-                      className="text-brand-500 focus:ring-0"
-                    />
-                    <span>{opt}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">Student Status</label>
-              <div className="space-y-2">
-                {[
-                  'Not a student',
-                  'Undergraduate college student',
-                  'Graduate student (Master / PhD)',
-                  'Taking professional certification courses'
-                ].map((opt) => (
-                  <label key={opt} className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer text-xs text-slate-800 dark:text-slate-200 shadow-sm">
-                    <input
-                      type="radio"
-                      name="studentStatus"
-                      checked={studentStatus === opt}
-                      onChange={() => setStudentStatus(opt)}
-                      className="text-brand-500 focus:ring-0"
-                    />
-                    <span>{opt}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
+        {/* ============================================================ */}
+        {/* PART 1 OF 4 */}
+        {/* ============================================================ */}
+        <section className="bg-white dark:bg-slate-900/80 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-4">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Part 1 of 4</h2>
+            <ViTooltip text="Mẹo IH: Chọn 'No work experience' giúp tránh hoàn toàn các câu hỏi combo phức tạp về dự án kỹ thuật hay văn hóa công sở." />
           </div>
-        </div>
-
-        {/* 2. Living Situation */}
-        <div className="glass-card rounded-2xl p-6 border border-slate-200 dark:border-slate-800 flex flex-col gap-4">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-            2. Housing & Living Situation
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {[
-              'Live alone in an apartment',
-              'Live with family in a house / apartment',
-              'Live with roommates / flatmates',
-              'Living in a dormitory / studio'
-            ].map((opt) => (
-              <label key={opt} className="flex items-center gap-3 p-3.5 rounded-xl bg-white dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer text-xs text-slate-800 dark:text-slate-200 shadow-sm">
+          <p className="text-base font-semibold text-slate-800 dark:text-slate-200">
+            {SURVEY_DATA.part1.question}
+          </p>
+          <div className="flex flex-col gap-2.5 pl-1">
+            {SURVEY_DATA.part1.options.map((opt) => (
+              <label key={opt} className="flex items-center gap-3 cursor-pointer text-sm text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">
                 <input
                   type="radio"
-                  name="livingSituation"
-                  checked={livingSituation === opt}
-                  onChange={() => setLivingSituation(opt)}
-                  className="text-brand-500 focus:ring-0"
+                  name="occupation"
+                  value={opt}
+                  checked={occupation === opt}
+                  onChange={() => setOccupation(opt)}
+                  className="w-4 h-4 text-orange-600 focus:ring-orange-500 focus:ring-1"
                 />
-                <span>{opt}</span>
+                <span className={occupation === opt ? "font-semibold text-slate-900 dark:text-white" : ""}>
+                  {opt}
+                </span>
               </label>
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* 3. Leisure Activities (Multi-select) */}
-        <div className="glass-card rounded-2xl p-6 border border-slate-200 dark:border-slate-800 flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-              3. Leisure Activities (Choose 3 or more)
-            </h2>
-            <span className="text-xs text-brand-600 dark:text-brand-400 font-semibold">{leisureActivities.length} selected</span>
+        {/* ============================================================ */}
+        {/* PART 2 OF 4 */}
+        {/* ============================================================ */}
+        <section className="bg-white dark:bg-slate-900/80 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-6">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Part 2 of 4</h2>
+            <ViTooltip text="Mẹo IH: Chọn 'No' và '> 5 years' để loại trừ các câu hỏi về trường học, giáo sư hay bài tập nhóm." />
+          </div>
+          
+          {/* Question 1 */}
+          <div className="flex flex-col gap-3">
+            <p className="text-base font-semibold text-slate-800 dark:text-slate-200">
+              {SURVEY_DATA.part2.q1.question}
+            </p>
+            <div className="flex flex-col gap-2.5 pl-1">
+              {SURVEY_DATA.part2.q1.options.map((opt) => (
+                <label key={opt} className="flex items-center gap-3 cursor-pointer text-sm text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">
+                  <input
+                    type="radio"
+                    name="studentStatus"
+                    value={opt}
+                    checked={studentStatus === opt}
+                    onChange={() => setStudentStatus(opt)}
+                    className="w-4 h-4 text-orange-600 focus:ring-orange-500 focus:ring-1"
+                  />
+                  <span className={studentStatus === opt ? "font-semibold text-slate-900 dark:text-white" : ""}>
+                    {opt}
+                  </span>
+                </label>
+              ))}
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-            {[
-              'Going to cafes / coffee shops',
-              'Going to parks',
-              'Watching movies at the cinema',
-              'Listening to live music',
-              'Going to the beach / lakeside',
-              'Attending sporting events',
-              'Camping / glamping',
-              'Going shopping',
-              'Visiting art galleries / museums'
-            ].map((item) => {
-              const checked = leisureActivities.includes(item);
-              return (
-                <div
-                  key={item}
-                  onClick={() => toggleItem(leisureActivities, setLeisureActivities, item)}
-                  className={`p-3 rounded-xl border text-xs cursor-pointer flex items-center justify-between transition-all ${
-                    checked
-                      ? 'bg-brand-500/10 border-brand-500/50 text-brand-700 dark:text-brand-200 font-medium'
-                      : 'bg-white dark:bg-slate-950/40 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 shadow-sm'
-                  }`}
-                >
-                  <span>{item}</span>
-                  {checked && <Check className="w-4 h-4 text-brand-500 shrink-0 ml-1" />}
-                </div>
-              );
-            })}
+          {/* Question 2 */}
+          <div className="flex flex-col gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <p className="text-base font-semibold text-slate-800 dark:text-slate-200">
+              {SURVEY_DATA.part2.q2.question}
+            </p>
+            <div className="flex flex-col gap-2.5 pl-1">
+              {SURVEY_DATA.part2.q2.options.map((opt) => (
+                <label key={opt} className="flex items-center gap-3 cursor-pointer text-sm text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">
+                  <input
+                    type="radio"
+                    name="educationExperience"
+                    value={opt}
+                    checked={educationExperience === opt}
+                    onChange={() => setEducationExperience(opt)}
+                    className="w-4 h-4 text-orange-600 focus:ring-orange-500 focus:ring-1"
+                  />
+                  <span className={educationExperience === opt ? "font-semibold text-slate-900 dark:text-white" : ""}>
+                    {opt}
+                  </span>
+                </label>
+              ))}
+            </div>
           </div>
-        </div>
+        </section>
 
-        {/* 4. Hobbies, Sports & Travel */}
-        <div className="glass-card rounded-2xl p-6 border border-slate-200 dark:border-slate-800 flex flex-col gap-5">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-            4. Hobbies, Exercise & Travel
-          </h2>
+        {/* ============================================================ */}
+        {/* PART 3 OF 4 */}
+        {/* ============================================================ */}
+        <section className="bg-white dark:bg-slate-900/80 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-4">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Part 3 of 4</h2>
+            <ViTooltip text="Mẹo IH: 'I live with family members' là chủ đề lý tưởng để miêu tả các phòng trong nhà, phân chia việc nhà và kể kỷ niệm gia đình." />
+          </div>
+          <p className="text-base font-semibold text-slate-800 dark:text-slate-200">
+            {SURVEY_DATA.part3.question}
+          </p>
+          <div className="flex flex-col gap-2.5 pl-1">
+            {SURVEY_DATA.part3.options.map((opt) => (
+              <label key={opt} className="flex items-center gap-3 cursor-pointer text-sm text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">
+                <input
+                  type="radio"
+                  name="livingSituation"
+                  value={opt}
+                  checked={livingSituation === opt}
+                  onChange={() => setLivingSituation(opt)}
+                  className="w-4 h-4 text-orange-600 focus:ring-orange-500 focus:ring-1"
+                />
+                <span className={livingSituation === opt ? "font-semibold text-slate-900 dark:text-white" : ""}>
+                  {opt}
+                </span>
+              </label>
+            ))}
+          </div>
+        </section>
 
-          <div>
-            <span className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">Hobbies & Pastimes:</span>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {[
-                'Listening to music',
-                'Cooking / trying new recipes',
-                'Reading novels',
-                'Photography',
-                'Writing / journaling',
-                'Playing video games'
-              ].map((item) => {
-                const checked = hobbies.includes(item);
+        {/* ============================================================ */}
+        {/* PART 4 OF 4 */}
+        {/* ============================================================ */}
+        <section className="bg-white dark:bg-slate-900/80 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 gap-2">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Part 4 of 4</h2>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                Select a total of at least six (6) options across the various sections below.
+              </p>
+            </div>
+            
+            {/* Live counter like real OPIc screen */}
+            <div className={`text-sm font-bold px-3 py-1 rounded-full border transition-all ${
+              isPart4Valid
+                ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+                : 'text-red-500 bg-red-500/10 border-red-500/30'
+            }`}>
+              You have selected {totalSelectedPart4} item(s) {isPart4Valid ? '✓' : '(Cần tối thiểu 6)'}
+            </div>
+          </div>
+
+          {/* Section 1: Activities */}
+          <div className="flex flex-col gap-3">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+              {SURVEY_DATA.part4.activities.title}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-1">
+              {SURVEY_DATA.part4.activities.options.map((opt) => {
+                const checked = activities.includes(opt);
                 return (
-                  <div
-                    key={item}
-                    onClick={() => toggleItem(hobbies, setHobbies, item)}
-                    className={`p-2.5 rounded-xl border text-xs cursor-pointer flex items-center justify-between transition-all ${
-                      checked 
-                        ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-700 dark:text-emerald-300 font-medium' 
-                        : 'bg-white dark:bg-slate-950/40 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 shadow-sm'
-                    }`}
-                  >
-                    <span>{item}</span>
-                    {checked && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
-                  </div>
+                  <label key={opt} className="flex items-center gap-2.5 cursor-pointer text-xs sm:text-sm text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleItem(activities, setActivities, opt)}
+                      className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500"
+                    />
+                    <span className={checked ? "font-semibold text-slate-900 dark:text-white" : ""}>
+                      {opt}
+                    </span>
+                  </label>
                 );
               })}
             </div>
           </div>
 
-          <div>
-            <span className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">Sports & Workouts:</span>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {[
-                'Jogging / running',
-                'Gym / fitness workout',
-                'Walking',
-                'Swimming',
-                'Cycling',
-                'Yoga / Pilates'
-              ].map((item) => {
-                const checked = sports.includes(item);
+          {/* Section 2: Hobbies */}
+          <div className="flex flex-col gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+              {SURVEY_DATA.part4.hobbies.title}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-1">
+              {SURVEY_DATA.part4.hobbies.options.map((opt) => {
+                const checked = hobbies.includes(opt);
                 return (
-                  <div
-                    key={item}
-                    onClick={() => toggleItem(sports, setSports, item)}
-                    className={`p-2.5 rounded-xl border text-xs cursor-pointer flex items-center justify-between transition-all ${
-                      checked 
-                        ? 'bg-sky-500/10 border-sky-500/50 text-sky-700 dark:text-sky-300 font-medium' 
-                        : 'bg-white dark:bg-slate-950/40 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 shadow-sm'
-                    }`}
-                  >
-                    <span>{item}</span>
-                    {checked && <Check className="w-3.5 h-3.5 text-sky-500 shrink-0" />}
-                  </div>
+                  <label key={opt} className="flex items-center gap-2.5 cursor-pointer text-xs sm:text-sm text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleItem(hobbies, setHobbies, opt)}
+                      className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500"
+                    />
+                    <span className={checked ? "font-semibold text-slate-900 dark:text-white" : ""}>
+                      {opt}
+                    </span>
+                  </label>
                 );
               })}
             </div>
           </div>
 
-          <div>
-            <span className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">Travel & Vacations:</span>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {[
-                'Domestic travel / beach trips',
-                'Overseas vacations',
-                'Staycations at home',
-                'Business trips'
-              ].map((item) => {
-                const checked = travel.includes(item);
+          {/* Section 3: Sports */}
+          <div className="flex flex-col gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+              {SURVEY_DATA.part4.sports.title}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pl-1">
+              {SURVEY_DATA.part4.sports.options.map((opt) => {
+                const checked = sports.includes(opt);
                 return (
-                  <div
-                    key={item}
-                    onClick={() => toggleItem(travel, setTravel, item)}
-                    className={`p-2.5 rounded-xl border text-xs cursor-pointer flex items-center justify-between transition-all ${
-                      checked 
-                        ? 'bg-amber-500/10 border-amber-500/50 text-amber-700 dark:text-amber-300 font-medium' 
-                        : 'bg-white dark:bg-slate-950/40 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 shadow-sm'
-                    }`}
-                  >
-                    <span>{item}</span>
-                    {checked && <Check className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
-                  </div>
+                  <label key={opt} className="flex items-center gap-2.5 cursor-pointer text-xs sm:text-sm text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleItem(sports, setSports, opt)}
+                      className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500"
+                    />
+                    <span className={checked ? "font-semibold text-slate-900 dark:text-white" : ""}>
+                      {opt}
+                    </span>
+                  </label>
                 );
               })}
             </div>
           </div>
-        </div>
 
-        {/* Action buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-            <span>Mẹo: Nhấn nút <strong>Nạp Khảo Sát Chuẩn IH</strong> phía trên để chọn nhanh combo dễ ăn điểm nhất.</span>
+          {/* Section 4: Vacation & Travel */}
+          <div className="flex flex-col gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+              {SURVEY_DATA.part4.travel.title}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-1">
+              {SURVEY_DATA.part4.travel.options.map((opt) => {
+                const checked = travel.includes(opt);
+                return (
+                  <label key={opt} className="flex items-center gap-2.5 cursor-pointer text-xs sm:text-sm text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleItem(travel, setTravel, opt)}
+                      className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500"
+                    />
+                    <span className={checked ? "font-semibold text-slate-900 dark:text-white" : ""}>
+                      {opt}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
+        </section>
+
+        {/* Submit Button (Styled identically to official OPIc orange Next button) */}
+        <div className="flex items-center justify-between pt-2">
+          {!isPart4Valid ? (
+            <div className="flex items-center gap-1.5 text-xs text-amber-500 font-medium">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>Hãy chọn thêm {6 - totalSelectedPart4} mục trong Part 4 để đủ điều kiện tiếp tục.</span>
+            </div>
+          ) : <div />}
 
           <button
             type="submit"
-            disabled={submitting}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-brand-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-white font-semibold text-sm shadow-xl shadow-sky-500/25 transition-all transform active:scale-95 cursor-pointer"
+            disabled={!isPart4Valid || submitting}
+            className={`flex items-center gap-2 px-8 py-3 rounded-lg font-bold text-sm tracking-wide text-white transition-all shadow-md cursor-pointer ${
+              isPart4Valid && !submitting
+                ? 'bg-[#f4511e] hover:bg-[#e64a19] active:scale-95'
+                : 'bg-slate-300 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+            }`}
           >
-            <span>{submitting ? 'Saving Survey...' : 'Next: Self-Assessment (Level 1-6)'}</span>
-            <ArrowRight className="w-4 h-4" />
+            <span>{submitting ? 'Saving Profile...' : 'Next >'}</span>
           </button>
         </div>
 

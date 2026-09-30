@@ -158,7 +158,7 @@ export const SelfAssessment = ({ sessionId, onAssessmentCompleted }) => {
             disabled={submitting}
             className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-brand-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-white font-semibold text-sm shadow-xl shadow-sky-500/25 transition-all transform active:scale-95 cursor-pointer"
           >
-            <span>{submitting ? 'Applying Difficulty...' : 'Next: Topic Selection (Choose 3)'}</span>
+            <span>{submitting ? 'Generating 15-Question Test...' : 'Assemble 15-Question Test & Pre-Test'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

@@ -44,7 +44,7 @@ const TOPIC_CHOICES = [
 export const TopicSelection = ({ sessionId, onTopicsConfirmed }) => {
   const [selectedTopics, setSelectedTopics] = useState([
     'environment',
-    'global_workplace',
+    'socio_cultural',
     'communication_media'
   ]);
   const [submitting, setSubmitting] = useState(false);
@@ -65,7 +65,7 @@ export const TopicSelection = ({ sessionId, onTopicsConfirmed }) => {
 
   const handleGenerateQuestions = async () => {
     if (selectedTopics.length !== 3) {
-      setError("Please select exactly 3 topics before generating test questions.");
+      setError("Please select exactly 3 topics before continuing.");
       return;
     }
 
@@ -76,7 +76,7 @@ export const TopicSelection = ({ sessionId, onTopicsConfirmed }) => {
       onTopicsConfirmed();
     } catch (err) {
       console.error("Topics submit error:", err);
-      setError(err.response?.data?.detail || "Failed to generate question set. Please retry.");
+      setError(err.response?.data?.detail || "Failed to save topics. Please retry.");
     } finally {
       setSubmitting(false);
     }
@@ -89,7 +89,7 @@ export const TopicSelection = ({ sessionId, onTopicsConfirmed }) => {
       <div className="text-center mb-2">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-600 dark:text-brand-400 text-xs font-semibold mb-2">
           <Layers className="w-3.5 h-3.5" />
-          <span>Step 4 of 5: Core Topic Focus</span>
+          <span>Step 2 of 5: Core Topic Focus</span>
         </div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Select Exactly 3 Topics</h1>
         <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-xl mx-auto">
@@ -177,7 +177,7 @@ export const TopicSelection = ({ sessionId, onTopicsConfirmed }) => {
           }`}
         >
           <Sparkles className="w-4 h-4 text-amber-300" />
-          <span>{submitting ? 'Generating 15 OPIc Questions...' : 'Assemble 15-Question Test & Pre-Test'}</span>
+          <span>{submitting ? 'Saving Topics...' : 'Confirm 3 Topics & Proceed to Self-Assessment'}</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>

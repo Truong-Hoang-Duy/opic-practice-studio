@@ -99,21 +99,21 @@ export const App = () => {
         {currentTab === 'survey' && (
           <Survey
             sessionId={activeSessionId}
-            onSurveyCompleted={() => setCurrentTab('self_assessment')}
-          />
-        )}
-
-        {currentTab === 'self_assessment' && (
-          <SelfAssessment
-            sessionId={activeSessionId}
-            onAssessmentCompleted={() => setCurrentTab('topic_selection')}
+            onSurveyCompleted={() => setCurrentTab('topic_selection')}
           />
         )}
 
         {currentTab === 'topic_selection' && (
           <TopicSelection
             sessionId={activeSessionId}
-            onTopicsConfirmed={() => setCurrentTab('pre_test')}
+            onTopicsConfirmed={() => setCurrentTab('self_assessment')}
+          />
+        )}
+
+        {currentTab === 'self_assessment' && (
+          <SelfAssessment
+            sessionId={activeSessionId}
+            onAssessmentCompleted={() => setCurrentTab('pre_test')}
           />
         )}
 

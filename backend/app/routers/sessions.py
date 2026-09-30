@@ -56,44 +56,15 @@ def submit_survey(
     db.commit()
     return {"message": "Survey recorded successfully."}
 
-@router.post("/{session_id}/self-assessment")
-def submit_self_assessment(
-    session_id: int,
-    assessment: SelfAssessmentSubmit,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    session = db.query(TestSession).filter(TestSession.id == session_id, TestSession.user_id == current_user.id).first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found.")
-
-    session.self_assessment_level = assessment.level
-    db.commit()
-    return {"message": "Self-assessment recorded successfully."}
-
-@router.post("/{session_id}/topics")
-def submit_topics_and_generate_questions(
-    session_id: int,
-    topics_in: TopicsSubmit,
-    background_tasks: BackgroundTasks,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    session = db.query(TestSession).filter(TestSession.id == session_id, TestSession.user_id == current_user.id).first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found.")
-
-    session.topics = topics_in.topics
+def _generate_session_questions(session: TestSession, db: Session, background_tasks: BackgroundTasks):
     session.status = "in_progress"
-
     # Remove any existing questions if re-generating
     db.query(Question).filter(Question.session_id == session.id).delete()
 
-    # Generate 15 OPIc questions
     generated_qs = generate_15_opic_questions(
         survey_data=session.survey_data or {},
         self_assessment_level=session.self_assessment_level or 4,
-        chosen_topics=session.topics
+        chosen_topics=session.topics or ["environment", "socio_cultural", "communication_media"]
     )
 
     created_questions = []
@@ -115,6 +86,51 @@ def submit_topics_and_generate_questions(
     # Pre-synthesize Eva audio for first 3 questions in background
     for q in created_questions[:3]:
         background_tasks.add_task(synthesize_speech, q.question_text)
+
+    return created_questions
+
+@router.post("/{session_id}/self-assessment")
+def submit_self_assessment(
+    session_id: int,
+    assessment: SelfAssessmentSubmit,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    session = db.query(TestSession).filter(TestSession.id == session_id, TestSession.user_id == current_user.id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found.")
+
+    session.self_assessment_level = assessment.level
+    db.commit()
+
+    # If topics have already been chosen (TopicSelection before SelfAssessment), generate questions!
+    if session.topics and len(session.topics) == 3:
+        created = _generate_session_questions(session, db, background_tasks)
+        return {
+            "message": "Self-assessment recorded and questions generated successfully.",
+            "total_questions": len(created),
+            "session_id": session.id
+        }
+
+    return {"message": "Self-assessment recorded successfully."}
+
+@router.post("/{session_id}/topics")
+def submit_topics_and_generate_questions(
+    session_id: int,
+    topics_in: TopicsSubmit,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    session = db.query(TestSession).filter(TestSession.id == session_id, TestSession.user_id == current_user.id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found.")
+
+    session.topics = topics_in.topics
+    db.commit()
+
+    created_questions = _generate_session_questions(session, db, background_tasks)
 
     return {
         "message": "Questions generated successfully.",
