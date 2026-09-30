@@ -70,18 +70,26 @@ export const App = () => {
     setCurrentTab('report');
   };
 
+  const isExamScreen = currentTab === 'test';
+
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
+    <div className={
+      isExamScreen
+        ? "h-screen w-screen overflow-hidden flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 select-none"
+        : "min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors"
+    }>
       
-      {/* Top Navbar */}
-      <Navbar
-        currentTab={currentTab}
-        setTab={setCurrentTab}
-        onOpenRubric={() => setIsRubricModalOpen(true)}
-      />
+      {/* Top Navbar (Hidden in Test Mode) */}
+      {!isExamScreen && (
+        <Navbar
+          currentTab={currentTab}
+          setTab={setCurrentTab}
+          onOpenRubric={() => setIsRubricModalOpen(true)}
+        />
+      )}
 
       {/* Main Screen Router */}
-      <main className="flex-1">
+      <main className={isExamScreen ? "flex-1 overflow-y-auto flex flex-col justify-center py-2" : "flex-1"}>
         {currentTab === 'dashboard' && (
           <Dashboard
             onStartTest={handleStartNewTest}
@@ -147,8 +155,8 @@ export const App = () => {
         )}
       </main>
 
-      {/* Footer with ACTFL/LTI non-affiliation disclaimer */}
-      <Footer />
+      {/* Footer with ACTFL/LTI non-affiliation disclaimer (Hidden in Test Mode) */}
+      {!isExamScreen && <Footer />}
 
       {/* Rubric Guide Modal */}
       <RubricGuideModal

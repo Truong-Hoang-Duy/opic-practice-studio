@@ -176,6 +176,19 @@ export const TestSession = ({
           }`}>
             {sessionMode} Mode
           </span>
+          {onExit && (
+            <button
+              onClick={() => {
+                if (window.confirm("Bạn có chắc chắn muốn tạm dừng bài thi và quay lại Dashboard?")) {
+                  onExit();
+                }
+              }}
+              className="text-xs font-medium px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+              title="Quay lại Dashboard"
+            >
+              Thoát
+            </button>
+          )}
         </div>
       </div>
 
