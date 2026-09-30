@@ -1,5 +1,5 @@
 import React from 'react';
-import { Headphones, Award, History, BookOpen, LogOut, User, Sun, Moon } from 'lucide-react';
+import { Headphones, Award, History, Library, LogOut, User, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -13,7 +13,7 @@ export const Navbar = ({ currentTab, setTab, onOpenRubric }) => {
     { key: 'dashboard', label: 'Studio Home', shortLabel: 'Home', icon: Award, active: currentTab === 'dashboard', onClick: () => setTab('dashboard') },
     { key: 'test', label: 'Take Test', shortLabel: 'Test', icon: Headphones, active: TEST_FLOW_TABS.includes(currentTab), onClick: () => setTab('system_check') },
     { key: 'history', label: 'History', shortLabel: 'History', icon: History, active: currentTab === 'history', onClick: () => setTab('history') },
-    { key: 'rubric', label: 'IH Rubric', shortLabel: 'Rubric', icon: BookOpen, active: false, onClick: onOpenRubric },
+    { key: 'library', label: 'Question Bank', shortLabel: 'Bộ đề', icon: Library, active: currentTab === 'library', onClick: () => setTab('library') },
   ];
 
   return (
@@ -52,7 +52,7 @@ export const Navbar = ({ currentTab, setTab, onOpenRubric }) => {
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${key === 'rubric' && !active ? 'text-emerald-500 dark:text-emerald-400' : ''}`} />
+                <Icon className="w-4 h-4" />
                 <span>{label}</span>
               </button>
             ))}

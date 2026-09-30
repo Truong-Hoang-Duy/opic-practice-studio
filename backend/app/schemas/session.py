@@ -25,6 +25,8 @@ class SurveySubmit(BaseModel):
 
 class SelfAssessmentSubmit(BaseModel):
     level: int = Field(ge=1, le=6, description="Self-assessment level from 1 to 6")
+    # True -> strict exam ("exam" mode), False -> coached practice ("practice" mode), None -> keep current mode
+    strict_mode: Optional[bool] = None
 
 class TopicsSubmit(BaseModel):
     topics: List[str]

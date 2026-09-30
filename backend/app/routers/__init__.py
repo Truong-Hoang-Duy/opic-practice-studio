@@ -5,6 +5,7 @@ from app.routers.answers import router as answers_router
 from app.routers.stt import router as stt_router
 from app.routers.history import router as history_router
 from app.routers.system import router as system_router
+from app.routers.library import router as library_router
 
 __all__ = [
     "auth_router",

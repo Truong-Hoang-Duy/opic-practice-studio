@@ -5,6 +5,7 @@ import { ViTooltip } from './Tooltip';
 export const AudioRecorder = ({
   onRecordingComplete,
   isPracticeMode = false,
+  hideTranscript = false, // strict exam: speech is still recognised, but the text isn't shown
   targetDurationMin = 60,
   targetDurationMax = 120,
 }) => {
@@ -340,7 +341,15 @@ export const AudioRecorder = ({
         </div>
         
         <div className="text-xs sm:text-[13px] text-slate-800 dark:text-slate-200 h-[65px] overflow-y-auto leading-relaxed">
-          {tokens.length > 0 ? (
+          {hideTranscript ? (
+            <div className="flex items-center justify-center h-full text-center">
+              <p className="text-slate-400 dark:text-slate-500 text-xs italic">
+                {isRecording
+                  ? 'Đang ghi âm... (Thi nghiêm túc: transcript được ẩn)'
+                  : 'Thi nghiêm túc: transcript được ẩn. Bấm "Start Recording Answer" để bắt đầu nói.'}
+              </p>
+            </div>
+          ) : tokens.length > 0 ? (
             <div className="flex flex-wrap gap-1">
               {tokens.map((t, idx) => (
                 <span

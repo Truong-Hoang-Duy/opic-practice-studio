@@ -37,6 +37,7 @@ export const sessionApi = {
   getQuestions: (id) => api.get(`/sessions/${id}/questions`),
   getQuestionByIndex: (id, orderIndex) => api.get(`/sessions/${id}/questions/${orderIndex}`),
   finishSession: (id) => api.post(`/sessions/${id}/finish`),
+  skipQuestion: (id, orderIndex) => api.post(`/sessions/${id}/questions/${orderIndex}/skip`),
   getReport: (id) => api.get(`/sessions/${id}/report`),
 };
 
@@ -66,10 +67,27 @@ export const historyApi = {
   getStats: () => api.get('/history/stats'),
 };
 
+export const libraryApi = {
+  get: () => api.get('/library'),
+  playlist: (data) => api.post('/library/playlist', data),
+};
+
 export const systemApi = {
   ping: () => api.get('/system/ping'),
   getSampleQuestion: () => api.get('/system/sample-question'),
   getBrowserGuide: () => api.get('/system/browser-info-guide'),
+};
+
+// Human-readable message for any API error (FastAPI detail may be a string, a list or an object)
+export const formatApiError = (err, fallback = 'Đã có lỗi xảy ra. Vui lòng thử lại.') => {
+  if (!err?.response) {
+    return 'Không kết nối được máy chủ (backend có thể đang khởi động lại). Vui lòng thử lại sau vài giây.';
+  }
+  const detail = err.response.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) return detail.map(d => d.msg || JSON.stringify(d)).join('; ');
+  if (detail?.message) return detail.message;
+  return `${fallback} (HTTP ${err.response.status})`;
 };
 
 // Backend-served media (e.g. /data/audio_cache/...) must point at the API host when frontend and backend are split

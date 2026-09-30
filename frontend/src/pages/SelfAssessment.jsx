@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowRight, Sliders, CheckCircle2, Star, Sparkles } from 'lucide-react';
-import { sessionApi } from '../api/client';
+import { sessionApi, formatApiError } from '../api/client';
 import { ViTooltip } from '../components/Tooltip';
 
 const ASSESSMENT_LEVELS = [
@@ -55,19 +55,22 @@ const ASSESSMENT_LEVELS = [
   }
 ];
 
-export const SelfAssessment = ({ sessionId, onAssessmentCompleted }) => {
+export const SelfAssessment = ({ sessionId, defaultStrict = false, onAssessmentCompleted }) => {
   const [selectedLevel, setSelectedLevel] = useState(4); // Default level 4 for IH aspirants
+  const [strictMode, setStrictMode] = useState(defaultStrict);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+    setError('');
     try {
-      await sessionApi.submitSelfAssessment(sessionId, { level: selectedLevel });
-      onAssessmentCompleted();
+      const res = await sessionApi.submitSelfAssessment(sessionId, { level: selectedLevel, strict_mode: strictMode });
+      onAssessmentCompleted(res.data?.mode || (strictMode ? 'exam' : 'practice'));
     } catch (err) {
       console.error("Self-assessment submission failed:", err);
-      onAssessmentCompleted();
+      setError(formatApiError(err, 'Không tạo được bộ đề.'));
     } finally {
       setSubmitting(false);
     }
@@ -151,8 +154,41 @@ export const SelfAssessment = ({ sessionId, onAssessmentCompleted }) => {
           })}
         </div>
 
+        {/* Strict exam toggle */}
+        <div className={`flex items-start justify-between gap-4 p-4 rounded-2xl border transition-colors ${
+          strictMode
+            ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-300 dark:border-rose-500/30'
+            : 'bg-white dark:bg-slate-900/80 border-slate-200 dark:border-slate-800'
+        }`}>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-slate-900 dark:text-white">Strict exam mode (Thi nghiêm túc)</p>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+              {strictMode
+                ? 'Bật: Eva đọc câu hỏi, sau đó bạn có 5 giây để nghe lại (chỉ 1 lần). Không hiện câu hỏi/transcript, không lùi hay nhảy câu. Thoát giữa chừng vẫn lưu tiến trình. Kết quả chỉ hiển thị sau khi thi xong.'
+                : 'Tắt: chế độ luyện tập có hướng dẫn. Xem câu hỏi, gợi ý và chấm điểm ngay sau mỗi câu; bấm Next cũng xem được gợi ý và bài mẫu.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={strictMode}
+            aria-label="Strict exam mode"
+            onClick={() => setStrictMode(v => !v)}
+            className={`relative flex-shrink-0 w-12 h-7 rounded-full transition-colors cursor-pointer ${
+              strictMode ? 'bg-rose-500' : 'bg-slate-300 dark:bg-slate-700'
+            }`}
+          >
+            <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+              strictMode ? 'translate-x-5' : 'translate-x-0'
+            }`} />
+          </button>
+        </div>
+
         {/* Submit */}
-        <div className="flex justify-end pt-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 pt-4">
+          {error && (
+            <span className="text-xs font-medium text-rose-600 dark:text-rose-400 sm:mr-auto">{error}</span>
+          )}
           <button
             type="submit"
             disabled={submitting}

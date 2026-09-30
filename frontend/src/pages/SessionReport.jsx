@@ -255,7 +255,7 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
               <thead className="bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 font-bold">
                 <tr>
                   <th className="py-2.5 px-3">#</th>
-                  <th className="py-2.5 px-3">Topic</th>
+                  <th className="py-2.5 px-3 min-w-[240px]">Question</th>
                   <th className="py-2.5 px-3">Level</th>
                   <th className="py-2.5 px-3 text-center">Fluency</th>
                   <th className="py-2.5 px-3 text-center">Tenses</th>
@@ -265,26 +265,56 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-800 dark:text-slate-300">
-                {per_question_summary.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                {per_question_summary.map((row, idx) => {
+                  // Older reports have no status field: every row was a scored one
+                  const status = row.status || 'scored';
+                  const statusLabel = {
+                    unscored: 'Không chấm (khởi động)',
+                    skipped: 'Bỏ qua',
+                    unanswered: 'Chưa trả lời',
+                  }[status];
+                  return (
+                  <tr key={idx} className="align-top hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                     <td className="py-2 px-3 font-mono font-bold text-brand-600 dark:text-brand-400">Q{row.question_num}</td>
-                    <td className="py-2 px-3 font-semibold text-slate-900 dark:text-white">{row.topic}</td>
                     <td className="py-2 px-3">
-                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${
-                        row.estimated_level === 'IH' 
-                          ? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30' 
-                          : 'bg-sky-50 dark:bg-sky-500/20 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-500/30'
-                      }`}>
-                        {row.estimated_level}
-                      </span>
+                      <div className="font-semibold text-slate-900 dark:text-white">{row.topic}</div>
+                      {row.question_text && (
+                        <p className="mt-0.5 text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">"{row.question_text}"</p>
+                      )}
+                      {row.transcript && (
+                        <details className="mt-1">
+                          <summary className="cursor-pointer text-[11px] font-semibold text-brand-600 dark:text-brand-400">Câu trả lời của bạn</summary>
+                          <p className="mt-1 text-[11px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-lg p-2">{row.transcript}</p>
+                        </details>
+                      )}
                     </td>
-                    <td className="py-2 px-3 text-center font-medium">{row.score_fluency}/5</td>
-                    <td className="py-2 px-3 text-center font-medium">{row.score_tenses}/5</td>
-                    <td className="py-2 px-3 text-center font-medium">{row.score_organization}/5</td>
-                    <td className="py-2 px-3 text-center font-medium">{row.score_vocabulary}/5</td>
-                    <td className="py-2 px-3 text-center font-medium">{row.score_grammar}/5</td>
+                    {status === 'scored' ? (
+                      <>
+                        <td className="py-2 px-3">
+                          <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${
+                            row.estimated_level === 'IH'
+                              ? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30'
+                              : 'bg-sky-50 dark:bg-sky-500/20 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-500/30'
+                          }`}>
+                            {row.estimated_level}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-center font-medium">{row.score_fluency}/5</td>
+                        <td className="py-2 px-3 text-center font-medium">{row.score_tenses}/5</td>
+                        <td className="py-2 px-3 text-center font-medium">{row.score_organization}/5</td>
+                        <td className="py-2 px-3 text-center font-medium">{row.score_vocabulary}/5</td>
+                        <td className="py-2 px-3 text-center font-medium">{row.score_grammar}/5</td>
+                      </>
+                    ) : (
+                      <td colSpan={6} className="py-2 px-3">
+                        <span className="px-2 py-0.5 rounded text-[11px] font-semibold border bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700">
+                          {statusLabel}
+                        </span>
+                      </td>
+                    )}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

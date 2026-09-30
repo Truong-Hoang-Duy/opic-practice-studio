@@ -24,6 +24,7 @@ from app.services.question_generator import build_session_questions, generate_pe
 from app.services.tts_service import prefetch_speech, refresh_question_audio
 from app.services.llm_service import generate_session_report_llm
 from app.services.pdf_service import generate_session_pdf
+from app.services.evaluation_service import evaluate_versions_in_parallel
 
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
 
@@ -140,6 +141,8 @@ def submit_self_assessment(
         raise HTTPException(status_code=404, detail="Session not found.")
 
     session.self_assessment_level = assessment.level
+    if assessment.strict_mode is not None:
+        session.mode = "exam" if assessment.strict_mode else "practice"
     db.commit()
 
     # If topics have already been chosen (TopicSelection before SelfAssessment), generate questions!
@@ -149,10 +152,11 @@ def submit_self_assessment(
             "message": "Self-assessment recorded and questions generated successfully.",
             "total_questions": len(created),
             "question_source": source,
+            "mode": session.mode,
             "session_id": session.id
         }
 
-    return {"message": "Self-assessment recorded successfully."}
+    return {"message": "Self-assessment recorded successfully.", "mode": session.mode}
 
 @router.post("/{session_id}/topics")
 def submit_topics_and_generate_questions(
@@ -168,6 +172,11 @@ def submit_topics_and_generate_questions(
 
     session.topics = topics_in.topics
     db.commit()
+
+    # Normal flow is topics -> self-assessment, which generates the questions (one LLM call).
+    # Only generate here when the level was submitted first.
+    if not session.self_assessment_level:
+        return {"message": "Topics saved.", "total_questions": 0, "session_id": session.id}
 
     created_questions, source = _generate_session_questions(session, db, background_tasks)
 
@@ -277,6 +286,39 @@ def get_session_question_by_index(
 
     return q
 
+@router.post("/{session_id}/questions/{order_index}/skip")
+def skip_question(
+    session_id: int,
+    order_index: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Learner pressed "Next" without recording. In strict exam mode the question is closed for good
+    (stored as an empty answer), so it can't be revisited after exiting and resuming.
+    """
+    session = db.query(TestSession).filter(TestSession.id == session_id, TestSession.user_id == current_user.id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    q = db.query(Question).filter(Question.session_id == session.id, Question.order_index == order_index).first()
+    if not q:
+        raise HTTPException(status_code=404, detail=f"Question {order_index} not found.")
+
+    if session.mode != "exam":
+        return {"skipped": False, "message": "Practice mode: question left open to revisit."}
+
+    existing = db.query(Answer).filter(Answer.session_id == session.id, Answer.question_id == q.id).first()
+    if not existing:
+        db.add(Answer(
+            question_id=q.id,
+            session_id=session.id,
+            duration_seconds=0.0,
+            transcript_raw="",
+            transcript_edited=""
+        ))
+        db.commit()
+    return {"skipped": True}
+
 @router.post("/{session_id}/finish")
 def finish_session(
     session_id: int,
@@ -308,21 +350,47 @@ def get_session_report(
         return existing_report
 
     # Generate new report
-    answers = db.query(Answer).filter(Answer.session_id == session.id).all()
+    questions = db.query(Question).filter(Question.session_id == session.id).order_by(Question.order_index).all()
+    answers_by_q = {a.question_id: a for a in db.query(Answer).filter(Answer.session_id == session.id).all()}
+
+    def latest_version(answer):
+        return db.query(AnswerVersion).filter(AnswerVersion.answer_id == answer.id).order_by(AnswerVersion.version_number.desc()).first()
+
+    # Strict exam answers are never evaluated during the test: score them all now, in parallel
+    pending = []
+    for q in questions:
+        a = answers_by_q.get(q.id)
+        if not a or q.question_type in UNSCORED_QUESTION_TYPES:
+            continue
+        ver = latest_version(a)
+        if ver and (ver.transcript or "").strip() and not ver.evaluations:
+            pending.append((ver, q))
+    evaluate_versions_in_parallel(db, session, pending)
+
     evaluations: list[Evaluation] = []
     per_question_summary = []
-
-    for a in answers:
-        latest_ver = db.query(AnswerVersion).filter(AnswerVersion.answer_id == a.id).order_by(AnswerVersion.version_number.desc()).first()
-        if a.question and a.question.question_type in UNSCORED_QUESTION_TYPES:
-            continue
-        if latest_ver and latest_ver.evaluations:
-            ev = latest_ver.evaluations[0]
+    for q in questions:
+        a = answers_by_q.get(q.id)
+        ver = latest_version(a) if a else None
+        transcript = ((ver.transcript if ver else None) or (a.transcript_edited if a else "") or "").strip()
+        row = {
+            "question_num": q.order_index,
+            "topic": q.topic,
+            "question_text": q.question_text,
+            "question_type": q.question_type,
+            "transcript": transcript,
+        }
+        if q.question_type in UNSCORED_QUESTION_TYPES:
+            row["status"] = "unscored"
+        elif not a:
+            row["status"] = "unanswered"
+        elif not transcript:
+            row["status"] = "skipped"
+        elif ver and ver.evaluations:
+            ev = ver.evaluations[0]
             evaluations.append(ev)
-            q = a.question
-            per_question_summary.append({
-                "question_num": q.order_index if q else 1,
-                "topic": q.topic if q else "General",
+            row.update({
+                "status": "scored",
                 "estimated_level": ev.estimated_level,
                 "score_fluency": ev.score_fluency,
                 "score_tenses": ev.score_tenses,
@@ -331,6 +399,9 @@ def get_session_report(
                 "score_grammar": ev.score_grammar,
                 "score_task_completion": ev.score_task_completion
             })
+        else:
+            row["status"] = "unanswered"
+        per_question_summary.append(row)
 
     if evaluations:
         avg_fluency = sum(e.score_fluency for e in evaluations) / len(evaluations)
@@ -353,12 +424,12 @@ def get_session_report(
 
     answers_summary_text = "\n".join([
         f"Q{item['question_num']} ({item['topic']}): Level {item['estimated_level']} | Fl:{item['score_fluency']} Ten:{item['score_tenses']} Org:{item['score_organization']} Voc:{item['score_vocabulary']} Gr:{item['score_grammar']}"
-        for item in per_question_summary
+        for item in per_question_summary if item["status"] == "scored"
     ])
 
     report_data, p_tok, c_tok, cost = generate_session_report_llm(
         target_level="IH",
-        num_answers=len(answers),
+        num_answers=len(evaluations),
         answers_summary=answers_summary_text or "No detailed answers available.",
         avg_fluency=avg_fluency,
         avg_tenses=avg_tenses,

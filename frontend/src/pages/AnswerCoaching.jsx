@@ -24,11 +24,15 @@ export const AnswerCoaching = ({
   question,
   onNextQuestion,
   onRetryQuestion,
-  assessmentLevel = 4
+  assessmentLevel = 4,
+  nextLabel = 'Sang câu tiếp theo'
 }) => {
   // Q1 self-introduction is a warm-up and is never scored (same as the real OPIc)
   const isUnscored = question?.question_type === 'self_intro';
-  const [activeTab, setActiveTab] = useState(isUnscored ? 'guide' : 'evaluation'); // 'evaluation', 'guide', 'rewrite', 'models'
+  // Practice "Next" without recording: no answer, but question/guide/model answers are still shown
+  const noAnswer = !answerId;
+  const hideScoring = isUnscored || noAnswer;
+  const [activeTab, setActiveTab] = useState(hideScoring ? 'guide' : 'evaluation'); // 'evaluation', 'guide', 'rewrite', 'models'
   
   // Level mapping based on candidate's self-assessment
   const levelToCode = { 1: 'Novice', 2: 'Novice', 3: 'IL', 4: 'IM', 5: 'IH', 6: 'AL' };
@@ -68,7 +72,7 @@ export const AnswerCoaching = ({
   }, [assessmentLevel]);
 
   const loadAnswerData = async () => {
-    if (isUnscored) {
+    if (hideScoring) {
       setEvaluating(false);
       return;
     }
@@ -92,7 +96,7 @@ export const AnswerCoaching = ({
       setActiveTranscript(editedText);
       setIsEditingTranscript(false);
 
-      if (isUnscored) return;
+      if (hideScoring) return;
 
       // Re-trigger evaluation on new version
       setEvaluating(true);
@@ -199,20 +203,21 @@ export const AnswerCoaching = ({
             className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-300 dark:border-slate-700 transition-colors cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Ghi âm lại</span>
+            <span>{noAnswer ? 'Trả lời câu này' : 'Ghi âm lại'}</span>
           </button>
 
           <button
             onClick={onNextQuestion}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-white text-xs font-bold shadow-lg shadow-sky-500/25 transition-all cursor-pointer"
           >
-            <span>Sang câu tiếp theo</span>
+            <span>{nextLabel}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
       {/* 1. Transcript View with Editable Mode */}
+      {!noAnswer && (
       <div className="glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex flex-col gap-3 shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80 pb-2.5">
           <div className="flex items-center gap-2">
@@ -276,8 +281,18 @@ export const AnswerCoaching = ({
           </div>
         )}
       </div>
+      )}
 
-      {isUnscored && (
+      {noAnswer && (
+        <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-xs text-amber-800 dark:text-amber-300">
+          <HelpCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span>
+            <strong>Bạn đã bỏ qua câu này.</strong> Xem lại câu hỏi, khung gợi ý và bài mẫu bên dưới. Bấm "Trả lời câu này" để ghi âm, hoặc sang câu tiếp theo.
+          </span>
+        </div>
+      )}
+
+      {isUnscored && !noAnswer && (
         <div className="flex items-start gap-2 p-3 rounded-xl bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 text-xs text-sky-800 dark:text-sky-300">
           <HelpCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <span>
@@ -288,7 +303,7 @@ export const AnswerCoaching = ({
 
       {/* Navigation Tabs for Coaching Panels */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-1 overflow-x-auto [&>button]:flex-shrink-0 [&>button]:whitespace-nowrap">
-        {!isUnscored && (
+        {!hideScoring && (
         <button
           onClick={() => setActiveTab('evaluation')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
@@ -314,7 +329,7 @@ export const AnswerCoaching = ({
           <span>Step-by-Step Outline Guide</span>
         </button>
 
-        {!isUnscored && (
+        {!hideScoring && (
         <button
           onClick={handleTriggerRewrite}
           disabled={rewriting}
@@ -343,7 +358,7 @@ export const AnswerCoaching = ({
       </div>
 
       {/* TAB 1: Evaluation */}
-      {activeTab === 'evaluation' && !isUnscored && (
+      {activeTab === 'evaluation' && !hideScoring && (
         <div className="flex flex-col gap-6">
           {evaluating ? (
             <div className="glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-12 text-center border border-slate-200 dark:border-slate-800 flex flex-col items-center gap-3 shadow-sm">

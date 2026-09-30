@@ -7,6 +7,7 @@ from app.schemas.question import QuestionResponse, ModelAnswerResponse
 from app.core.security import get_current_user
 from app.services.tts_service import cached_speech_url, prefetch_speech, refresh_question_audio
 from app.services.llm_service import generate_model_answers_llm
+from app.routers.library import default_model_level
 
 router = APIRouter(prefix="/questions", tags=["Questions"])
 
@@ -69,7 +70,8 @@ def get_model_answers(
             db.add(model_obj)
         db.commit()
         existing_models = db.query(ModelAnswer).filter(ModelAnswer.question_id == q.id).all()
-        prefetch_speech(m.text for m in existing_models)
+        preferred = default_model_level(q.session) if q.session else "IM"
+        prefetch_speech(m.text for m in sorted(existing_models, key=lambda m: m.level != preferred))
 
     # Attach audio that finished synthesizing since the last request
     updated = False

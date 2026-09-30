@@ -128,6 +128,14 @@ Hệ thống được thiết kế để **dùng chung 1 Database duy nhất**:
    - Q15: Chủ đề 3 đã chọn (So sánh quá khứ vs hiện tại & Xu hướng tương lai).
    - **Tạo đề bằng AI:** `build_session_questions()` gọi `OPENAI_MODEL` với survey + level + 3 chủ đề để tạo Q2-Q15 (prompt `prompts/generate_questions.txt`, validate `GeneratedQuestionSet` - đủ 14 câu Q2-Q15, Q11-Q13 đúng loại role-play). Lỗi/không hợp lệ → dùng ngân hàng câu hỏi `seed_data.py`. Hướng dẫn tiếng Việt cá nhân hóa được sinh nền (`prompts/generate_guides.txt`), trong lúc chờ dùng `DEFAULT_GUIDES_BY_TYPE`. Tắt bằng `AI_QUESTION_GENERATION=false`.
    - Eva đọc câu hỏi (cho phép nghe lại 1 lần). Chữ của câu hỏi bị ẩn mặc định (tắt hoàn toàn ở Exam Mode). Đồng hồ 60-120s.
+   - **Công tắc "Strict exam mode"** ở bước Self-Assessment (lưu vào `test_sessions.mode`: bật = `exam`, tắt = `practice`):
+     - Bật: sau khi Eva đọc xong có **5 giây** để nghe lại (1 lần, hết giờ là mất); không hiện câu hỏi/transcript; không lùi/nhảy câu; Next = bỏ qua vĩnh viễn (`POST /sessions/{id}/questions/{order}/skip` lưu câu trả lời rỗng); thoát giữa chừng vẫn lưu tiến trình và Resume tiếp tục từ câu chưa làm; kết quả chỉ hiện sau khi thi xong — báo cáo chấm song song toàn bộ câu trả lời và liệt kê đủ 15 câu (câu hỏi, câu trả lời, trạng thái).
+     - Tắt: luyện tập như cũ; bấm Next vẫn mở trang coaching (câu hỏi, gợi ý, bài mẫu) nhưng không chấm điểm.
+   - System Check không bắt buộc: có thể bấm Next bỏ qua.
+8. **Question Bank (tab "Bộ đề", `QuestionLibrary.jsx`, router `/api/library`):**
+   - Liệt kê mọi bộ đề AI đã ra theo từng lần thi: chủ đề, câu hỏi, bài mẫu (IL/IM/IH, mặc định theo mức đã thi), số lần đã luyện và level gần nhất.
+   - "Luyện lại": nghe Eva đọc, ghi âm, chấm điểm, sửa lỗi (dùng lại `AnswerCoaching`); mỗi lần luyện tạo `AnswerVersion` mới.
+   - Nghe hằng ngày: chọn câu → `POST /api/library/playlist` ghép "câu hỏi + bài mẫu" thành **một file MP3** (`playlist_service.py`, tạo nền, client poll tiến độ, cache tại `data/audio_cache/playlists/`). Một file liền mạch giúp điện thoại vẫn phát khi tắt màn hình (kèm Media Session cho điều khiển trên màn hình khóa); có nút Lặp lại và Tải MP3.
 7. **Coaching & Results (Trang phản hồi & Báo cáo):**
    - Transcript editable (mỗi lần sửa tạo 1 version).
    - Kết quả chấm điểm AI theo ACTFL, chỉ ra lỗi và giải thích tiếng Việt.

@@ -32,14 +32,35 @@ export const EvaAvatar = ({
   autoPlay = true,
   onAudioEnded,
   allowReplay = true,
-  maxReplays = 1
+  maxReplays = 1,
+  // Strict exam: replay is only possible within this many seconds after Eva finishes reading
+  replayWindowSec = null
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [replayCount, setReplayCount] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [audioFailed, setAudioFailed] = useState(false);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+  const [replayWindowLeft, setReplayWindowLeft] = useState(null); // null = not opened yet, 0 = expired
   const audioRef = useRef(null);
   const utteranceRef = useRef(null);
+  const isReplayingRef = useRef(false);
+
+  const handlePlaybackEnded = () => {
+    setIsPlaying(false);
+    if (replayWindowSec && !isReplayingRef.current && replayCount < maxReplays) {
+      setReplayWindowLeft(replayWindowSec);
+    }
+    isReplayingRef.current = false;
+    if (onAudioEnded) onAudioEnded();
+  };
+
+  // Count down the replay window; once it hits 0 the replay is lost
+  useEffect(() => {
+    if (!replayWindowLeft) return;
+    const timer = setTimeout(() => setReplayWindowLeft(left => Math.max(0, left - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [replayWindowLeft]);
 
   const src = resolveMediaUrl(audioUrl);
   const speechSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
@@ -66,8 +87,7 @@ export const EvaAvatar = ({
     utterance.onend = () => {
       // Ignore events from utterances that were cancelled/replaced
       if (utteranceRef.current !== utterance) return;
-      setIsPlaying(false);
-      if (onAudioEnded) onAudioEnded();
+      handlePlaybackEnded();
     };
     utterance.onerror = () => {
       if (utteranceRef.current === utterance) setIsPlaying(false);
@@ -87,6 +107,7 @@ export const EvaAvatar = ({
       audioRef.current.currentTime = 0;
       audioRef.current.play().catch(e => {
         console.warn("Autoplay blocked by browser policy; user interaction needed:", e);
+        setAutoplayBlocked(true);
       });
     } else if (useSpeech) {
       speakText();
@@ -116,8 +137,24 @@ export const EvaAvatar = ({
     }
   };
 
+  const windowOpen = !replayWindowSec || replayWindowLeft > 0;
+  const canReplay = replayCount < maxReplays && !isPlaying && windowOpen;
+
+  const handleFirstPlay = () => {
+    // Autoplay was blocked: the learner starts the first reading manually (doesn't use the replay)
+    setAutoplayBlocked(false);
+    if (useSpeech) {
+      speakText();
+    } else if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(() => setAutoplayBlocked(true));
+    }
+  };
+
   const handleReplay = () => {
-    if (replayCount >= maxReplays) return;
+    if (!canReplay) return;
+    isReplayingRef.current = true;
+    setReplayWindowLeft(null);
     if (useSpeech) {
       setReplayCount(prev => prev + 1);
       speakText();
@@ -153,10 +190,7 @@ export const EvaAvatar = ({
             setIsPlaying(false);
             setAudioFailed(true);
           }}
-          onEnded={() => {
-            setIsPlaying(false);
-            if (onAudioEnded) onAudioEnded();
-          }}
+          onEnded={handlePlaybackEnded}
         />
       )}
       {/* Avatar Container */}
@@ -288,20 +322,44 @@ export const EvaAvatar = ({
 
       {/* Audio controls (Replay question button) */}
       <div className="flex items-center gap-2 mt-2">
-        <ViTooltip vi="Nghe lại câu hỏi một lần nữa (Quy chế OPIc cho phép nghe lại 1 lần).">
+        {autoplayBlocked && !isPlaying ? (
+          <button
+            onClick={handleFirstPlay}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-500 hover:bg-brand-600 text-white shadow-sm cursor-pointer"
+          >
+            <Volume2 className="w-3.5 h-3.5" />
+            <span>Phát câu hỏi</span>
+          </button>
+        ) : (
+        <ViTooltip vi={replayWindowSec
+          ? `Thi nghiêm túc: chỉ được nghe lại 1 lần, trong ${replayWindowSec} giây sau khi Eva đọc xong.`
+          : 'Nghe lại câu hỏi một lần nữa (Quy chế OPIc cho phép nghe lại 1 lần).'}>
           <button
             onClick={handleReplay}
-            disabled={replayCount >= maxReplays || isPlaying}
+            disabled={!canReplay}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-              replayCount < maxReplays && !isPlaying
-                ? 'bg-sky-50 hover:bg-sky-100 dark:bg-slate-900 dark:hover:bg-slate-800 text-sky-700 dark:text-sky-400 border-sky-300 dark:border-sky-500/30 hover:border-sky-400 cursor-pointer shadow-xs'
+              canReplay
+                ? (replayWindowSec
+                    ? 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-500/40 cursor-pointer shadow-xs animate-pulse-subtle'
+                    : 'bg-sky-50 hover:bg-sky-100 dark:bg-slate-900 dark:hover:bg-slate-800 text-sky-700 dark:text-sky-400 border-sky-300 dark:border-sky-500/30 hover:border-sky-400 cursor-pointer shadow-xs')
                 : 'bg-slate-100 dark:bg-slate-900/40 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-800 cursor-not-allowed'
             }`}
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Replay ({maxReplays - replayCount} left)</span>
+            <span>{
+              !replayWindowSec
+                ? `Replay (${maxReplays - replayCount} left)`
+                : replayCount >= maxReplays
+                ? 'Đã nghe lại'
+                : replayWindowLeft > 0
+                ? `Nghe lại (${replayWindowLeft}s)`
+                : replayWindowLeft === 0
+                ? 'Hết lượt nghe lại'
+                : 'Replay (1 left)'
+            }</span>
           </button>
         </ViTooltip>
+        )}
 
         <button
           onClick={toggleMute}

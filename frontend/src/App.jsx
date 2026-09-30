@@ -14,6 +14,7 @@ import { PreTestSetup } from './pages/PreTestSetup';
 import { TestSession } from './pages/TestSession';
 import { SessionReport } from './pages/SessionReport';
 import { HistoryPage } from './pages/HistoryPage';
+import { QuestionLibrary } from './pages/QuestionLibrary';
 
 import { sessionApi } from './api/client';
 
@@ -60,8 +61,14 @@ export const App = () => {
     }
   };
 
-  const handleResumeSession = (sessionId) => {
+  const handleResumeSession = async (sessionId) => {
     setActiveSessionId(sessionId);
+    try {
+      const res = await sessionApi.getStatus(sessionId);
+      if (res.data?.mode) setActiveSessionMode(res.data.mode);
+    } catch (err) {
+      console.warn("Could not load session mode", err);
+    }
     setCurrentTab('test');
   };
 
@@ -121,7 +128,11 @@ export const App = () => {
         {currentTab === 'self_assessment' && (
           <SelfAssessment
             sessionId={activeSessionId}
-            onAssessmentCompleted={() => setCurrentTab('pre_test')}
+            defaultStrict={activeSessionMode === 'exam'}
+            onAssessmentCompleted={(mode) => {
+              if (mode) setActiveSessionMode(mode);
+              setCurrentTab('pre_test');
+            }}
           />
         )}
 
@@ -146,6 +157,8 @@ export const App = () => {
             onReturnHome={() => setCurrentTab('dashboard')}
           />
         )}
+
+        {currentTab === 'library' && <QuestionLibrary />}
 
         {currentTab === 'history' && (
           <HistoryPage

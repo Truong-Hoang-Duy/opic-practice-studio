@@ -36,10 +36,15 @@ export const TestSession = ({
   const [isAnswerCoachingOpen, setIsAnswerCoachingOpen] = useState(false);
   const [replayUsed, setReplayUsed] = useState(false);
   const [sessionInfo, setSessionInfo] = useState(null);
+  const [coachingSkipped, setCoachingSkipped] = useState(false); // practice: coaching opened via "Next" without an answer
+
+  // The session's stored mode wins (e.g. when resuming); "exam" = strict exam mode
+  const effectiveMode = sessionInfo?.mode || sessionMode;
+  const isStrictExam = effectiveMode === 'exam';
 
   // Trap browser Back navigation in Exam Mode
   useEffect(() => {
-    if (sessionMode === 'exam') {
+    if (isStrictExam) {
       window.history.pushState(null, '', window.location.href);
 
       const handlePopState = () => {
@@ -60,11 +65,11 @@ export const TestSession = ({
         window.removeEventListener('beforeunload', handleBeforeUnload);
       };
     }
-  }, [sessionMode]);
+  }, [isStrictExam]);
 
   // Jump to specific question in Practice Mode
   const handleJumpToQuestion = async (targetIndex) => {
-    if (sessionMode === 'exam') return;
+    if (isStrictExam) return;
     if (targetIndex < 1 || targetIndex > 15 || targetIndex === currentQuestion?.order_index) return;
     setLoadingQuestion(true);
     setShowQuestionText(false);
@@ -140,8 +145,9 @@ export const TestSession = ({
 
       const res = await answerApi.submit(formData);
       setLatestAnswer(res.data);
+      setCoachingSkipped(false);
 
-      if (sessionMode === 'practice') {
+      if (!isStrictExam) {
         // In practice mode, open coaching review immediately
         setIsAnswerCoachingOpen(true);
       } else {
@@ -163,6 +169,21 @@ export const TestSession = ({
   // "Next" without recording: skip the current question (last question finishes the test)
   const handleSkipQuestion = async () => {
     if (!currentQuestion || submittingAnswer) return;
+
+    if (!isStrictExam) {
+      // Practice: still show the question, guide and model answers, like after a recording
+      setLatestAnswer(null);
+      setCoachingSkipped(true);
+      setIsAnswerCoachingOpen(true);
+      return;
+    }
+
+    // Strict exam: the skipped question is closed for good (kept across exit/resume)
+    try {
+      await sessionApi.skipQuestion(sessionId, currentQuestion.order_index);
+    } catch (err) {
+      console.warn("Failed to record skipped question", err);
+    }
     if (currentQuestion.order_index >= 15) {
       await sessionApi.finishSession(sessionId);
       onTestComplete();
@@ -181,10 +202,10 @@ export const TestSession = ({
   }
 
   // If in practice mode and coaching screen is active
-  if (isAnswerCoachingOpen && latestAnswer && currentQuestion) {
+  if (isAnswerCoachingOpen && currentQuestion && (latestAnswer || coachingSkipped)) {
     return (
       <AnswerCoaching
-        answerId={latestAnswer.id}
+        answerId={latestAnswer?.id || null}
         question={currentQuestion}
         assessmentLevel={sessionInfo?.self_assessment_level || 4}
         onNextQuestion={() => {
@@ -197,13 +218,13 @@ export const TestSession = ({
         onRetryQuestion={() => {
           setIsAnswerCoachingOpen(false);
           setLatestAnswer(null);
+          setCoachingSkipped(false);
         }}
       />
     );
   }
 
   const qIndex = currentQuestion?.order_index || 1;
-  const isStrictExam = sessionMode === 'exam';
 
   return (
     <div className="w-full max-w-6xl px-4 sm:px-6 py-4 flex flex-col gap-4 my-auto">
@@ -318,12 +339,15 @@ export const TestSession = ({
               ? 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20'
               : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
           }`}>
-            {sessionMode} Mode
+            {isStrictExam ? 'Strict Exam' : 'Practice Mode'}
           </span>
           {onExit && (
             <button
               onClick={() => {
-                if (window.confirm("Bạn có chắc chắn muốn tạm dừng bài thi và quay lại Dashboard?")) {
+                const message = isStrictExam
+                  ? "Tạm dừng bài thi? Các câu đã làm được lưu lại, bạn có thể tiếp tục từ câu hiện tại trong Dashboard / History."
+                  : "Bạn có chắc chắn muốn tạm dừng bài thi và quay lại Dashboard?";
+                if (window.confirm(message)) {
                   onExit();
                 }
               }}
@@ -346,6 +370,8 @@ export const TestSession = ({
             {/* Top part: Eva Avatar */}
             <div className="flex flex-col items-center">
               <EvaAvatar
+                key={currentQuestion?.id}
+                replayWindowSec={isStrictExam ? 5 : null}
                 audioUrl={currentQuestion?.audio_path}
                 text={currentQuestion?.question_text}
                 autoPlay={true}
@@ -417,6 +443,7 @@ export const TestSession = ({
           <AudioRecorder
             onRecordingComplete={handleRecordingComplete}
             isPracticeMode={!isStrictExam}
+            hideTranscript={isStrictExam}
             targetDurationMin={60}
             targetDurationMax={120}
           />

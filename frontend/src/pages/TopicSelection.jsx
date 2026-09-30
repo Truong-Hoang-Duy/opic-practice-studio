@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowRight, Check, Sparkles, Layers, ShieldCheck, AlertCircle } from 'lucide-react';
-import { sessionApi } from '../api/client';
+import { sessionApi, formatApiError } from '../api/client';
 import { ViTooltip } from '../components/Tooltip';
 
 const TOPIC_CHOICES = [
@@ -76,7 +76,7 @@ export const TopicSelection = ({ sessionId, onTopicsConfirmed }) => {
       onTopicsConfirmed();
     } catch (err) {
       console.error("Topics submit error:", err);
-      setError(err.response?.data?.detail || "Failed to save topics. Please retry.");
+      setError(formatApiError(err, 'Không lưu được chủ đề.'));
     } finally {
       setSubmitting(false);
     }
@@ -166,7 +166,10 @@ export const TopicSelection = ({ sessionId, onTopicsConfirmed }) => {
       </div>
 
       {/* Action Button */}
-      <div className="flex justify-end pt-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 pt-4">
+        {error && (
+          <span className="text-xs font-medium text-rose-600 dark:text-rose-400 sm:mr-auto">{error}</span>
+        )}
         <button
           onClick={handleGenerateQuestions}
           disabled={selectedTopics.length !== 3 || submitting}

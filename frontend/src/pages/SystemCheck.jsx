@@ -448,14 +448,10 @@ export const SystemCheck = ({ onAllChecksPassed }) => {
       <div className="flex justify-end pt-4">
         <button
           onClick={onAllChecksPassed}
-          disabled={!allPassed}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all shadow-xl ${
-            allPassed
-              ? 'bg-gradient-to-r from-brand-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-white shadow-sky-500/25 cursor-pointer transform active:scale-95'
-              : 'bg-slate-200 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-300 dark:border-slate-800'
-          }`}
+          title={allPassed ? undefined : 'Bạn có thể bỏ qua bước kiểm tra và sang bước tiếp theo'}
+          className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all shadow-xl bg-gradient-to-r from-brand-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-white shadow-sky-500/25 cursor-pointer transform active:scale-95"
         >
-          <span>Next: Background Survey</span>
+          <span>{allPassed ? 'Next: Background Survey' : 'Skip checks: Background Survey'}</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>

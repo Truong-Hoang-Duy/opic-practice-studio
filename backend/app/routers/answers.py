@@ -6,7 +6,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.question import Question
 from app.models.answer import Answer, AnswerVersion
-from app.models.evaluation import Evaluation, FeedbackItem
+from app.models.evaluation import Evaluation
 from app.models.report import LLMUsageLog
 from app.schemas.answer import (
     AnswerResponse,
@@ -20,9 +20,10 @@ from app.schemas.evaluation import (
     DiffChunk,
 )
 from app.core.security import get_current_user
+from app.services.evaluation_service import run_evaluation_llm, save_evaluation, exam_level_for
 from app.schemas.question import UNSCORED_QUESTION_TYPES
 from app.services.stt_service import save_raw_audio, parse_words_with_confidence
-from app.services.llm_service import evaluate_answer_llm, rewrite_answer_llm
+from app.services.llm_service import rewrite_answer_llm
 
 router = APIRouter(prefix="/answers", tags=["Answers"])
 
@@ -175,61 +176,8 @@ def evaluate_answer(
 
     q = answer.question
     session = answer.session or db.query(TestSession).filter(TestSession.id == answer.session_id).first()
-    level_map = {1: "Novice", 2: "Novice", 3: "IL", 4: "IM", 5: "IH", 6: "AL"}
-    exam_level = level_map.get(session.self_assessment_level, "IM") if session else "IM"
-
-    eval_data, p_tok, c_tok, cost = evaluate_answer_llm(
-        question_text=q.question_text if q else "General OPIc Question",
-        question_type=q.question_type if q else "description",
-        topic=q.topic if q else "General",
-        target_level=exam_level,
-        transcript=ver.transcript
-    )
-
-    # Log usage
-    llm_log = LLMUsageLog(
-        session_id=answer.session_id,
-        call_type="evaluation",
-        model="llm",
-        prompt_tokens=p_tok,
-        completion_tokens=c_tok,
-        total_tokens=p_tok + c_tok,
-        estimated_cost=cost
-    )
-    db.add(llm_log)
-
-    eval_obj = Evaluation(
-        answer_version_id=ver.id,
-        estimated_level=eval_data.get("estimated_level", "IM"),
-        score_fluency=eval_data.get("score_fluency", 3),
-        score_tenses=eval_data.get("score_tenses", 3),
-        score_organization=eval_data.get("score_organization", 3),
-        score_vocabulary=eval_data.get("score_vocabulary", 3),
-        score_grammar=eval_data.get("score_grammar", 3),
-        score_task_completion=eval_data.get("score_task_completion", 3),
-        tense_control_details=eval_data.get("tense_control_details", {}),
-        complication_present=eval_data.get("complication_present", False),
-        story_narrative_present=eval_data.get("story_narrative_present", False),
-        feedback_summary=eval_data.get("feedback_summary", "Evaluation complete."),
-        actionable_steps=eval_data.get("actionable_steps", [])
-    )
-    db.add(eval_obj)
-    db.commit()
-    db.refresh(eval_obj)
-
-    # Save feedback items
-    for item in eval_data.get("feedback_items", []):
-        fb = FeedbackItem(
-            evaluation_id=eval_obj.id,
-            mistake=item.get("mistake", ""),
-            correction=item.get("correction", ""),
-            explanation_en=item.get("explanation_en", ""),
-            explanation_vi=item.get("explanation_vi", ""),
-            category=item.get("category", "grammar")
-        )
-        db.add(fb)
-    db.commit()
-    db.refresh(eval_obj)
+    eval_data, p_tok, c_tok, cost = run_evaluation_llm(q, exam_level_for(session), ver.transcript)
+    eval_obj = save_evaluation(db, answer.session_id, ver, eval_data, p_tok, c_tok, cost)
 
     return eval_obj
 
