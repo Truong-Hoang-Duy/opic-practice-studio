@@ -105,7 +105,7 @@ export const HistoryPage = ({ onViewReport, onResumeSession }) => {
               className="glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-slate-300 dark:hover:border-slate-700 transition-all shadow-sm"
             >
               <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-2.5">
+                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
                   <span className="text-sm font-bold text-slate-900 dark:text-white">Session #{session.id}</span>
                   <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize ${
                     session.status === 'completed'
@@ -117,17 +117,17 @@ export const HistoryPage = ({ onViewReport, onResumeSession }) => {
                   <span className="text-xs text-slate-600 dark:text-slate-400">Mode: <strong className="capitalize text-slate-800 dark:text-slate-200">{session.mode}</strong></span>
                 </div>
 
-                <div className="flex items-center gap-4 text-xs text-slate-600 dark:text-slate-400">
-                  <span className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+                  <span className="flex items-center gap-1 whitespace-nowrap">
                     <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                     {new Date(session.started_at).toLocaleString()}
                   </span>
-                  <span>•</span>
-                  <span>Answered: {session.answered_count} / {session.total_questions || 15} questions</span>
+                  <span className="hidden sm:inline">•</span>
+                  <span className="whitespace-nowrap">Answered: {session.answered_count} / {session.total_questions || 15} questions</span>
                 </div>
 
                 {session.topics && session.topics.length > 0 && (
-                  <div className="flex items-center gap-1.5 mt-1">
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
                     <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Topics:</span>
                     {session.topics.map((t, i) => (
                       <span key={i} className="text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">

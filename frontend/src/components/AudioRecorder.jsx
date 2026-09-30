@@ -26,6 +26,15 @@ export const AudioRecorder = ({
   // Clean up on unmount
   useEffect(() => {
     return () => {
+      // Leaving mid-recording (e.g. "Next" on Q1): discard the take and release the microphone
+      const recorder = mediaRecorderRef.current;
+      if (recorder) {
+        recorder.onstop = null;
+        if (recorder.state !== 'inactive') {
+          try { recorder.stop(); } catch (e) {}
+        }
+        recorder.stream?.getTracks().forEach(track => track.stop());
+      }
       stopAllStreams();
     };
   }, []);

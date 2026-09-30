@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { historyApi, sessionApi } from '../api/client';
-import { Play, Sparkles, Clock, CheckCircle, BarChart3, ArrowRight, ShieldCheck, Flame } from 'lucide-react';
+import { Play, Sparkles, Clock, CheckCircle, BarChart3, ArrowRight, Flame } from 'lucide-react';
 import { ViTooltip } from '../components/Tooltip';
 
 export const Dashboard = ({ onStartTest, onResumeSession, onViewReport }) => {
@@ -29,10 +29,10 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport }) => {
   }, []);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex flex-col gap-6 sm:gap-8">
       
       {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-3xl glass-panel bg-gradient-to-r from-sky-50/90 via-emerald-50/40 to-slate-100/90 dark:from-slate-900 dark:via-slate-900/95 dark:to-sky-950/40 p-8 border border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-2xl transition-colors">
+      <div className="relative overflow-hidden rounded-3xl glass-panel bg-gradient-to-r from-sky-50/90 via-emerald-50/40 to-slate-100/90 dark:from-slate-900 dark:via-slate-900/95 dark:to-sky-950/40 p-5 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-2xl transition-colors">
         <div className="relative z-10 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold mb-3">
             <Flame className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
@@ -43,14 +43,14 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport }) => {
             Welcome, <span className="text-brand-600 dark:text-brand-400">{user?.full_name || 'Candidate'}</span>!
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-300 mt-3 leading-relaxed font-medium">
-            Ready to simulate the official 15-question OPIc interview flow with AI Examiner Eva? Focus on paragraph-length storytelling, past tense consistency, and handling unexpected complications to secure your IH rating.
+            Ready to simulate the official 15-question OPIc interview flow with AI Examiner Eva? Focus on paragraph-length storytelling, past tense consistency, and handling unexpected complications to reach your target level.
           </p>
 
           {/* Quick Action Buttons */}
-          <div className="flex flex-wrap items-center gap-4 mt-6">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-4 mt-6">
             <button
               onClick={() => onStartTest('practice')}
-              className="flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-gradient-to-r from-brand-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-white font-semibold text-sm shadow-xl shadow-sky-500/25 transition-all transform active:scale-95 cursor-pointer"
+              className="flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-gradient-to-r from-brand-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-white font-semibold text-sm shadow-xl shadow-sky-500/25 transition-all transform active:scale-95 cursor-pointer"
             >
               <Sparkles className="w-4 h-4 text-amber-300" />
               <span>Start Practice Mode (Coached)</span>
@@ -58,7 +58,7 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport }) => {
 
             <button
               onClick={() => onStartTest('exam')}
-              className="flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white dark:text-slate-200 font-semibold text-sm border border-slate-700 transition-all transform active:scale-95 cursor-pointer shadow-md"
+              className="flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white dark:text-slate-200 font-semibold text-sm border border-slate-700 transition-all transform active:scale-95 cursor-pointer shadow-md"
             >
               <Play className="w-4 h-4 text-emerald-400" />
               <span>Take Full Exam Simulation</span>
@@ -66,15 +66,6 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport }) => {
           </div>
         </div>
 
-        {/* Decorative Badge */}
-        <div className="hidden lg:flex absolute right-12 top-1/2 -translate-y-1/2 flex-col items-center justify-center w-48 h-48 rounded-2xl bg-white/95 dark:bg-slate-900/90 border border-slate-200 dark:border-sky-500/20 p-4 shadow-xl">
-          <div className="w-14 h-14 rounded-full bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center mb-2">
-            <ShieldCheck className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Goal Rating</span>
-          <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">ACTFL IH</span>
-          <span className="text-[10px] text-slate-500 dark:text-slate-400 text-center mt-1">Paragraph Discourse & Tenses</span>
-        </div>
       </div>
 
       {/* Metrics Row */}

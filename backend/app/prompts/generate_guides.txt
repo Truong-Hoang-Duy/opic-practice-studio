@@ -1,0 +1,29 @@
+You are an OPIc coach for Vietnamese learners aiming for ACTFL Intermediate High (IH).
+For EACH question below, write a Vietnamese step-by-step answer guide that helps the learner reach IH.
+
+Learner self-assessment level: {LEVEL} / 6 (target band {BASE_DIFFICULTY})
+
+=== QUESTIONS (JSON) ===
+{QUESTIONS_JSON}
+
+=== RULES ===
+- overview and hint_vi are in Vietnamese; example_phrases, recommended_vocabulary and sample_sentence_starters are natural English.
+- target_pattern is an arrow-separated outline in English (e.g. "Context -> Complication -> Resolution -> Feeling").
+- Exactly 3 steps per guide, each with 1 example phrase.
+- 4 recommended_vocabulary items and 2 sample_sentence_starters per guide.
+- Role-play guides: role_play_ask must show 3-4 questions to ask; role_play_problem must explain the problem and offer 2-3 alternatives; role_play_experience must narrate a past story with a complication and resolution.
+
+=== OUTPUT FORMAT (strict JSON, no prose) ===
+{{
+  "guides": [
+    {{
+      "order_index": 1,
+      "overview": "...",
+      "target_pattern": "A -> B -> C",
+      "steps": [{{"step_number": 1, "title": "...", "hint_vi": "...", "example_phrases": ["..."]}}],
+      "recommended_vocabulary": ["..."],
+      "sample_sentence_starters": ["..."]
+    }}
+  ]
+}}
+Return one guide per question, keyed by the same order_index.

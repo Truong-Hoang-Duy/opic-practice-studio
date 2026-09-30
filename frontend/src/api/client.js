@@ -31,7 +31,9 @@ export const sessionApi = {
   submitSelfAssessment: (id, data) => api.post(`/sessions/${id}/self-assessment`, data),
   submitTopics: (id, data) => api.post(`/sessions/${id}/topics`, data),
   getStatus: (id) => api.get(`/sessions/${id}/status`),
-  getNextQuestion: (id) => api.get(`/sessions/${id}/next-question`),
+  getNextQuestion: (id, afterOrder) => api.get(`/sessions/${id}/next-question`, {
+    params: afterOrder ? { after_order: afterOrder } : undefined
+  }),
   getQuestions: (id) => api.get(`/sessions/${id}/questions`),
   getQuestionByIndex: (id, orderIndex) => api.get(`/sessions/${id}/questions/${orderIndex}`),
   finishSession: (id) => api.post(`/sessions/${id}/finish`),
@@ -68,6 +70,14 @@ export const systemApi = {
   ping: () => api.get('/system/ping'),
   getSampleQuestion: () => api.get('/system/sample-question'),
   getBrowserGuide: () => api.get('/system/browser-info-guide'),
+};
+
+// Backend-served media (e.g. /data/audio_cache/...) must point at the API host when frontend and backend are split
+export const resolveMediaUrl = (path) => {
+  if (!path || /^https?:\/\//.test(path)) return path;
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (!envUrl || !envUrl.startsWith('http')) return path;
+  return `${new URL(envUrl).origin}${path}`;
 };
 
 export default api;

@@ -26,7 +26,9 @@ export const AnswerCoaching = ({
   onRetryQuestion,
   assessmentLevel = 4
 }) => {
-  const [activeTab, setActiveTab] = useState('evaluation'); // 'evaluation', 'guide', 'rewrite', 'models'
+  // Q1 self-introduction is a warm-up and is never scored (same as the real OPIc)
+  const isUnscored = question?.question_type === 'self_intro';
+  const [activeTab, setActiveTab] = useState(isUnscored ? 'guide' : 'evaluation'); // 'evaluation', 'guide', 'rewrite', 'models'
   
   // Level mapping based on candidate's self-assessment
   const levelToCode = { 1: 'Novice', 2: 'Novice', 3: 'IL', 4: 'IM', 5: 'IH', 6: 'AL' };
@@ -66,6 +68,10 @@ export const AnswerCoaching = ({
   }, [assessmentLevel]);
 
   const loadAnswerData = async () => {
+    if (isUnscored) {
+      setEvaluating(false);
+      return;
+    }
     try {
       const res = await answerApi.evaluate(answerId);
       setEvaluation(res.data);
@@ -85,6 +91,8 @@ export const AnswerCoaching = ({
       });
       setActiveTranscript(editedText);
       setIsEditingTranscript(false);
+
+      if (isUnscored) return;
 
       // Re-trigger evaluation on new version
       setEvaluating(true);
@@ -269,8 +277,18 @@ export const AnswerCoaching = ({
         )}
       </div>
 
+      {isUnscored && (
+        <div className="flex items-start gap-2 p-3 rounded-xl bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 text-xs text-sky-800 dark:text-sky-300">
+          <HelpCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span>
+            <strong>Question 1 is not scored.</strong> Câu 1 (giới thiệu bản thân) chỉ để khởi động, không tính điểm, giống bài thi OPIc thật. Hãy tham khảo hướng dẫn và bài mẫu rồi chuyển sang câu tiếp theo.
+          </span>
+        </div>
+      )}
+
       {/* Navigation Tabs for Coaching Panels */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-1">
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-1 overflow-x-auto [&>button]:flex-shrink-0 [&>button]:whitespace-nowrap">
+        {!isUnscored && (
         <button
           onClick={() => setActiveTab('evaluation')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
@@ -282,6 +300,7 @@ export const AnswerCoaching = ({
           <Award className="w-4 h-4" />
           <span>ACTFL Diagnostic ({evaluation?.estimated_level || 'Evaluating...'})</span>
         </button>
+        )}
 
         <button
           onClick={() => setActiveTab('guide')}
@@ -295,6 +314,7 @@ export const AnswerCoaching = ({
           <span>Step-by-Step Outline Guide</span>
         </button>
 
+        {!isUnscored && (
         <button
           onClick={handleTriggerRewrite}
           disabled={rewriting}
@@ -307,6 +327,7 @@ export const AnswerCoaching = ({
           <Sparkles className="w-4 h-4" />
           <span>{rewriting ? 'Upgrading Answer...' : 'Improve My Answer (Upgrade)'}</span>
         </button>
+        )}
 
         <button
           onClick={() => setActiveTab('models')}
@@ -322,7 +343,7 @@ export const AnswerCoaching = ({
       </div>
 
       {/* TAB 1: Evaluation */}
-      {activeTab === 'evaluation' && (
+      {activeTab === 'evaluation' && !isUnscored && (
         <div className="flex flex-col gap-6">
           {evaluating ? (
             <div className="glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-12 text-center border border-slate-200 dark:border-slate-800 flex flex-col items-center gap-3 shadow-sm">

@@ -1,13 +1,16 @@
 import json
 import logging
-from typing import Dict, Any, Tuple, Optional
-from openai import OpenAI
+from typing import Dict, Any, List, Tuple, Optional
+from openai import OpenAI, BadRequestError
+from pydantic import ValidationError
 from app.config import settings
 from app.prompts.templates import (
     get_evaluate_prompt,
     get_rewrite_prompt,
     get_model_answers_prompt,
     get_session_report_prompt,
+    get_generate_questions_prompt,
+    get_generate_guides_prompt,
 )
 
 logger = logging.getLogger("opic_llm")
@@ -17,10 +20,33 @@ logger.setLevel(logging.INFO)
 COST_PER_1K_PROMPT = 0.0025
 COST_PER_1K_COMPLETION = 0.0100
 
-def get_openai_client() -> Optional[OpenAI]:
+# Reasoning models (e.g. gpt-5.x) reject custom temperatures; remembered after the first refusal
+_temperature_supported = True
+
+def get_openai_client(timeout: float = 60.0) -> Optional[OpenAI]:
     if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.startswith("your_"):
         return None
-    return OpenAI(api_key=settings.OPENAI_API_KEY, timeout=10.0)
+    return OpenAI(api_key=settings.OPENAI_API_KEY, timeout=timeout)
+
+def _create_json_completion(client: OpenAI, prompt: str, temperature: float, system_prompt: str):
+    global _temperature_supported
+    kwargs = dict(
+        model=settings.OPENAI_MODEL,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt}
+        ],
+        response_format={"type": "json_object"},
+    )
+    if _temperature_supported:
+        try:
+            return client.chat.completions.create(temperature=temperature, **kwargs)
+        except BadRequestError as e:
+            if "temperature" not in str(e):
+                raise
+            logger.info(f"Model {settings.OPENAI_MODEL} does not support custom temperature; using default.")
+            _temperature_supported = False
+    return client.chat.completions.create(**kwargs)
 
 def calculate_cost(prompt_tokens: int, completion_tokens: int) -> float:
     return (prompt_tokens / 1000.0 * COST_PER_1K_PROMPT) + (completion_tokens / 1000.0 * COST_PER_1K_COMPLETION)
@@ -32,7 +58,6 @@ def call_openai_json(prompt: str, temperature: float = 0.2) -> Tuple[Dict[str, A
     Returns (parsed_json, prompt_tokens, completion_tokens, cost).
     """
     client = get_openai_client()
-    model = settings.OPENAI_MODEL
 
     if not client:
         # Fallback Mock response for test/offline environments
@@ -43,14 +68,9 @@ def call_openai_json(prompt: str, temperature: float = 0.2) -> Tuple[Dict[str, A
 
     for attempt in range(max_attempts):
         try:
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "You are an official ACTFL/OPIc evaluation system. Always respond with pure valid JSON only."},
-                    {"role": "user", "content": prompt}
-                ],
-                response_format={"type": "json_object"},
-                temperature=temperature
+            response = _create_json_completion(
+                client, prompt, temperature,
+                "You are an official ACTFL/OPIc evaluation system. Always respond with pure valid JSON only."
             )
 
             content = response.choices[0].message.content
@@ -298,3 +318,52 @@ def get_mock_json_response(prompt: str) -> Dict[str, Any]:
                 ]
             }
         }
+
+def _call_openai_validated(prompt: str, schema, timeout: float) -> Optional[Tuple[Any, int, int, float]]:
+    """
+    Strict variant of call_openai_json for generation tasks: validates against a Pydantic schema,
+    retries once, and returns None (instead of a mock) so the caller can use its own fallback.
+    """
+    client = get_openai_client(timeout=timeout)
+    if not client:
+        return None
+    for attempt in range(2):
+        try:
+            response = _create_json_completion(client, prompt, 0.7, "You are an expert OPIc test designer. Always respond with pure valid JSON only.")
+            usage = response.usage
+            p_tok = usage.prompt_tokens if usage else 0
+            c_tok = usage.completion_tokens if usage else 0
+            parsed = schema.model_validate(json.loads(response.choices[0].message.content))
+            return parsed, p_tok, c_tok, calculate_cost(p_tok, c_tok)
+        except (json.JSONDecodeError, ValidationError) as e:
+            logger.warning(f"{schema.__name__} attempt {attempt+1} returned invalid output: {e}")
+        except Exception as e:
+            logger.warning(f"{schema.__name__} attempt {attempt+1} failed: {e}")
+            break
+    return None
+
+def generate_questions_llm(
+    survey_data: Dict[str, Any],
+    level: int,
+    base_difficulty: str,
+    topics: List[str]
+):
+    """Returns (GeneratedQuestionSet, prompt_tokens, completion_tokens, cost) or None on failure."""
+    from app.schemas.question import GeneratedQuestionSet
+    prompt = get_generate_questions_prompt(
+        survey_json=json.dumps(survey_data, ensure_ascii=False),
+        level=level,
+        base_difficulty=base_difficulty,
+        topics=topics
+    )
+    return _call_openai_validated(prompt, GeneratedQuestionSet, timeout=45.0)
+
+def generate_guides_llm(questions: List[Dict[str, Any]], level: int, base_difficulty: str):
+    """Returns (GeneratedGuideSet, prompt_tokens, completion_tokens, cost) or None on failure."""
+    from app.schemas.question import GeneratedGuideSet
+    prompt = get_generate_guides_prompt(
+        questions_json=json.dumps(questions, ensure_ascii=False),
+        level=level,
+        base_difficulty=base_difficulty
+    )
+    return _call_openai_validated(prompt, GeneratedGuideSet, timeout=90.0)

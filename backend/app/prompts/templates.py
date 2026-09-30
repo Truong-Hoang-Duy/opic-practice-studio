@@ -82,3 +82,38 @@ def get_session_report_prompt(
         AVG_GRAMMAR=f"{avg_grammar:.1f}",
         AVG_TASK_COMPLETION=f"{avg_task_completion:.1f}"
     )
+
+LEVEL_GUIDANCE = {
+    1: "Level 1-2 learner: keep prompts short and concrete; role-play problem should be simple and everyday.",
+    2: "Level 1-2 learner: keep prompts short and concrete; role-play problem should be simple and everyday.",
+    3: "Level 3-4 learner: connected prompts with clear past-tense storytelling; role-play problem of moderate complexity.",
+    4: "Level 3-4 learner: connected prompts with clear past-tense storytelling; role-play problem of moderate complexity.",
+    5: "Level 5-6 learner: multi-part prompts demanding past/present/future control, complications and comparisons; role-play problem requires negotiating 2-3 alternatives.",
+    6: "Level 5-6 learner: multi-part prompts demanding past/present/future control, complications and comparisons; role-play problem requires negotiating 2-3 alternatives.",
+}
+
+def get_generate_questions_prompt(
+    survey_json: str,
+    level: int,
+    base_difficulty: str,
+    topics: list
+) -> str:
+    template = load_template("generate_questions.txt")
+    labels = [t.replace("_", " ").title() for t in topics]
+    return template.format(
+        SURVEY_JSON=survey_json,
+        LEVEL=level,
+        BASE_DIFFICULTY=base_difficulty,
+        LEVEL_GUIDANCE=LEVEL_GUIDANCE.get(level, LEVEL_GUIDANCE[4]),
+        TOPIC_1=labels[0],
+        TOPIC_2=labels[1],
+        TOPIC_3=labels[2]
+    )
+
+def get_generate_guides_prompt(questions_json: str, level: int, base_difficulty: str) -> str:
+    template = load_template("generate_guides.txt")
+    return template.format(
+        QUESTIONS_JSON=questions_json,
+        LEVEL=level,
+        BASE_DIFFICULTY=base_difficulty
+    )

@@ -5,7 +5,7 @@ from app.database import get_db
 from app.models.question import Question, ModelAnswer
 from app.schemas.question import QuestionResponse, ModelAnswerResponse
 from app.core.security import get_current_user
-from app.services.tts_service import synthesize_speech
+from app.services.tts_service import cached_speech_url, prefetch_speech, refresh_question_audio
 from app.services.llm_service import generate_model_answers_llm
 
 router = APIRouter(prefix="/questions", tags=["Questions"])
@@ -16,9 +16,7 @@ def get_question(question_id: int, db: Session = Depends(get_db)):
     if not q:
         raise HTTPException(status_code=404, detail="Question not found.")
     
-    if not q.audio_path:
-        q.audio_path = synthesize_speech(q.question_text)
-        db.commit()
+    refresh_question_audio(q, db)
 
     return q
 
@@ -28,9 +26,7 @@ def get_question_audio(question_id: int, db: Session = Depends(get_db)):
     if not q:
         raise HTTPException(status_code=404, detail="Question not found.")
 
-    if not q.audio_path:
-        q.audio_path = synthesize_speech(q.question_text)
-        db.commit()
+    refresh_question_audio(q, db)
 
     return {"audio_url": q.audio_path}
 
@@ -59,7 +55,8 @@ def get_model_answers(
             txt = ans.get("text", "")
             rationale = ans.get("rationale", "")
             sentences = ans.get("sentences", [txt])
-            audio_url = synthesize_speech(txt)
+            # Long model answers are synthesized in the background; the path is filled in on a later request
+            audio_url = cached_speech_url(txt)
 
             model_obj = ModelAnswer(
                 question_id=q.id,
@@ -72,6 +69,17 @@ def get_model_answers(
             db.add(model_obj)
         db.commit()
         existing_models = db.query(ModelAnswer).filter(ModelAnswer.question_id == q.id).all()
+        prefetch_speech(m.text for m in existing_models)
+
+    # Attach audio that finished synthesizing since the last request
+    updated = False
+    for m in existing_models:
+        url = cached_speech_url(m.text)
+        if url and url != m.audio_path:
+            m.audio_path = url
+            updated = True
+    if updated:
+        db.commit()
 
     if level:
         existing_models = [m for m in existing_models if m.level.upper() == level.upper()]

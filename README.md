@@ -20,7 +20,7 @@
 - **Speech & AI Intelligence**:
   - **LLM**: OpenAI API (`OPENAI_MODEL` env var, default `"gpt-5.6-luna"`, structured outputs)
   - **STT (Speech-to-Text)**: Soniox real-time WebSocket streaming (`/ws/stt` proxy + temporary token generator; permanent API key is never exposed to the client)
-  - **TTS (Text-to-Speech)**: OpenAI TTS (`TTS_MODEL` env var, default `"gpt-4o-mini-tts"`, voice `"alloy"`) with disk-based hash caching (`hash(text + voice)`) so every prompt is synthesized only once
+  - **TTS (Text-to-Speech)**: open-source Kokoro-82M (`TTS_PROVIDER=kokoro`, voice `af_heart`, runs on CPU, no API key) or OpenAI TTS (`TTS_PROVIDER=openai`), with disk-based hash caching (`hash(text + voice + model)`) so every prompt is synthesized only once; browser Web Speech API fallback
 - **Frontend**:
   - React 18, Vite 5, Tailwind CSS
   - SVG Animated Examiner Avatar "Eva" with synchronized mouth animation and audio soundwave visualizer
@@ -66,7 +66,7 @@ opic-practice-studio/
 │       │   └── session_report.txt # Final diagnostic report template
 │       ├── services/
 │       │   ├── llm_service.py  # OpenAI client with structured parsing & retry
-│       │   ├── tts_service.py  # Eva OpenAI TTS with hash disk caching
+│       │   ├── tts_service.py  # Eva TTS (Kokoro / OpenAI) with hash disk caching
 │       │   ├── stt_service.py  # Soniox proxy & word confidence parser
 │       │   ├── question_generator.py # 15-question OPIc exam generator
 │       │   └── pdf_service.py  # ReportLab PDF report generation
@@ -119,7 +119,8 @@ Fill in your credentials in `.env`:
 ```ini
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-5.6-luna
-TTS_MODEL=gpt-4o-mini-tts
+TTS_PROVIDER=kokoro          # kokoro (open-source, no key) | openai | browser
+KOKORO_VOICE=af_heart
 SONIOX_API_KEY=...
 DATABASE_URL=sqlite:///./data/opic_studio.db
 SECRET_KEY=secure_random_key_here
@@ -196,13 +197,14 @@ All tests validate:
    - 5) Communication Media
 5. **Pre-Test Setup & Warm-Up**: Eva plays sample question audio; candidate tests microphone.
 6. **15-Question Test**:
-   - Q1: Self-introduction
+   - Q1: Self-introduction (fixed default question, not scored)
    - Q2–Q4: Combo 1 (Survey Topic: Living/Routine/Incident)
    - Q5–Q7: Combo 2 (Survey Topic: Leisure/Café/Memorable story)
    - Q8–Q10: Combo 3 (Topic 1: Description/Past Effort/Comparison)
-   - Q11–Q12: Role-Play Combo (Inquire 3–4 questions + Unexpected complication & alternatives)
-   - Q13: Topic 2 Complication narrative
-   - Q14–Q15: Topic 3 Comparison past vs present & Future outlook
+   - Q11–Q13: Role-Play Combo (Inquire 3–4 questions → Unexpected problem & 2–3 alternatives → Related past experience)
+   - Q14: Topic 2 Complication narrative
+   - Q15: Topic 3 Comparison past vs present & Future outlook
+   - Q2–Q15 are personalised by the LLM from the survey, level and topics (curated bank as fallback)
 7. **Coaching & Results**:
    - Real-time Soniox transcript with word confidence highlights
    - Inline transcript editing (creates `answer_version`)

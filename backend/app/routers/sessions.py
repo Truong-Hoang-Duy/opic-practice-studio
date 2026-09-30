@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
@@ -16,11 +16,12 @@ from app.schemas.session import (
     TopicsSubmit,
     SessionResponse,
 )
-from app.schemas.question import QuestionResponse
+from app.schemas.question import QuestionResponse, UNSCORED_QUESTION_TYPES
 from app.schemas.report import SessionReportResponse
 from app.core.security import get_current_user
-from app.services.question_generator import generate_15_opic_questions
-from app.services.tts_service import synthesize_speech
+from app.config import settings
+from app.services.question_generator import build_session_questions, generate_personalised_guides
+from app.services.tts_service import prefetch_speech, refresh_question_audio
 from app.services.llm_service import generate_session_report_llm
 from app.services.pdf_service import generate_session_pdf
 
@@ -57,14 +58,45 @@ def submit_survey(
     db.commit()
     return {"message": "Survey recorded successfully."}
 
+def _fill_personalised_guides(bind, session_id: int, questions: List[dict], level: int):
+    """Background task: replaces the generic guides of AI-generated questions with tailored ones."""
+    guides, p_tok, c_tok, cost = generate_personalised_guides(questions, level)
+    if not guides:
+        return
+    with Session(bind=bind) as db:
+        rows = db.query(Question).filter(Question.session_id == session_id).all()
+        texts = {q["order_index"]: q["question_text"] for q in questions}
+        for row in rows:
+            # Skip rows that were regenerated in the meantime
+            if row.order_index in guides and texts.get(row.order_index) == row.question_text:
+                row.vietnamese_guide = guides[row.order_index]
+        _log_llm_usage(db, session_id, "question_guides", p_tok, c_tok, cost)
+        db.commit()
+
+def _log_llm_usage(db: Session, session_id: int, call_type: str, p_tok: int, c_tok: int, cost: float):
+    db.add(LLMUsageLog(
+        session_id=session_id,
+        call_type=call_type,
+        model=settings.OPENAI_MODEL,
+        prompt_tokens=p_tok,
+        completion_tokens=c_tok,
+        total_tokens=p_tok + c_tok,
+        estimated_cost=cost
+    ))
+    session = db.query(TestSession).filter(TestSession.id == session_id).first()
+    if session:
+        session.total_tokens = (session.total_tokens or 0) + p_tok + c_tok
+        session.estimated_cost = (session.estimated_cost or 0.0) + cost
+
 def _generate_session_questions(session: TestSession, db: Session, background_tasks: BackgroundTasks):
     session.status = "in_progress"
     # Remove any existing questions if re-generating
     db.query(Question).filter(Question.session_id == session.id).delete()
 
-    generated_qs = generate_15_opic_questions(
+    level = session.self_assessment_level or 4
+    generated_qs, usage, source = build_session_questions(
         survey_data=session.survey_data or {},
-        self_assessment_level=session.self_assessment_level or 4,
+        self_assessment_level=level,
         chosen_topics=session.topics or ["environment", "socio_cultural", "communication_media"]
     )
 
@@ -82,13 +114,18 @@ def _generate_session_questions(session: TestSession, db: Session, background_ta
         db.add(question)
         created_questions.append(question)
 
+    if usage:
+        _log_llm_usage(db, session.id, "question_generation", *usage)
     db.commit()
 
-    # Pre-synthesize Eva audio for first 3 questions in background
-    for q in created_questions[:3]:
-        background_tasks.add_task(synthesize_speech, q.question_text)
+    # Pre-synthesize Eva audio for all 15 questions in order (background worker, cached on disk)
+    prefetch_speech(q["question_text"] for q in generated_qs)
 
-    return created_questions
+    if source == "ai":
+        ai_qs = [q for q in generated_qs if q["question_type"] not in UNSCORED_QUESTION_TYPES]
+        background_tasks.add_task(_fill_personalised_guides, db.get_bind(), session.id, ai_qs, level)
+
+    return created_questions, source
 
 @router.post("/{session_id}/self-assessment")
 def submit_self_assessment(
@@ -107,10 +144,11 @@ def submit_self_assessment(
 
     # If topics have already been chosen (TopicSelection before SelfAssessment), generate questions!
     if session.topics and len(session.topics) == 3:
-        created = _generate_session_questions(session, db, background_tasks)
+        created, source = _generate_session_questions(session, db, background_tasks)
         return {
             "message": "Self-assessment recorded and questions generated successfully.",
             "total_questions": len(created),
+            "question_source": source,
             "session_id": session.id
         }
 
@@ -131,11 +169,12 @@ def submit_topics_and_generate_questions(
     session.topics = topics_in.topics
     db.commit()
 
-    created_questions = _generate_session_questions(session, db, background_tasks)
+    created_questions, source = _generate_session_questions(session, db, background_tasks)
 
     return {
         "message": "Questions generated successfully.",
         "total_questions": len(created_questions),
+        "question_source": source,
         "session_id": session.id
     }
 
@@ -168,6 +207,7 @@ def get_session_status(
 def get_next_question(
     session_id: int,
     background_tasks: BackgroundTasks,
+    after_order: Optional[int] = Query(None, description="Order index of the question the learner is leaving (it may have been skipped)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -175,20 +215,33 @@ def get_next_question(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
 
-    # Find unanswered question with lowest order_index
+    if db.query(Question).filter(Question.session_id == session.id).count() == 0:
+        # Setup was never finished: don't let the client treat this as "all answered" and finish it
+        raise HTTPException(status_code=409, detail="This session has no questions yet. Please start a new test.")
+
     answered_q_ids = [a.question_id for a in db.query(Answer.question_id).filter(Answer.session_id == session.id).all()]
-    next_q = db.query(Question).filter(
+    unanswered = db.query(Question).filter(
         Question.session_id == session.id,
         ~Question.id.in_(answered_q_ids) if answered_q_ids else True
-    ).order_by(Question.order_index).first()
+    ).order_by(Question.order_index).all()
+
+    # Q1 (self-introduction) is optional: once the learner moves past it or answers a later
+    # question, it no longer counts as pending.
+    moved_on = after_order is not None or bool(answered_q_ids)
+    pending = [q for q in unanswered if not (moved_on and q.question_type in UNSCORED_QUESTION_TYPES)]
+
+    # Prefer the next question after the one being left, then any earlier unanswered one
+    next_q = None
+    if after_order is not None:
+        next_q = next((q for q in pending if q.order_index > after_order), None)
+    if next_q is None and pending:
+        next_q = pending[0]
 
     if not next_q:
         raise HTTPException(status_code=404, detail="All questions answered. Session completed.")
 
     # Synthesize audio if not already done
-    if not next_q.audio_path:
-        next_q.audio_path = synthesize_speech(next_q.question_text)
-        db.commit()
+    refresh_question_audio(next_q, db)
 
     return next_q
 
@@ -220,9 +273,7 @@ def get_session_question_by_index(
     if not q:
         raise HTTPException(status_code=404, detail=f"Question {order_index} not found.")
 
-    if not q.audio_path:
-        q.audio_path = synthesize_speech(q.question_text)
-        db.commit()
+    refresh_question_audio(q, db)
 
     return q
 
@@ -263,6 +314,8 @@ def get_session_report(
 
     for a in answers:
         latest_ver = db.query(AnswerVersion).filter(AnswerVersion.answer_id == a.id).order_by(AnswerVersion.version_number.desc()).first()
+        if a.question and a.question.question_type in UNSCORED_QUESTION_TYPES:
+            continue
         if latest_ver and latest_ver.evaluations:
             ev = latest_ver.evaluations[0]
             evaluations.append(ev)

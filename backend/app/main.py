@@ -31,6 +31,13 @@ app = FastAPI(
     description="A comprehensive OPIc practice simulation platform designed to help Vietnamese learners reach Intermediate High (IH). Not affiliated with ACTFL or LTI."
 )
 
+@app.on_event("startup")
+def warm_up_eva_voice():
+    # Download (first run only) and load the local TTS model without blocking startup
+    import threading
+    from app.services.tts_service import warm_up_tts
+    threading.Thread(target=warm_up_tts, name="eva_tts_warmup", daemon=True).start()
+
 # CORS setup
 cors_origins = settings.cors_origins_list
 if settings.ENVIRONMENT == "development" or "*" in cors_origins:

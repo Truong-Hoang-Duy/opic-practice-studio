@@ -20,10 +20,16 @@ from app.schemas.evaluation import (
     DiffChunk,
 )
 from app.core.security import get_current_user
+from app.schemas.question import UNSCORED_QUESTION_TYPES
 from app.services.stt_service import save_raw_audio, parse_words_with_confidence
 from app.services.llm_service import evaluate_answer_llm, rewrite_answer_llm
 
 router = APIRouter(prefix="/answers", tags=["Answers"])
+
+def _ensure_scored_question(answer: Answer):
+    """Q1 self-introduction is never evaluated or upgraded, mirroring the real OPIc."""
+    if answer.question and answer.question.question_type in UNSCORED_QUESTION_TYPES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Question 1 (self-introduction) is a warm-up and is not scored.")
 
 def compute_diff_chunks(original: str, improved: str) -> List[DiffChunk]:
     """Computes word-level diffs for side-by-side comparison."""
@@ -151,6 +157,7 @@ def evaluate_answer(
     answer = db.query(Answer).filter(Answer.id == answer_id).first()
     if not answer:
         raise HTTPException(status_code=404, detail="Answer not found.")
+    _ensure_scored_question(answer)
 
     if version_id:
         ver = db.query(AnswerVersion).filter(AnswerVersion.id == version_id, AnswerVersion.answer_id == answer.id).first()
@@ -236,6 +243,7 @@ def rewrite_answer(
     answer = db.query(Answer).filter(Answer.id == answer_id).first()
     if not answer:
         raise HTTPException(status_code=404, detail="Answer not found.")
+    _ensure_scored_question(answer)
 
     ver = db.query(AnswerVersion).filter(AnswerVersion.id == req.answer_version_id).first()
     if not ver:

@@ -7,6 +7,11 @@ from sqlalchemy.orm import sessionmaker
 # Use in-memory SQLite for tests
 from app.database import Base, get_db
 from app.main import app
+from app.config import settings
+
+# Keep tests fast and deterministic: no local TTS model, curated question bank instead of the LLM
+settings.TTS_PROVIDER = "browser"
+settings.AI_QUESTION_GENERATION = False
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 

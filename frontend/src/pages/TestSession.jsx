@@ -83,29 +83,6 @@ export const TestSession = ({
     }
   };
 
-  const getDifficultyInfo = (difficulty) => {
-    const d = (difficulty || '').toUpperCase();
-    if (d === 'IL' || d === 'EASY' || d === 'DỄ') {
-      return {
-        label: 'Dễ (IL)',
-        badgeColor: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25',
-        tip: 'AI Đánh giá mức độ Dễ (IL): Câu đơn miêu tả người, thói quen hoặc nơi chốn cơ bản ở thì hiện tại.'
-      };
-    }
-    if (d === 'IM' || d === 'MEDIUM' || d === 'TRUNG BÌNH') {
-      return {
-        label: 'Trung bình (IM)',
-        badgeColor: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/25',
-        tip: 'AI Đánh giá mức độ Trung bình (IM): Đoạn văn kết nối, kể chuyện quá khứ cơ bản và hỏi thông tin role-play.'
-      };
-    }
-    return {
-      label: 'Khó (IH Target)',
-      badgeColor: 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/25',
-      tip: 'AI Đánh giá mức độ Khó (IH Target): Kể chuyện quá khứ có cao trào (Complication), so sánh hai thế hệ và xử lý tình huống bất ngờ.'
-    };
-  };
-
   useEffect(() => {
     if (sessionId) {
       sessionApi.getStatus(sessionId)
@@ -114,8 +91,8 @@ export const TestSession = ({
     }
   }, [sessionId]);
 
-  // Fetch next question
-  const fetchNext = async () => {
+  // Fetch next question (afterOrder = question being left, so an optional/skipped one isn't served again)
+  const fetchNext = async (afterOrder) => {
     setLoadingQuestion(true);
     setShowQuestionText(false);
     setShowGuide(false);
@@ -124,10 +101,14 @@ export const TestSession = ({
     setReplayUsed(false);
 
     try {
-      const res = await sessionApi.getNextQuestion(sessionId);
+      const res = await sessionApi.getNextQuestion(sessionId, afterOrder);
       setCurrentQuestion(res.data);
     } catch (err) {
-      if (err.response?.status === 404) {
+      if (err.response?.status === 409) {
+        // Session setup was never completed (no questions generated)
+        alert("Phiên thi này chưa được tạo đề. Vui lòng bắt đầu bài thi mới.");
+        if (onExit) onExit();
+      } else if (err.response?.status === 404) {
         // All 15 questions answered!
         await sessionApi.finishSession(sessionId);
         onTestComplete();
@@ -169,13 +150,24 @@ export const TestSession = ({
           await sessionApi.finishSession(sessionId);
           onTestComplete();
         } else {
-          fetchNext();
+          fetchNext(currentQuestion.order_index);
         }
       }
     } catch (err) {
       console.error("Failed to submit answer:", err);
     } finally {
       setSubmittingAnswer(false);
+    }
+  };
+
+  // "Next" without recording: skip the current question (last question finishes the test)
+  const handleSkipQuestion = async () => {
+    if (!currentQuestion || submittingAnswer) return;
+    if (currentQuestion.order_index >= 15) {
+      await sessionApi.finishSession(sessionId);
+      onTestComplete();
+    } else {
+      fetchNext(currentQuestion.order_index);
     }
   };
 
@@ -199,7 +191,7 @@ export const TestSession = ({
           if (currentQuestion.order_index >= 15) {
             sessionApi.finishSession(sessionId).then(onTestComplete);
           } else {
-            fetchNext();
+            fetchNext(currentQuestion.order_index);
           }
         }}
         onRetryQuestion={() => {
@@ -212,28 +204,22 @@ export const TestSession = ({
 
   const qIndex = currentQuestion?.order_index || 1;
   const isStrictExam = sessionMode === 'exam';
-  const diffInfo = getDifficultyInfo(currentQuestion?.difficulty);
 
   return (
     <div className="w-full max-w-6xl px-4 sm:px-6 py-4 flex flex-col gap-4 my-auto">
       
       {/* Top Progress & Mode Header */}
-      <div className="glass-panel bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 sm:p-4 border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center font-bold text-sm text-brand-600 dark:text-brand-400">
+      <div className="glass-panel bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 sm:p-4 border border-slate-200 dark:border-slate-800 flex flex-wrap lg:flex-nowrap items-center justify-between gap-x-3 gap-y-3 shadow-sm">
+        <div className="basis-full sm:basis-auto flex items-center gap-3 min-w-0">
+          <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center font-bold text-sm text-brand-600 dark:text-brand-400">
             {qIndex}
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-slate-900 dark:text-white">Question {qIndex} of 15</span>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-sm font-bold text-slate-900 dark:text-white whitespace-nowrap">Question {qIndex} of 15</span>
+              <span className="truncate text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
                 {currentQuestion?.topic}
               </span>
-              <ViTooltip vi={diffInfo.tip}>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${diffInfo.badgeColor}`}>
-                  AI: {diffInfo.label}
-                </span>
-              </ViTooltip>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 capitalize">Type: {currentQuestion?.question_type?.replace(/_/g, ' ')}</p>
           </div>
@@ -326,8 +312,8 @@ export const TestSession = ({
         )}
 
         {/* Mode Tag */}
-        <div className="flex items-center gap-2">
-          <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg border capitalize ${
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg border capitalize whitespace-nowrap ${
             isStrictExam
               ? 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20'
               : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
@@ -351,16 +337,17 @@ export const TestSession = ({
       </div>
 
       {/* Main Grid: 2 Equal-Height Columns (5 : 7 split on md+) */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 items-stretch">
         
         {/* Left: Eva Animated Examiner & Fixed Question Area */}
-        <div className="md:col-span-5 flex flex-col">
-          <div className="w-full h-full md:h-[500px] md:min-h-[500px] md:max-h-[500px] flex-shrink-0 glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex flex-col justify-between shadow-sm">
+        <div className="lg:col-span-5 flex flex-col">
+          <div className="w-full h-full lg:h-[500px] lg:min-h-[500px] lg:max-h-[500px] flex-shrink-0 glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 flex flex-col justify-between shadow-sm">
             
             {/* Top part: Eva Avatar */}
             <div className="flex flex-col items-center">
               <EvaAvatar
                 audioUrl={currentQuestion?.audio_path}
+                text={currentQuestion?.question_text}
                 autoPlay={true}
                 allowReplay={!replayUsed}
                 maxReplays={1}
@@ -375,9 +362,6 @@ export const TestSession = ({
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                     <BookOpen className="w-3.5 h-3.5 text-brand-500" />
                     <span>Nội dung câu hỏi</span>
-                  </span>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${diffInfo.badgeColor}`}>
-                    {diffInfo.label}
                   </span>
                 </div>
                 {!isStrictExam ? (
@@ -429,7 +413,7 @@ export const TestSession = ({
         </div>
 
         {/* Right: Audio Recording */}
-        <div className="md:col-span-7 flex flex-col relative h-full">
+        <div className="lg:col-span-7 flex flex-col relative h-full">
           <AudioRecorder
             onRecordingComplete={handleRecordingComplete}
             isPracticeMode={!isStrictExam}
@@ -445,6 +429,20 @@ export const TestSession = ({
           )}
         </div>
 
+      </div>
+
+      {/* Bottom-right: Next (skip without recording) */}
+      <div className="flex justify-end pb-[env(safe-area-inset-bottom)]">
+        <ViTooltip vi="Sang câu tiếp theo mà không cần ghi âm câu này.">
+          <button
+            onClick={handleSkipQuestion}
+            disabled={submittingAnswer}
+            className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-sm font-bold bg-brand-500 hover:bg-brand-600 text-white shadow-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span>{qIndex >= 15 ? 'Finish' : 'Next'}</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </ViTooltip>
       </div>
 
       {/* Blueprint Guide Modal (Does not push layout or cause scroll) */}

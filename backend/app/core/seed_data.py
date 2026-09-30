@@ -22,6 +22,27 @@ SAMPLE_PRE_TEST_QUESTION = {
     }
 }
 
+# Q1 is always this self-introduction. Like the real OPIc it is a warm-up and is NOT scored.
+SELF_INTRO_QUESTION = {
+    "order_index": 1,
+    "question_text": "Let's start the interview now. Tell me something about yourself. What is your name, what do you do, and what are some things you enjoy doing in your free time?",
+    "question_type": "self_intro",
+    "topic": "Personal Background",
+    "difficulty": "IM",
+    "vietnamese_guide": {
+        "overview": "Câu 1 luôn là Giới thiệu bản thân (Self-introduction). Hãy nói trôi chảy, tự nhiên trong khoảng 60-90 giây.",
+        "target_pattern": "Greeting -> Name/Job/Major -> Living/Hometown -> Hobbies/Leisure -> Friendly wrap-up",
+        "steps": [
+            {"step_number": 1, "title": "Warm Greeting & Name", "hint_vi": "Chào Eva, giới thiệu tên và công việc/ngành học.", "example_phrases": ["Hello Eva, it's a pleasure to take this test today. My name is Alex, and I am currently working as a software developer."]},
+            {"step_number": 2, "title": "Living Environment", "hint_vi": "Sống ở đâu, với ai.", "example_phrases": ["I was born and raised in Hanoi, but currently I reside in a lively neighborhood."]},
+            {"step_number": 3, "title": "Interests & Passions", "hint_vi": "Sở thích và thời gian rảnh rỗi.", "example_phrases": ["When I'm off the clock, I'm passionate about jogging around West Lake and brewing specialty coffee."]},
+            {"step_number": 4, "title": "Conclusion", "hint_vi": "Kết lại và chào mừng buổi phỏng vấn.", "example_phrases": ["That's a brief snapshot of who I am. I'm excited for our conversation!"]}
+        ],
+        "recommended_vocabulary": ["pleasure to meet you", "currently residing", "off the clock", "passionate about", "snapshot"],
+        "sample_sentence_starters": ["First of all, my name is...", "In my spare time, I often..."]
+    }
+}
+
 TOPIC_QUESTIONS_BANK = {
     "environment": [
         {
@@ -221,8 +242,98 @@ ROLE_PLAY_QUESTIONS = [
             "recommended_vocabulary": ["no record of my booking", "confirmation receipt", "temporary locker", "reschedule", "complimentary"],
             "sample_sentence_starters": ["Excuse me, there seems to be a mix-up with...", "Would it be possible if we instead..."]
         }
+    },
+    {
+        "type": "role_play_experience",
+        "topic": "Role-Play (Related Experience)",
+        "text": "That's the end of the situation. Have you ever had a similar problem with a reservation or a service you signed up for? Tell me what happened, how you dealt with it, and how it turned out.",
+        "guide": {
+            "overview": "Câu thứ 3 của Role-play: kể lại trải nghiệm thật có vấn đề tương tự, bắt buộc dùng thì quá khứ và có cao trào - cách giải quyết (Target IH).",
+            "target_pattern": "When & Where -> What went wrong -> How you handled it -> Result & Lesson",
+            "steps": [
+                {"step_number": 1, "title": "Set the Scene", "hint_vi": "Thời gian, địa điểm và bạn đã đặt dịch vụ gì.", "example_phrases": ["Actually, something similar happened to me last year when I booked a hotel room in Da Nang."]},
+                {"step_number": 2, "title": "The Problem", "hint_vi": "Sự cố xảy ra thế nào, cảm xúc của bạn lúc đó.", "example_phrases": ["When I arrived, the receptionist told me my booking had been cancelled by mistake, and I was really frustrated."]},
+                {"step_number": 3, "title": "Resolution & Lesson", "hint_vi": "Bạn đã xử lý ra sao, kết quả và bài học rút ra.", "example_phrases": ["I stayed calm, showed my confirmation, and they upgraded me to a better room. Since then, I always double-check my bookings."]}
+            ],
+            "recommended_vocabulary": ["cancelled by mistake", "frustrated", "stayed calm", "upgraded", "double-check"],
+            "sample_sentence_starters": ["Actually, something similar happened to me when...", "In the end, it turned out that..."]
+        }
     }
 ]
+
+# Generic Vietnamese guides per question type, used for AI-generated questions until their
+# personalised guides are produced in the background.
+DEFAULT_GUIDES_BY_TYPE = {
+    "self_intro": {
+        "overview": "Giới thiệu bản thân trôi chảy, tự nhiên trong 60-90 giây: tên, công việc, nơi sống, sở thích.",
+        "target_pattern": "Greeting & Name -> Job/Study -> Living situation -> Hobbies -> Wrap-up",
+        "steps": [
+            {"step_number": 1, "title": "Greeting & Identity", "hint_vi": "Chào Eva, giới thiệu tên và công việc/ngành học.", "example_phrases": ["Hi Eva, my name is Minh, and I currently work as a marketing specialist."]},
+            {"step_number": 2, "title": "Life & Interests", "hint_vi": "Nơi sống, sống với ai, sở thích lúc rảnh.", "example_phrases": ["I live in an apartment with my family, and in my free time I love going to cozy cafes."]},
+            {"step_number": 3, "title": "Future Goal", "hint_vi": "Kết bằng mục tiêu tương lai (dùng thì tương lai).", "example_phrases": ["In the near future, I'm hoping to get promoted and travel abroad more often."]}
+        ],
+        "recommended_vocabulary": ["currently work as", "in my free time", "passionate about", "in the near future"],
+        "sample_sentence_starters": ["First of all, my name is...", "When I'm not working, I usually..."]
+    },
+    "description": {
+        "overview": "Miêu tả chi tiết (hiện tại đơn), đi từ tổng quan đến chi tiết và kết bằng cảm nhận cá nhân.",
+        "target_pattern": "General impression -> Detail 1 -> Detail 2 -> Personal feeling",
+        "steps": [
+            {"step_number": 1, "title": "Big Picture", "hint_vi": "Nêu ấn tượng chung.", "example_phrases": ["Well, the first thing that comes to mind is how cozy and peaceful it is."]},
+            {"step_number": 2, "title": "Specific Details", "hint_vi": "2-3 chi tiết cụ thể: vị trí, hình dáng, không khí, con người.", "example_phrases": ["It's located on a quiet street, and it has large windows that let in lots of natural light."]},
+            {"step_number": 3, "title": "Why It Matters", "hint_vi": "Vì sao bạn thích / ý nghĩa với bạn.", "example_phrases": ["That's why it has become an essential part of my daily life."]}
+        ],
+        "recommended_vocabulary": ["cozy", "conveniently located", "laid-back atmosphere", "essential part of"],
+        "sample_sentence_starters": ["Let me describe...", "What I like most about it is..."]
+    },
+    "routine": {
+        "overview": "Kể thói quen theo trình tự thời gian (hiện tại đơn + trạng từ tần suất), thêm so sánh thay đổi để đạt IH.",
+        "target_pattern": "Frequency -> Step-by-step routine -> How it has changed",
+        "steps": [
+            {"step_number": 1, "title": "How Often", "hint_vi": "Bạn làm việc đó thường xuyên thế nào.", "example_phrases": ["I usually do this at least three times a week, mostly in the evenings."]},
+            {"step_number": 2, "title": "Sequence", "hint_vi": "Dùng từ nối first, then, after that, finally.", "example_phrases": ["First, I..., then I..., and after that I usually..."]},
+            {"step_number": 3, "title": "Change Over Time", "hint_vi": "So sánh với trước đây (used to).", "example_phrases": ["I used to do it only on weekends, but now it's part of my daily routine."]}
+        ],
+        "recommended_vocabulary": ["on a regular basis", "first of all", "after that", "used to"],
+        "sample_sentence_starters": ["On a typical day, I...", "These days, I tend to..."]
+    },
+    "past_experience": {
+        "overview": "Kể chuyện quá khứ có cao trào (complication) và cách giải quyết - yếu tố then chốt để đạt IH.",
+        "target_pattern": "Context -> What happened -> Complication -> Resolution -> Feeling/Lesson",
+        "steps": [
+            {"step_number": 1, "title": "Context", "hint_vi": "Khi nào, ở đâu, với ai (quá khứ đơn).", "example_phrases": ["I vividly remember one weekend about two years ago when I was with my best friend."]},
+            {"step_number": 2, "title": "Complication", "hint_vi": "Sự cố bất ngờ xảy ra.", "example_phrases": ["Out of nowhere, things went wrong and we had no idea what to do."]},
+            {"step_number": 3, "title": "Resolution & Lesson", "hint_vi": "Cách giải quyết, kết quả và bài học.", "example_phrases": ["Luckily, we managed to sort it out, and I learned to always have a backup plan."]}
+        ],
+        "recommended_vocabulary": ["vividly remember", "out of nowhere", "managed to", "backup plan"],
+        "sample_sentence_starters": ["I remember a time when...", "The biggest problem was..."]
+    },
+    "comparison": {
+        "overview": "So sánh quá khứ - hiện tại và dự đoán tương lai, kiểm soát cả 3 thì để đạt IH.",
+        "target_pattern": "Past situation -> Present situation -> Reasons for change -> Future outlook",
+        "steps": [
+            {"step_number": 1, "title": "Past vs Present", "hint_vi": "Trước đây thế nào (used to), bây giờ thế nào.", "example_phrases": ["About ten years ago, people used to..., but nowadays most people..."]},
+            {"step_number": 2, "title": "Reasons", "hint_vi": "Nguyên nhân của sự thay đổi.", "example_phrases": ["I think this is mainly because of technology and changing lifestyles."]},
+            {"step_number": 3, "title": "Future Outlook", "hint_vi": "Dự đoán tương lai (will, be likely to).", "example_phrases": ["In the future, I believe this trend will continue to grow."]}
+        ],
+        "recommended_vocabulary": ["used to", "nowadays", "mainly because of", "is likely to"],
+        "sample_sentence_starters": ["Compared to the past...", "Looking ahead, I think..."]
+    },
+    "unexpected_situation": {
+        "overview": "Kể lại tình huống bất ngờ/khó khăn và cách bạn xử lý, nhấn mạnh hành động chủ động.",
+        "target_pattern": "Background -> Unexpected problem -> Actions taken -> Outcome",
+        "steps": [
+            {"step_number": 1, "title": "Background", "hint_vi": "Bối cảnh trước khi sự cố xảy ra.", "example_phrases": ["It was supposed to be a normal day at work, but things quickly changed."]},
+            {"step_number": 2, "title": "Actions", "hint_vi": "Các bước bạn đã làm để xử lý.", "example_phrases": ["I immediately contacted my manager and suggested a few alternatives."]},
+            {"step_number": 3, "title": "Outcome", "hint_vi": "Kết quả và cảm nghĩ.", "example_phrases": ["In the end, everything worked out, and it taught me to stay calm under pressure."]}
+        ],
+        "recommended_vocabulary": ["supposed to", "immediately", "alternatives", "under pressure"],
+        "sample_sentence_starters": ["Something unexpected happened when...", "To handle the situation, I..."]
+    },
+    "role_play_ask": ROLE_PLAY_QUESTIONS[0]["guide"],
+    "role_play_problem": ROLE_PLAY_QUESTIONS[1]["guide"],
+    "role_play_experience": ROLE_PLAY_QUESTIONS[2]["guide"],
+}
 
 SURVEY_QUESTIONS_MAP = {
     "living_situation": [

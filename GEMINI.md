@@ -27,9 +27,12 @@
   - Model: Đọc từ biến môi trường `OPENAI_MODEL` (mặc định: `gpt-5.6-luna`), **tuyệt đối không hardcode**.
   - Định dạng: Luôn dùng Structured Outputs (`response_format={"type": "json_object"}`), validate qua Pydantic schema, retry tối đa 1 lần nếu JSON lỗi.
   - Prompts: Lưu toàn bộ trong thư mục `backend/app/prompts/*.txt`.
-- **Text-to-Speech (Giám khảo ảo "Eva"):** OpenAI TTS API.
-  - Model: Đọc từ `TTS_MODEL` (mặc định: `gpt-4o-mini-tts`), voice mặc định `alloy` (giọng nữ trẻ Mỹ, tự nhiên, điềm tĩnh).
-  - Cache trên đĩa: Lưu tại `backend/data/audio_cache/` theo `md5(text + voice + model)`. Mỗi câu hỏi hoặc bài mẫu chỉ tổng hợp âm thanh đúng 1 lần.
+- **Text-to-Speech (Giám khảo ảo "Eva"):** Chọn qua `TTS_PROVIDER`:
+  - `kokoro` (mặc định): mã nguồn mở **Kokoro-82M** (Apache-2.0, bản ONNX `kokoro-onnx`) chạy CPU tại backend, không cần API key. Giọng `KOKORO_VOICE` (mặc định `af_heart` - nữ trẻ Mỹ, ấm, điềm tĩnh). Model (~340MB) tự tải về `backend/data/tts_models/` ở lần chạy đầu. Tốc độ ~2x realtime trên CPU 8 nhân.
+  - `openai`: OpenAI TTS (`TTS_MODEL`, `TTS_VOICE`) - chỉ dùng khi key có quyền TTS.
+  - `browser`: không tạo audio ở server.
+  - Nếu server không có audio (model chưa sẵn sàng/lỗi), `EvaAvatar.jsx` tự đọc câu hỏi bằng Web Speech API của trình duyệt (ưu tiên giọng nữ en-US). Không dùng âm "chime" giả.
+  - Cache trên đĩa: Lưu tại `backend/data/audio_cache/` theo `md5(text + voice + model)` (.mp3). Sau khi tạo đề, audio của cả 15 câu được tổng hợp nền theo thứ tự.
 - **Speech-to-Text (Nhận diện giọng nói):** Soniox STT API.
   - **Quy tắc bảo mật:** Không bao giờ để lộ key Soniox vĩnh viễn cho Frontend. Backend cung cấp WebSocket Proxy `/ws/stt` kết nối tới `wss://api.soniox.com/transcribe-websocket` hoặc cấp token tạm thời qua `/api/stt/token`.
   - Phân tích độ tin cậy từ: Highlight các từ nhận diện tự tin thấp (< 0.8) để người học phát hiện lỗi phát âm.
@@ -84,7 +87,7 @@ Hệ thống được thiết kế để **dùng chung 1 Database duy nhất**:
   - Nói thành từng đoạn văn mạch lạc dài 60–120 giây.
   - Kiểm soát nhất quán cả 3 thì: Quá khứ (kể chuyện) &rarr; Hiện tại (miêu tả) &rarr; Tương lai (dự đoán/cảm nghĩ).
   - Có cao trào / sự cố bất ngờ (**Complication**) và cách giải quyết.
-  - Xử lý mượt mà tình huống bất ngờ trong phần Role-play (Q11-Q12).
+  - Xử lý mượt mà tình huống bất ngờ trong phần Role-play (Q11-Q13).
 
 ### 6 Tiêu chí đánh giá (Thang điểm 1 đến 5):
 1. `fluency_and_length`: Độ trôi chảy và duy trì độ dài 60–120s.
@@ -116,13 +119,14 @@ Hệ thống được thiết kế để **dùng chung 1 Database duy nhất**:
    *Validation chặn nếu không đủ hoặc vượt quá 3 chủ đề.*
 5. **Pre-test Setup & Warm-up:** Kiểm tra tai nghe, Eva đọc câu hỏi khởi động, ứng viên nói thử để kiểm tra âm lượng.
 6. **Test (Bộ 15 câu hỏi chính thức):**
-   - Q1: Tự giới thiệu bản thân.
+   - Q1: Tự giới thiệu bản thân - **câu cố định mặc định (`SELF_INTRO_QUESTION`), không do AI tạo và KHÔNG chấm điểm** (giống OPIc thật). Backend trả 400 nếu gọi evaluate/rewrite cho câu này; báo cáo tổng không tính Q1. Mọi câu đều có nút **Next** ở góc dưới bên phải để sang câu tiếp theo mà không cần nghe hay ghi âm (`GET /sessions/{id}/next-question?after_order=N`; ở Q15 nút thành **Finish**).
    - Q2–Q4: Combo 1 (Theo survey: Nhà ở / Thói quen / Sự cố tại nhà).
    - Q5–Q7: Combo 2 (Theo survey: Quán café / Công viên / Kỷ niệm đáng nhớ).
    - Q8–Q10: Combo 3 (Chủ đề 1 đã chọn: Miêu tả / Trải nghiệm / So sánh).
-   - Q11–Q12: Role-Play Combo (Hỏi 3-4 câu hỏi chi tiết + Xử lý sự cố bất ngờ & đề xuất giải pháp).
-   - Q13: Chủ đề 2 đã chọn (Kể lại tình huống khó khăn / sự cố).
-   - Q14–Q15: Chủ đề 3 đã chọn (So sánh giữa hai thế hệ / quá khứ vs hiện tại & Xu hướng tương lai).
+   - Q11–Q13: Role-Play Combo **3 câu bắt buộc** (Q11 hỏi 3-4 câu hỏi chi tiết → Q12 xử lý sự cố bất ngờ & đề xuất 2-3 giải pháp → Q13 kể trải nghiệm thật tương tự).
+   - Q14: Chủ đề 2 đã chọn (Kể lại tình huống khó khăn / sự cố).
+   - Q15: Chủ đề 3 đã chọn (So sánh quá khứ vs hiện tại & Xu hướng tương lai).
+   - **Tạo đề bằng AI:** `build_session_questions()` gọi `OPENAI_MODEL` với survey + level + 3 chủ đề để tạo Q2-Q15 (prompt `prompts/generate_questions.txt`, validate `GeneratedQuestionSet` - đủ 14 câu Q2-Q15, Q11-Q13 đúng loại role-play). Lỗi/không hợp lệ → dùng ngân hàng câu hỏi `seed_data.py`. Hướng dẫn tiếng Việt cá nhân hóa được sinh nền (`prompts/generate_guides.txt`), trong lúc chờ dùng `DEFAULT_GUIDES_BY_TYPE`. Tắt bằng `AI_QUESTION_GENERATION=false`.
    - Eva đọc câu hỏi (cho phép nghe lại 1 lần). Chữ của câu hỏi bị ẩn mặc định (tắt hoàn toàn ở Exam Mode). Đồng hồ 60-120s.
 7. **Coaching & Results (Trang phản hồi & Báo cáo):**
    - Transcript editable (mỗi lần sửa tạo 1 version).

@@ -75,8 +75,8 @@ export const App = () => {
   return (
     <div className={
       isExamScreen
-        ? "h-screen w-screen overflow-hidden flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 select-none"
-        : "min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors"
+        ? "h-dvh w-full overflow-hidden flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 select-none"
+        : "min-h-dvh flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0"
     }>
       
       {/* Top Navbar (Hidden in Test Mode) */}
@@ -89,7 +89,7 @@ export const App = () => {
       )}
 
       {/* Main Screen Router */}
-      <main className={isExamScreen ? "flex-1 w-full h-full flex flex-col justify-center items-center overflow-y-auto" : "flex-1"}>
+      <main className={isExamScreen ? "flex-1 w-full min-h-0 flex flex-col items-center overflow-y-auto" : "flex-1"}>
         {currentTab === 'dashboard' && (
           <Dashboard
             onStartTest={handleStartNewTest}

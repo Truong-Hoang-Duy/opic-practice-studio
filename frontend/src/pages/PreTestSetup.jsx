@@ -52,6 +52,7 @@ export const PreTestSetup = ({ onStartExam }) => {
         <div className="md:col-span-5 glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 flex flex-col items-center shadow-sm">
           <EvaAvatar
             audioUrl={sampleData?.audio_path}
+            text={sampleData?.question_text}
             autoPlay={true}
             allowReplay={true}
             maxReplays={2}

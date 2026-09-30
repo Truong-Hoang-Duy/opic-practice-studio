@@ -1,9 +1,34 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Volume2, RotateCcw, VolumeX } from 'lucide-react';
 import { ViTooltip } from './Tooltip';
+import { resolveMediaUrl } from '../api/client';
+
+// Browser voices closest to Eva (calm young American female), used when server audio is unavailable
+const PREFERRED_VOICES = ['Aria', 'Jenny', 'Ava', 'Samantha', 'Google US English', 'Zira'];
+
+const loadVoices = () => new Promise((resolve) => {
+  const synth = window.speechSynthesis;
+  const voices = synth.getVoices();
+  if (voices.length) return resolve(voices);
+  const timer = setTimeout(() => resolve(synth.getVoices()), 1000);
+  synth.addEventListener('voiceschanged', () => {
+    clearTimeout(timer);
+    resolve(synth.getVoices());
+  }, { once: true });
+});
+
+const pickEvaVoice = (voices) => {
+  const english = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en-us'));
+  for (const name of PREFERRED_VOICES) {
+    const match = english.find(v => v.name.includes(name));
+    if (match) return match;
+  }
+  return english[0] || null;
+};
 
 export const EvaAvatar = ({
   audioUrl,
+  text,
   autoPlay = true,
   onAudioEnded,
   allowReplay = true,
@@ -12,18 +37,77 @@ export const EvaAvatar = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [replayCount, setReplayCount] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
+  const [audioFailed, setAudioFailed] = useState(false);
   const audioRef = useRef(null);
+  const utteranceRef = useRef(null);
+
+  const src = resolveMediaUrl(audioUrl);
+  const speechSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
+  // Fall back to browser speech when the server has no audio for this question or it fails to load
+  const useSpeech = (!src || audioFailed) && !!text && speechSupported;
+
+  const stopSpeech = () => {
+    if (!speechSupported) return;
+    utteranceRef.current = null;
+    window.speechSynthesis.cancel();
+  };
+
+  const speakText = async () => {
+    if (!speechSupported || !text) return;
+    stopSpeech();
+    const voices = await loadVoices();
+    const utterance = new SpeechSynthesisUtterance(text);
+    const voice = pickEvaVoice(voices);
+    if (voice) utterance.voice = voice;
+    utterance.lang = 'en-US';
+    utterance.rate = 0.95;
+    utterance.volume = isMuted ? 0 : 1;
+    utterance.onstart = () => setIsPlaying(true);
+    utterance.onend = () => {
+      // Ignore events from utterances that were cancelled/replaced
+      if (utteranceRef.current !== utterance) return;
+      setIsPlaying(false);
+      if (onAudioEnded) onAudioEnded();
+    };
+    utterance.onerror = () => {
+      if (utteranceRef.current === utterance) setIsPlaying(false);
+    };
+    utteranceRef.current = utterance;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // New question: reset the failure flag
+  useEffect(() => {
+    setAudioFailed(false);
+  }, [audioUrl]);
 
   useEffect(() => {
-    if (audioUrl && autoPlay && audioRef.current) {
+    if (!autoPlay) return;
+    if (src && !audioFailed && audioRef.current) {
       audioRef.current.currentTime = 0;
       audioRef.current.play().catch(e => {
         console.warn("Autoplay blocked by browser policy; user interaction needed:", e);
       });
+    } else if (useSpeech) {
+      speakText();
     }
-  }, [audioUrl, autoPlay]);
+    return () => {
+      stopSpeech();
+      setIsPlaying(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src, text, autoPlay, audioFailed]);
 
   const handlePlayToggle = () => {
+    if (useSpeech) {
+      if (isPlaying) {
+        stopSpeech();
+        setIsPlaying(false);
+      } else {
+        speakText();
+      }
+      return;
+    }
     if (!audioRef.current) return;
     if (isPlaying) {
       audioRef.current.pause();
@@ -33,34 +117,48 @@ export const EvaAvatar = ({
   };
 
   const handleReplay = () => {
-    if (!audioRef.current || replayCount >= maxReplays) return;
+    if (replayCount >= maxReplays) return;
+    if (useSpeech) {
+      setReplayCount(prev => prev + 1);
+      speakText();
+      return;
+    }
+    if (!audioRef.current) return;
     setReplayCount(prev => prev + 1);
     audioRef.current.currentTime = 0;
     audioRef.current.play();
   };
 
   const toggleMute = () => {
-    if (!audioRef.current) return;
-    audioRef.current.muted = !isMuted;
-    setIsMuted(!isMuted);
+    const next = !isMuted;
+    setIsMuted(next);
+    if (audioRef.current) audioRef.current.muted = next;
+    if (useSpeech && next && isPlaying) {
+      stopSpeech();
+      setIsPlaying(false);
+    }
   };
 
   return (
     <div className="flex flex-col items-center">
       {/* Audio element */}
-      {audioUrl && (
+      {src && !audioFailed && (
         <audio
           ref={audioRef}
-          src={audioUrl}
+          src={src}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
+          onError={() => {
+            console.warn("Eva audio failed to load; falling back to browser speech.");
+            setIsPlaying(false);
+            setAudioFailed(true);
+          }}
           onEnded={() => {
             setIsPlaying(false);
             if (onAudioEnded) onAudioEnded();
           }}
         />
       )}
-
       {/* Avatar Container */}
       <div className="relative">
         {/* Glow halo when talking */}

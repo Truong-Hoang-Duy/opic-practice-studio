@@ -58,19 +58,42 @@ def test_full_opic_end_to_end_flow(client):
     assert q1_data["order_index"] == 1
     assert "vietnamese_guide" in q1_data
 
-    # 8. Submit Answer for Q1
-    ans_resp = client.post("/api/answers", data={
+    assert q1_data["question_type"] == "self_intro"
+
+    # 7b. Q1 is optional: skipping it (no recording) moves straight to Q2
+    skip_resp = client.get(f"/api/sessions/{session_id}/next-question?after_order=1", headers=headers)
+    assert skip_resp.status_code == 200
+    assert skip_resp.json()["order_index"] == 2
+
+    # 8. Submit Answer for Q1 (self-introduction: recorded but never scored)
+    q1_ans = client.post("/api/answers", data={
         "question_id": q1_data["id"],
         "session_id": session_id,
+        "duration_seconds": 45.0,
+        "transcript_raw": "Hello Eva, my name is Alex. I work as an engineer and in my free time I love jogging."
+    }, headers=headers)
+    assert q1_ans.status_code == 200
+    q1_eval = client.post(f"/api/answers/{q1_ans.json()['id']}/evaluate", headers=headers)
+    assert q1_eval.status_code == 400
+
+    # 8b. Next question is Q2, the first scored question
+    q2_resp = client.get(f"/api/sessions/{session_id}/next-question", headers=headers)
+    assert q2_resp.status_code == 200
+    q2_data = q2_resp.json()
+    assert q2_data["order_index"] == 2
+
+    ans_resp = client.post("/api/answers", data={
+        "question_id": q2_data["id"],
+        "session_id": session_id,
         "duration_seconds": 65.5,
-        "transcript_raw": "Hello Eva, my name is Alex. I live in a lovely apartment in Hanoi. I work as an engineer and in my free time I love jogging."
+        "transcript_raw": "I live in a lovely apartment in Hanoi with my family. It has two bedrooms and a small balcony."
     }, headers=headers)
     assert ans_resp.status_code == 200
     answer_id = ans_resp.json()["id"]
 
     # 9. Edit transcript (creates version 2)
     edit_resp = client.patch(f"/api/answers/{answer_id}/transcript", json={
-        "transcript_edited": "Hello Eva, my name is Alex. I currently reside in a cozy apartment in Hanoi. I work as a software engineer, and in my leisure time, I am passionate about jogging around West Lake."
+        "transcript_edited": "I currently reside in a cozy apartment in Hanoi with my family. It has two bedrooms and a small balcony overlooking West Lake, which is my favorite spot to relax."
     }, headers=headers)
     assert edit_resp.status_code == 200
     assert edit_resp.json()["version_number"] == 2
@@ -101,8 +124,8 @@ def test_full_opic_end_to_end_flow(client):
     assert accept_resp.status_code == 200
     assert accept_resp.json()["version_number"] == 3
 
-    # 13. Model answers for Question 1
-    models_resp = client.get(f"/api/questions/{q1_data['id']}/model-answers", headers=headers)
+    # 13. Model answers for Question 2
+    models_resp = client.get(f"/api/questions/{q2_data['id']}/model-answers", headers=headers)
     assert models_resp.status_code == 200
     models_data = models_resp.json()
     assert len(models_data) == 3
