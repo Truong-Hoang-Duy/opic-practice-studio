@@ -47,6 +47,7 @@ export const sessionApi = {
   finishSession: (id) => api.post(`/sessions/${validateSessionId(id)}/finish`),
   skipQuestion: (id, orderIndex) => api.post(`/sessions/${validateSessionId(id)}/questions/${orderIndex}/skip`),
   getReport: (id) => api.get(`/sessions/${validateSessionId(id)}/report`),
+  delete: (id) => api.delete(`/sessions/${validateSessionId(id)}`),
 };
 
 export const questionApi = {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { historyApi, answerApi } from '../api/client';
+import { historyApi, sessionApi } from '../api/client';
 import { 
   History, 
   Filter, 
@@ -12,12 +12,15 @@ import {
   Sparkles
 } from 'lucide-react';
 import { ViTooltip } from '../components/Tooltip';
+import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 
-export const HistoryPage = ({ onViewReport, onResumeSession }) => {
+export const HistoryPage = ({ onViewReport, onResumeSession, onDeleteSession }) => {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [levelFilter, setLevelFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [sessionToDelete, setSessionToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadHistory();
@@ -32,6 +35,24 @@ export const HistoryPage = ({ onViewReport, onResumeSession }) => {
       console.error("Failed to load history", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!sessionToDelete) return;
+    setDeleting(true);
+    try {
+      await sessionApi.delete(sessionToDelete.id);
+      setSessions((prev) => prev.filter((s) => s.id !== sessionToDelete.id));
+      if (onDeleteSession) {
+        onDeleteSession(sessionToDelete.id);
+      }
+      setSessionToDelete(null);
+    } catch (err) {
+      console.error("Failed to delete session", err);
+      alert("Không thể xóa phiên thi. Vui lòng thử lại.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -166,11 +187,28 @@ export const HistoryPage = ({ onViewReport, onResumeSession }) => {
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 )}
+
+                <button
+                  onClick={() => setSessionToDelete(session)}
+                  title="Xóa bài thi này"
+                  className="p-2 rounded-xl bg-slate-100 hover:bg-rose-500/15 dark:bg-slate-800 dark:hover:bg-rose-500/25 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 border border-slate-200 dark:border-slate-700/60 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Confirm Delete Modal */}
+      <ConfirmDeleteModal
+        isOpen={Boolean(sessionToDelete)}
+        session={sessionToDelete}
+        deleting={deleting}
+        onClose={() => setSessionToDelete(null)}
+        onConfirm={handleConfirmDelete}
+      />
 
     </div>
   );

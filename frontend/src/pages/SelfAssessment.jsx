@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, Sliders, CheckCircle2, Star } from 'lucide-react';
+import { ArrowRight, Sliders, CheckCircle2, Star, Sparkles, Play } from 'lucide-react';
 import { sessionApi, formatApiError } from '../api/client';
 import { ViTooltip } from '../components/Tooltip';
 
@@ -41,10 +41,11 @@ const ASSESSMENT_LEVELS = [
 // Local dev build only: generate the test from the curated bank to avoid LLM cost while checking the UI
 const SHOW_NO_AI_OPTION = import.meta.env.DEV;
 
-export const SelfAssessment = ({ sessionId, defaultStrict = false, initialLevel = null, onAssessmentCompleted }) => {
+export const SelfAssessment = ({ sessionId, sessionMode = 'practice', defaultStrict = false, initialLevel = null, onAssessmentCompleted }) => {
   // Levels 1-2 are no longer offered; older sessions with those levels fall back to the default
   const [selectedLevel, setSelectedLevel] = useState(initialLevel >= 3 ? initialLevel : 4);
-  const [strictMode, setStrictMode] = useState(defaultStrict);
+  const isPractice = sessionMode === 'practice';
+  const [strictMode, setStrictMode] = useState(isPractice ? false : (defaultStrict ?? true));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -57,10 +58,10 @@ export const SelfAssessment = ({ sessionId, defaultStrict = false, initialLevel 
     setSubmitting(true);
     setError('');
     try {
-      const payload = { level: selectedLevel, strict_mode: strictMode };
+      const payload = { level: selectedLevel, strict_mode: isPractice ? false : strictMode };
       if (!useAi) payload.use_ai = false;
       const res = await sessionApi.submitSelfAssessment(sessionId, payload);
-      onAssessmentCompleted(res.data?.mode || (strictMode ? 'exam' : 'practice'));
+      onAssessmentCompleted(res.data?.mode || (isPractice ? 'practice' : (strictMode ? 'exam' : 'practice')));
     } catch (err) {
       console.error("Self-assessment submission failed:", err);
       setError(formatApiError(err, 'Không tạo được bộ đề.'));
@@ -140,35 +141,44 @@ export const SelfAssessment = ({ sessionId, defaultStrict = false, initialLevel 
           })}
         </div>
 
-        {/* Strict exam toggle */}
-        <div className={`flex items-start justify-between gap-4 p-4 rounded-2xl border transition-colors ${
-          strictMode
-            ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-300 dark:border-rose-500/30'
-            : 'bg-white dark:bg-slate-900/80 border-slate-200 dark:border-slate-800'
-        }`}>
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-slate-900 dark:text-white">Strict exam mode (Thi nghiêm túc)</p>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-              {strictMode
-                ? 'Bật: Eva đọc câu hỏi, sau đó bạn có 5 giây để nghe lại (chỉ 1 lần). Không hiện câu hỏi/transcript, không lùi hay nhảy câu. Thoát giữa chừng vẫn lưu tiến trình. Kết quả chỉ hiển thị sau khi thi xong.'
-                : 'Tắt: chế độ luyện tập có hướng dẫn. Xem câu hỏi, gợi ý và chấm điểm ngay sau mỗi câu; bấm Next cũng xem được gợi ý và bài mẫu.'}
-            </p>
+        {/* Mode indicator */}
+        {isPractice ? (
+          <div className="flex items-start gap-3.5 p-4 rounded-2xl border border-sky-200 dark:border-sky-800/80 bg-sky-50/80 dark:bg-sky-950/30">
+            <div className="p-2 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex-shrink-0">
+              <Sparkles className="w-5 h-5 text-amber-500" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-bold text-slate-900 dark:text-white">Chế độ Luyện tập Có Hướng Dẫn (Coached Practice)</p>
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-brand-500/15 text-brand-600 dark:text-brand-400 border border-brand-500/30">
+                  Coached Mode
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                Bạn sẽ được xem trước câu hỏi, gợi ý cấu trúc kể chuyện tiếng Việt, nghe lại không giới hạn, tự do nhảy câu và nhận ngay đánh giá AI, sửa lỗi cùng bài mẫu IL/IM/IH sau mỗi câu trả lời.
+              </p>
+            </div>
           </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={strictMode}
-            aria-label="Strict exam mode"
-            onClick={() => setStrictMode(v => !v)}
-            className={`relative flex-shrink-0 w-12 h-7 rounded-full transition-colors cursor-pointer ${
-              strictMode ? 'bg-rose-500' : 'bg-slate-300 dark:bg-slate-700'
-            }`}
-          >
-            <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-              strictMode ? 'translate-x-5' : 'translate-x-0'
-            }`} />
-          </button>
-        </div>
+        ) : (
+          <div className="flex items-start justify-between gap-4 p-4 rounded-2xl border bg-rose-50/70 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40">
+            <div className="flex items-start gap-3.5 min-w-0">
+              <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex-shrink-0">
+                <Play className="w-5 h-5 text-rose-500" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">Chế độ Thi Thử Nghiêm Túc (Strict Exam Mode)</p>
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                    OPIc Standard
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                  Mô phỏng 100% phòng thi thật: Giám khảo Eva đọc đề, bạn có 5 giây đếm ngược để nghe lại (1 lần duy nhất), ẩn đề bài và transcript, không quay lại/nhảy câu. Toàn bộ báo cáo chẩn đoán ACTFL sẽ xuất hiện sau khi hoàn thành cả 15 câu.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Submit */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 pt-4">

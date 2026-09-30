@@ -7,7 +7,7 @@ import { RubricGuideModal } from './components/RubricGuideModal';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { SystemCheck } from './pages/SystemCheck';
-import { Survey } from './pages/Survey';
+import { Survey, USER_DEFAULT_PRESET } from './pages/Survey';
 import { SelfAssessment } from './pages/SelfAssessment';
 import { TopicSelection } from './pages/TopicSelection';
 import { PreTestSetup } from './pages/PreTestSetup';
@@ -98,11 +98,41 @@ export const App = () => {
     setActiveSessionMode(mode);
     try {
       const res = await sessionApi.create({ mode });
-      setActiveSessionId(res.data.id);
+      const newSessionId = res.data.id;
+      setActiveSessionId(newSessionId);
       setSessionSetup({});
-      setCurrentTab('system_check');
+
+      if (mode === 'practice') {
+        // Fast-track for Coached Practice: Auto-populate default survey preset & jump straight to Topic Selection
+        let surveyData = USER_DEFAULT_PRESET;
+        try {
+          const saved = localStorage.getItem('opic_user_survey_preset');
+          if (saved) surveyData = JSON.parse(saved);
+        } catch (e) {
+          console.warn("Could not parse saved preset:", e);
+        }
+        try {
+          await sessionApi.submitSurvey(newSessionId, surveyData);
+        } catch (surveyErr) {
+          console.warn("Failed to auto-submit survey preset for practice mode:", surveyErr);
+        }
+        setCurrentTab('topic_selection');
+      } else {
+        // Full Exam Simulation: Authentic 5-step system check & full background survey
+        setCurrentTab('system_check');
+      }
     } catch (err) {
       console.error("Failed to initialize test session", err);
+    }
+  };
+
+  const handleDeleteSession = (deletedSessionId) => {
+    if (activeSessionId === deletedSessionId) {
+      setActiveSessionId(null);
+      sessionStorage.removeItem('opic_active_session_id');
+      if (TEST_FLOW_TABS.includes(currentTab) || currentTab === 'report') {
+        setCurrentTab('dashboard');
+      }
     }
   };
 
@@ -110,7 +140,7 @@ export const App = () => {
     if (activeSessionId && TEST_FLOW_TABS.includes(currentTab)) {
       return;
     }
-    await handleStartNewTest('practice');
+    await handleStartNewTest('exam');
   };
 
   // Resume where the learner left off: unfinished setups go back to the right setup step
@@ -178,6 +208,7 @@ export const App = () => {
             onStartTest={handleStartNewTest}
             onResumeSession={handleResumeSession}
             onViewReport={handleViewReport}
+            onDeleteSession={handleDeleteSession}
           />
         )}
 
@@ -205,6 +236,7 @@ export const App = () => {
         {currentTab === 'self_assessment' && (
           <SelfAssessment
             sessionId={activeSessionId}
+            sessionMode={activeSessionMode}
             defaultStrict={activeSessionMode === 'exam'}
             initialLevel={sessionSetup.level}
             onAssessmentCompleted={(mode) => {
@@ -242,6 +274,7 @@ export const App = () => {
           <HistoryPage
             onViewReport={handleViewReport}
             onResumeSession={handleResumeSession}
+            onDeleteSession={handleDeleteSession}
           />
         )}
       </main>

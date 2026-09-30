@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, status
@@ -43,6 +44,53 @@ def create_session(
     db.commit()
     db.refresh(session)
     return session
+
+@router.delete("/{session_id}")
+def delete_session(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    session = db.query(TestSession).filter(
+        TestSession.id == session_id,
+        TestSession.user_id == current_user.id
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found.")
+
+    # Remove any uploaded audio files on disk associated with answers/versions
+    for ans in session.answers:
+        if ans.audio_path:
+            clean_rel = ans.audio_path.lstrip("/").replace("data/uploads/", "")
+            local_path = os.path.join(settings.AUDIO_UPLOAD_DIR, clean_rel)
+            if os.path.exists(local_path):
+                try:
+                    os.remove(local_path)
+                except OSError:
+                    pass
+        for ver in ans.versions:
+            if ver.audio_path:
+                clean_rel = ver.audio_path.lstrip("/").replace("data/uploads/", "")
+                local_path = os.path.join(settings.AUDIO_UPLOAD_DIR, clean_rel)
+                if os.path.exists(local_path):
+                    try:
+                        os.remove(local_path)
+                    except OSError:
+                        pass
+
+    # Remove PDF report on disk if present
+    if session.report and session.report.pdf_path:
+        clean_rel = session.report.pdf_path.lstrip("/").replace("data/reports/", "")
+        local_pdf = os.path.join(settings.REPORTS_DIR, clean_rel)
+        if os.path.exists(local_pdf):
+            try:
+                os.remove(local_pdf)
+            except OSError:
+                pass
+
+    db.delete(session)
+    db.commit()
+    return {"message": "Session deleted successfully.", "session_id": session_id}
 
 @router.post("/{session_id}/survey")
 def submit_survey(

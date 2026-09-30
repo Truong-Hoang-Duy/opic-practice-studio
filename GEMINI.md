@@ -131,9 +131,13 @@ Hệ thống được thiết kế để **dùng chung 1 Database duy nhất**:
    - Q15: Chủ đề 3 đã chọn (So sánh quá khứ vs hiện tại & Xu hướng tương lai).
    - **Tạo đề bằng AI:** `build_session_questions()` gọi `OPENAI_MODEL` với survey + level + 3 chủ đề để tạo Q2-Q15 (prompt `prompts/generate_questions.txt`, validate `GeneratedQuestionSet` - đủ 14 câu Q2-Q15, Q11-Q13 đúng loại role-play). Lỗi/không hợp lệ → dùng ngân hàng câu hỏi `seed_data.py`. Hướng dẫn tiếng Việt cá nhân hóa được sinh nền (`prompts/generate_guides.txt`), trong lúc chờ dùng `DEFAULT_GUIDES_BY_TYPE`. Tắt bằng `AI_QUESTION_GENERATION=false`.
    - Eva đọc câu hỏi (cho phép nghe lại 1 lần). Chữ của câu hỏi bị ẩn mặc định (tắt hoàn toàn ở Exam Mode). Đồng hồ 60-120s.
-   - **Công tắc "Strict exam mode"** ở bước Self-Assessment (lưu vào `test_sessions.mode`: bật = `exam`, tắt = `practice`):
-     - Bật: sau khi Eva đọc xong có **5 giây** để nghe lại (1 lần, hết giờ là mất); không hiện câu hỏi/transcript; không lùi/nhảy câu; Next = bỏ qua vĩnh viễn (`POST /sessions/{id}/questions/{order}/skip` lưu câu trả lời rỗng); thoát giữa chừng vẫn lưu tiến trình và Resume tiếp tục từ câu chưa làm; kết quả chỉ hiện sau khi thi xong — báo cáo chấm song song toàn bộ câu trả lời và liệt kê đủ 15 câu (câu hỏi, câu trả lời, trạng thái).
-     - Tắt: luyện tập như cũ; bấm Next vẫn mở trang coaching (câu hỏi, gợi ý, bài mẫu) nhưng không chấm điểm.
+   - **Phân định 2 nút tại Màn hình chính (Dashboard)**:
+     - "Start Practice Mode (Coached)": Luyện tập có hướng dẫn nhanh — tự động nạp khảo sát mặc định, bỏ qua System Check và Survey, vào thẳng chọn chủ đề và mức độ để luyện tập 15 câu (hiện câu hỏi, gợi ý tiếng Việt, nhảy câu, chấm điểm và xem bài mẫu tức thì sau mỗi câu).
+     - "Take Full Exam Simulation": Thi thử mô phỏng OPIc thật — trải qua đủ 5 bước kiểm tra hệ thống, khảo sát cá nhân, khóa Strict Exam Mode nghiêm ngặt.
+   - **Xóa phiên thi bất kỳ**: API `DELETE /api/sessions/{session_id}` xóa cascade toàn bộ dữ liệu DB và dọn dẹp file ghi âm/PDF trên đĩa; có modal xác nhận ở Dashboard và History.
+   - **Chế độ thi ở bước Self-Assessment** (`test_sessions.mode`: `exam` vs `practice`):
+     - `exam`: sau khi Eva đọc xong có **5 giây** để nghe lại (1 lần, hết giờ là mất); không hiện câu hỏi/transcript; không lùi/nhảy câu; Next = bỏ qua vĩnh viễn (`POST /sessions/{id}/questions/{order}/skip` lưu câu trả lời rỗng); thoát giữa chừng vẫn lưu tiến trình và Resume tiếp tục từ câu chưa làm; kết quả chỉ hiện sau khi thi xong — báo cáo chấm song song toàn bộ câu trả lời và liệt kê đủ 15 câu (câu hỏi, câu trả lời, trạng thái).
+     - `practice`: chế độ luyện tập có hướng dẫn; xem câu hỏi, gợi ý và chấm điểm ngay sau mỗi câu; tự do chuyển câu.
    - System Check không bắt buộc: có thể bấm Next bỏ qua.
    - **Thời gian nói theo từng câu** (`core/question_meta.py → question_timing`, trả về trong `QuestionResponse.timing`): câu dễ (tự giới thiệu, role-play hỏi) ~1 phút; miêu tả/thói quen 1:30; kể chuyện/so sánh/sự cố 2 phút; bộ đề mức IL được rút ngắn.
    - **Phân loại chủ đề** (`questions.category`, gán lúc tạo đề qua `derive_category`): self_intro, home, leisure, role_play và 5 chủ đề chính. Cột được thêm tự động bằng `ensure_schema()` khi khởi động (dự án không dùng Alembic).

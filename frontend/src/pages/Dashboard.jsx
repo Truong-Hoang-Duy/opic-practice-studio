@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { historyApi, sessionApi } from '../api/client';
-import { Play, Sparkles, Clock, CheckCircle, BarChart3, ArrowRight, Flame } from 'lucide-react';
+import { Play, Sparkles, Clock, CheckCircle, BarChart3, ArrowRight, Flame, Trash2 } from 'lucide-react';
 import { ViTooltip } from '../components/Tooltip';
+import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 
-export const Dashboard = ({ onStartTest, onResumeSession, onViewReport }) => {
+export const Dashboard = ({ onStartTest, onResumeSession, onViewReport, onDeleteSession }) => {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [recentSessions, setRecentSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sessionToDelete, setSessionToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -28,12 +31,36 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport }) => {
     loadData();
   }, []);
 
+  const handleConfirmDelete = async () => {
+    if (!sessionToDelete) return;
+    setDeleting(true);
+    try {
+      await sessionApi.delete(sessionToDelete.id);
+      setRecentSessions((prev) => prev.filter((s) => s.id !== sessionToDelete.id));
+      if (onDeleteSession) {
+        onDeleteSession(sessionToDelete.id);
+      }
+      setSessionToDelete(null);
+      try {
+        const statsRes = await historyApi.getStats();
+        setStats(statsRes.data);
+      } catch (e) {
+        console.warn("Failed to refresh stats:", e);
+      }
+    } catch (err) {
+      console.error("Failed to delete session", err);
+      alert("Không thể xóa phiên thi. Vui lòng thử lại.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex flex-col gap-6 sm:gap-8">
       
       {/* Welcome Banner */}
       <div className="relative overflow-hidden rounded-3xl glass-panel bg-gradient-to-r from-sky-50/90 via-emerald-50/40 to-slate-100/90 dark:from-slate-900 dark:via-slate-900/95 dark:to-sky-950/40 p-5 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-2xl transition-colors">
-        <div className="relative z-10 max-w-2xl">
+        <div className="relative z-10 max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold mb-3">
             <Flame className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
             <span>Mô phỏng Thi Thử Chuẩn ACTFL OPIc</span>
@@ -46,22 +73,46 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport }) => {
             Ready to simulate the official 15-question OPIc interview flow with AI Examiner Eva? Focus on paragraph-length storytelling, past tense consistency, and handling unexpected complications to reach your target level.
           </p>
 
-          {/* Quick Action Buttons */}
-          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-4 mt-6">
+          {/* Quick Action Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-6">
             <button
               onClick={() => onStartTest('practice')}
-              className="flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-gradient-to-r from-brand-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-white font-semibold text-sm shadow-xl shadow-sky-500/25 transition-all transform active:scale-95 cursor-pointer"
+              className="group relative flex flex-col text-left p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-brand-600 via-sky-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-white shadow-xl shadow-sky-500/25 border border-sky-400/30 transition-all transform active:scale-[0.99] cursor-pointer"
             >
-              <Sparkles className="w-4 h-4 text-amber-300" />
-              <span>Start Practice Mode (Coached)</span>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-white/20 backdrop-blur-md">
+                    <Sparkles className="w-5 h-5 text-amber-300" />
+                  </div>
+                  <span className="font-bold text-base text-white">Start Practice Mode</span>
+                </div>
+                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-white/20 text-white border border-white/30 backdrop-blur-md">
+                  Coached
+                </span>
+              </div>
+              <p className="text-xs text-sky-100 leading-relaxed font-normal mt-1">
+                Luyện tập có hướng dẫn: Bỏ qua kiểm tra hệ thống & survey, vào thẳng chọn chủ đề, xem đề bài & gợi ý tiếng Việt, nhảy câu tự do và nhận phân tích sửa lỗi / bài mẫu AI ngay sau mỗi câu.
+              </p>
             </button>
 
             <button
               onClick={() => onStartTest('exam')}
-              className="flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white dark:text-slate-200 font-semibold text-sm border border-slate-700 transition-all transform active:scale-95 cursor-pointer shadow-md"
+              className="group relative flex flex-col text-left p-4 sm:p-5 rounded-2xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-800/90 dark:hover:bg-slate-800 text-white shadow-xl shadow-slate-900/20 border border-slate-700/80 transition-all transform active:scale-[0.99] cursor-pointer"
             >
-              <Play className="w-4 h-4 text-emerald-400" />
-              <span>Take Full Exam Simulation</span>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30">
+                    <Play className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <span className="font-bold text-base text-white">Take Full Exam Simulation</span>
+                </div>
+                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  Strict OPIc
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed font-normal mt-1">
+                Mô phỏng thi thật 100%: Đầy đủ 5 bước kiểm tra thiết bị, khảo sát cá nhân, quy chế thi nghiêm ngặt (ẩn câu hỏi, đếm ngược 5s để nghe lại), kết thúc bài thi mới nhận báo cáo tổng thể chuẩn ACTFL.
+              </p>
             </button>
           </div>
         </div>
@@ -174,29 +225,48 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport }) => {
                     {new Date(session.started_at).toLocaleDateString()}
                   </span>
 
-                  {session.status === 'completed' ? (
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => onViewReport(session.id)}
-                      className="flex items-center gap-1.5 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline cursor-pointer"
+                      onClick={() => setSessionToDelete(session)}
+                      title="Xóa phiên thi này"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 dark:hover:bg-rose-500/20 transition-colors cursor-pointer"
                     >
-                      <span>View Diagnostic Report</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
-                  ) : (
-                    <button
-                      onClick={() => onResumeSession(session.id)}
-                      className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
-                    >
-                      <span>Continue Test</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+
+                    {session.status === 'completed' ? (
+                      <button
+                        onClick={() => onViewReport(session.id)}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline cursor-pointer"
+                      >
+                        <span>View Diagnostic Report</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => onResumeSession(session.id)}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                      >
+                        <span>Continue Test</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Confirm Delete Modal */}
+      <ConfirmDeleteModal
+        isOpen={Boolean(sessionToDelete)}
+        session={sessionToDelete}
+        deleting={deleting}
+        onClose={() => setSessionToDelete(null)}
+        onConfirm={handleConfirmDelete}
+      />
 
     </div>
   );
