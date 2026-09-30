@@ -85,8 +85,18 @@ export const AudioRecorder = ({
 
       // 2. Setup WebSocket connection to backend Soniox proxy
       try {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws/stt`;
+        let wsUrl;
+        const envApi = import.meta.env.VITE_API_BASE_URL;
+        if (import.meta.env.VITE_WS_URL) {
+          wsUrl = import.meta.env.VITE_WS_URL;
+        } else if (envApi && envApi.startsWith('http')) {
+          const parsed = new URL(envApi);
+          const proto = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
+          wsUrl = `${proto}//${parsed.host}/ws/stt`;
+        } else {
+          const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          wsUrl = `${protocol}//${window.location.host}/ws/stt`;
+        }
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
