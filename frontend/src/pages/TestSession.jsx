@@ -32,6 +32,15 @@ export const TestSession = ({
   const [latestAnswer, setLatestAnswer] = useState(null);
   const [isAnswerCoachingOpen, setIsAnswerCoachingOpen] = useState(false);
   const [replayUsed, setReplayUsed] = useState(false);
+  const [sessionInfo, setSessionInfo] = useState(null);
+
+  useEffect(() => {
+    if (sessionId) {
+      sessionApi.getStatus(sessionId)
+        .then(res => setSessionInfo(res.data))
+        .catch(err => console.warn("Failed to fetch session status", err));
+    }
+  }, [sessionId]);
 
   // Fetch next question
   const fetchNext = async () => {
@@ -113,6 +122,7 @@ export const TestSession = ({
       <AnswerCoaching
         answerId={latestAnswer.id}
         question={currentQuestion}
+        assessmentLevel={sessionInfo?.self_assessment_level || 4}
         onNextQuestion={() => {
           if (currentQuestion.order_index >= 15) {
             sessionApi.finishSession(sessionId).then(onTestComplete);
@@ -236,7 +246,7 @@ export const TestSession = ({
                 className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-xs font-semibold text-emerald-700 dark:text-emerald-400 transition-colors cursor-pointer shadow-sm"
               >
                 <BookOpen className="w-3.5 h-3.5" />
-                <span>{showGuide ? 'Hide Vietnamese Guide' : 'View IH Answer Blueprint'}</span>
+                <span>{showGuide ? 'Ẩn gợi ý cấu trúc' : 'Xem khung gợi ý trả lời'}</span>
               </button>
             )}
           </div>
@@ -251,7 +261,7 @@ export const TestSession = ({
               <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2">
                 <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4" />
-                  Chiến thuật trả lời đạt Intermediate High (IH):
+                  Chiến thuật trả lời đề xuất:
                 </span>
                 <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
                   Khung cấu trúc: {currentQuestion.vietnamese_guide.target_pattern}

@@ -64,7 +64,7 @@ export const Login = ({ onLoginSuccess }) => {
           </div>
           <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">OPIc Practice Studio</h1>
           <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 font-medium">
-            Luyện thi OPIc chuyên sâu &bull; Mục tiêu <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Intermediate High (IH)</span>
+            Luyện thi OPIc chuyên sâu &bull; Đánh giá & đề xuất theo chuẩn <span className="text-emerald-600 dark:text-emerald-400 font-semibold">ACTFL OPIc</span>
           </p>
         </div>
 

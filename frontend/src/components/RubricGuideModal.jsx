@@ -25,14 +25,14 @@ export const RubricGuideModal = ({ isOpen, onClose }) => {
         {/* Content */}
         <div className="p-6 overflow-y-auto space-y-6 text-sm">
           
-          {/* Target IH Highlight Banner */}
-          <div className="p-4 rounded-xl bg-emerald-50 dark:bg-gradient-to-r dark:from-emerald-500/10 dark:via-emerald-500/5 dark:to-transparent border border-emerald-300 dark:border-emerald-500/30">
-            <div className="flex items-center gap-2 font-bold text-emerald-800 dark:text-emerald-400 mb-1">
+          {/* ACTFL Framework Banner */}
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-2 font-bold text-brand-700 dark:text-brand-400 mb-1">
               <ShieldCheck className="w-5 h-5" />
-              <span>Target Standard: Intermediate High (IH)</span>
+              <span>Tiêu chuẩn Đánh giá ACTFL OPIc</span>
             </div>
             <p className="text-slate-700 dark:text-slate-300 text-xs leading-relaxed font-normal">
-              <strong>IH là ngưỡng bước ngoặt quan trọng:</strong> Ứng viên phải nói được thành từng đoạn văn mạch lạc (Paragraph discourse), kiểm soát vững chắc cả 3 thì (quá khứ, hiện tại, tương lai), biết kể câu chuyện có tình huống bất ngờ/khó khăn (Complication) và cách giải quyết.
+              Hệ thống đánh giá câu trả lời và đề xuất bài mẫu dựa trên tiêu chuẩn ACTFL OPIc tương ứng với mức độ bạn đã chọn trong bài thi: từ khả năng tạo câu đơn giản (IL), kết nối đoạn (IM), đến kể chuyện có diễn biến và xử lý tình huống linh hoạt (IH/AL).
             </p>
           </div>
 
@@ -77,7 +77,7 @@ export const RubricGuideModal = ({ isOpen, onClose }) => {
               {/* IH */}
               <div className="p-3.5 rounded-xl bg-emerald-50/70 dark:bg-slate-950/60 border border-emerald-300 dark:border-emerald-500/40">
                 <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30">
-                  Intermediate High (IH) - GOAL
+                  Intermediate High (IH)
                 </span>
                 <p className="text-xs text-slate-900 dark:text-slate-200 mt-2 font-bold">Đoạn văn dài, 3 thì, kể chuyện có cao trào</p>
                 <p className="text-[11px] text-slate-700 dark:text-slate-300 mt-1 leading-relaxed font-normal">

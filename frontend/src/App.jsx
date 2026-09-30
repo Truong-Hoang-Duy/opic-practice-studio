@@ -89,7 +89,7 @@ export const App = () => {
       )}
 
       {/* Main Screen Router */}
-      <main className={isExamScreen ? "flex-1 overflow-y-auto flex flex-col justify-center py-2" : "flex-1"}>
+      <main className={isExamScreen ? "flex-1 overflow-y-auto flex flex-col justify-start py-4" : "flex-1"}>
         {currentTab === 'dashboard' && (
           <Dashboard
             onStartTest={handleStartNewTest}

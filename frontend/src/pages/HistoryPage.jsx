@@ -52,7 +52,7 @@ export const HistoryPage = ({ onViewReport, onResumeSession }) => {
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Practice History & Archives</h1>
           </div>
           <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-            Review past mock simulations, replay audio recordings, and inspect long-term progress toward Intermediate High.
+            Review past mock simulations, replay audio recordings, and inspect your diagnostic progress over time.
           </p>
         </div>
 

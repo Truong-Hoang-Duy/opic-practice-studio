@@ -36,7 +36,7 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport }) => {
         <div className="relative z-10 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold mb-3">
             <Flame className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
-            <span>Target Benchmark: Intermediate High (IH)</span>
+            <span>Mô phỏng Thi Thử Chuẩn ACTFL OPIc</span>
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
@@ -109,11 +109,15 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport }) => {
 
           <div className="glass-card rounded-2xl p-5 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 shadow-sm">
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2 font-medium">
-              <span>Target Level</span>
+              <span>Mức Thi Gần Nhất</span>
               <Flame className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
             </div>
-            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">IH</div>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400">Intermediate High</span>
+            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+              {sessions.length > 0 ? (sessions[0].session_report?.overall_level || `Level ${sessions[0].self_assessment_level || 4}`) : 'OPIc'}
+            </div>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              {sessions.length > 0 ? 'Mức bài thi gần nhất' : 'Sẵn sàng thi thử'}
+            </span>
           </div>
         </div>
       )}

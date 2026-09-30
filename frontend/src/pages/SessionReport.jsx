@@ -115,7 +115,7 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
             {overall_level}
           </div>
           <span className="text-xs text-slate-700 dark:text-slate-300 mt-1 font-semibold">
-            {isIH ? 'Intermediate High' : overall_level === 'IM' ? 'Intermediate Mid' : 'Intermediate Low'}
+            {overall_level === 'IH' ? 'Intermediate High' : overall_level === 'IM' ? 'Intermediate Mid' : overall_level === 'IL' ? 'Intermediate Low' : overall_level === 'AL' ? 'Advanced Low' : overall_level}
           </span>
           <div className="mt-3 flex items-center gap-1 text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
             <ShieldCheck className="w-3.5 h-3.5" />
@@ -134,7 +134,7 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
               <TrendingUp className="w-4 h-4 text-sky-600 dark:text-sky-400" />
               <span>6 Core Criteria Radar</span>
             </h2>
-            <ViTooltip vi="Biểu đồ đa giác thể hiện 6 tiêu chí cốt lõi của ACTFL OPIc so với đường chuẩn Intermediate High (4.0).">
+            <ViTooltip vi="Biểu đồ đa giác thể hiện 6 tiêu chí cốt lõi của ACTFL OPIc so với đường chuẩn (4.0).">
               <span className="text-xs text-brand-600 dark:text-brand-400 font-semibold">Target Line: 4.0</span>
             </ViTooltip>
           </div>
@@ -234,7 +234,7 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
           <div className="border-b border-slate-200 dark:border-slate-800 pb-3 flex items-center justify-between">
             <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
               <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>{study_plan.title || '4-Week Action Plan to Intermediate High'}</span>
+              <span>{study_plan.title || '4-Week Action Plan'}</span>
             </h2>
             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Tailored for Vietnamese candidates</span>
           </div>

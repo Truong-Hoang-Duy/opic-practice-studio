@@ -154,11 +154,11 @@ def get_mock_json_response(prompt: str) -> Dict[str, Any]:
             },
             "complication_present": True,
             "story_narrative_present": True,
-            "feedback_summary": "Great effort! You maintained a clear paragraph structure and successfully communicated your main ideas. Your pronunciation is understandable, and you addressed all parts of the question. To reach Intermediate High (IH), focus on consistent past-tense verb endings (-ed) and elaborate more on the emotional resolution of your story.",
+            "feedback_summary": "Great effort! You maintained a clear paragraph structure and successfully communicated your main ideas. Your pronunciation is understandable, and you addressed all parts of the question. To improve further, focus on consistent past-tense verb endings (-ed) and elaborate more on the emotional resolution of your story.",
             "actionable_steps": [
                 "Practice regular and irregular past tense forms so your storytelling does not slip back into the present tense.",
                 "Incorporate more precise transitional phrases like 'To put it another way,' 'What made it unforgettable was,' and 'Looking back.'",
-                "Extend your speaking duration by describing sensory details (sights, sounds, emotions) to comfortably hit 90+ seconds."
+                "Extend your speaking duration by describing sensory details (sights, sounds, emotions) to comfortably hit 60-90+ seconds."
             ],
             "feedback_items": [
                 {
@@ -172,7 +172,7 @@ def get_mock_json_response(prompt: str) -> Dict[str, Any]:
                     "mistake": "The weather is very good so we feel happy.",
                     "correction": "The weather was wonderful, so we were in high spirits.",
                     "explanation_en": "Upgrade simple words like 'very good' and maintain past tense consistency.",
-                    "explanation_vi": "Nâng cấp từ vựng 'very good' thành 'wonderful' và chia quá khứ 'was/were' để ăn điểm IH.",
+                    "explanation_vi": "Nâng cấp từ vựng 'very good' thành 'wonderful' và chia thì quá khứ 'was/were' nhất quán.",
                     "category": "vocabulary"
                 },
                 {
@@ -191,7 +191,7 @@ def get_mock_json_response(prompt: str) -> Dict[str, Any]:
             "current_level": "IM",
             "target_level": "IH",
             "changes_explanation": "Elevated discrete sentences into a flowing narrative paragraph. Replaced basic words with vivid collocations ('charming coffee shop', 'unwind', 'catch up') and solidified past tense narration.",
-            "vietnamese_coaching_notes": "Bài viết đã được nâng lên cấp IH bằng cách bổ sung chi tiết cảm xúc ('charming', 'warm lattes'), dùng cấu trúc liên kết mượt mà và duy trì thì quá khứ xuyên suốt.",
+            "vietnamese_coaching_notes": "Bài nói đã được nâng cấp bằng cách bổ sung chi tiết cảm xúc ('charming', 'warm lattes'), dùng cấu trúc liên kết mượt mà và duy trì thì quá khứ xuyên suốt.",
             "key_expressions_added": [
                 "One of my favorite places to unwind is...",
                 "Out of nowhere, it started pouring...",

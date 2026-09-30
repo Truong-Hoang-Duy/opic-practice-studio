@@ -167,11 +167,15 @@ def evaluate_answer(
         return existing_eval
 
     q = answer.question
+    session = answer.session or db.query(TestSession).filter(TestSession.id == answer.session_id).first()
+    level_map = {1: "Novice", 2: "Novice", 3: "IL", 4: "IM", 5: "IH", 6: "AL"}
+    exam_level = level_map.get(session.self_assessment_level, "IM") if session else "IM"
+
     eval_data, p_tok, c_tok, cost = evaluate_answer_llm(
         question_text=q.question_text if q else "General OPIc Question",
         question_type=q.question_type if q else "description",
         topic=q.topic if q else "General",
-        target_level="IH",
+        target_level=exam_level,
         transcript=ver.transcript
     )
 

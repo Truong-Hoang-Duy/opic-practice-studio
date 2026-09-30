@@ -23,10 +23,16 @@ export const AnswerCoaching = ({
   answerId,
   question,
   onNextQuestion,
-  onRetryQuestion
+  onRetryQuestion,
+  assessmentLevel = 4
 }) => {
   const [activeTab, setActiveTab] = useState('evaluation'); // 'evaluation', 'guide', 'rewrite', 'models'
   
+  // Level mapping based on candidate's self-assessment
+  const levelToCode = { 1: 'Novice', 2: 'Novice', 3: 'IL', 4: 'IM', 5: 'IH', 6: 'AL' };
+  const chosenLevelCode = levelToCode[assessmentLevel] || 'IM';
+  const defaultModelLevel = ['IL', 'IM', 'IH'].includes(chosenLevelCode) ? chosenLevelCode : (assessmentLevel <= 2 ? 'IL' : 'IH');
+
   // State for answer versions and transcript editing
   const [activeTranscript, setActiveTranscript] = useState('');
   const [isEditingTranscript, setIsEditingTranscript] = useState(false);
@@ -44,15 +50,20 @@ export const AnswerCoaching = ({
   const [rewriting, setRewriting] = useState(false);
   const [acceptingRewrite, setAcceptingRewrite] = useState(false);
 
-  // Model answers state
+  // Model answers state - defaults to the candidate's chosen exam level
   const [modelAnswers, setModelAnswers] = useState([]);
-  const [selectedModelLevel, setSelectedModelLevel] = useState('IH');
+  const [selectedModelLevel, setSelectedModelLevel] = useState(defaultModelLevel);
   const [loadingModels, setLoadingModels] = useState(false);
 
-  // Load Answer data and trigger initial evaluation
+  // Scroll to top and load Answer data upon answer change
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
     loadAnswerData();
   }, [answerId]);
+
+  useEffect(() => {
+    setSelectedModelLevel(defaultModelLevel);
+  }, [assessmentLevel]);
 
   const loadAnswerData = async () => {
     try {
@@ -91,9 +102,14 @@ export const AnswerCoaching = ({
     setRewriting(true);
     try {
       const versionId = evaluation?.answer_version_id;
+      const progression = { 'Novice': 'IL', 'IL': 'IM', 'IM': 'IH', 'IH': 'IH', 'AL': 'AL' };
+      const targetUpgrade = evaluation?.estimated_level === chosenLevelCode 
+        ? (progression[chosenLevelCode] || 'IH') 
+        : (['IL', 'IM', 'IH'].includes(chosenLevelCode) ? chosenLevelCode : 'IH');
+
       const res = await answerApi.rewrite(answerId, {
         answer_version_id: versionId,
-        target_level: evaluation?.estimated_level === 'IL' ? 'IM' : 'IH'
+        target_level: targetUpgrade
       });
       setRewriteData(res.data);
       setActiveTab('rewrite');
@@ -150,32 +166,39 @@ export const AnswerCoaching = ({
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 flex flex-col gap-6">
       
-      {/* Top Header & Navigation */}
-      <div className="glass-panel bg-white dark:bg-slate-900/90 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold px-2 py-0.5 rounded bg-brand-50 dark:bg-brand-500/20 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-500/30">
-              Q{question?.order_index} Diagnostic
+      {/* Top Header: Question Card & Actions - Sticky and prominent */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border-2 border-brand-500/20 dark:border-brand-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-md sticky top-0 z-20 backdrop-blur-md bg-white/95 dark:bg-slate-900/95">
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-1.5">
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-brand-500 text-white shadow-xs">
+              Câu hỏi {question?.order_index || 1} / 15
             </span>
-            <span className="text-xs text-slate-500 dark:text-slate-400 capitalize font-medium">{question?.topic}</span>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 capitalize">
+              Chủ đề: {question?.topic}
+            </span>
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-500/20">
+              Mức thi: Level {assessmentLevel} ({chosenLevelCode})
+            </span>
           </div>
-          <h2 className="text-base font-bold text-slate-900 dark:text-white mt-1">"{question?.question_text}"</h2>
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-snug">
+            "{question?.question_text}"
+          </h2>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={onRetryQuestion}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold border border-slate-300 dark:border-slate-800 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-300 dark:border-slate-700 transition-colors cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Re-record Answer</span>
+            <span>Ghi âm lại</span>
           </button>
 
           <button
             onClick={onNextQuestion}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-brand-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-white text-xs font-bold shadow-lg shadow-sky-500/25 transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-white text-xs font-bold shadow-lg shadow-sky-500/25 transition-all cursor-pointer"
           >
-            <span>Proceed to Next Question</span>
+            <span>Sang câu tiếp theo</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -386,8 +409,8 @@ export const AnswerCoaching = ({
                   </div>
                   <p className="text-xs text-slate-700 dark:text-slate-300 mt-1 leading-relaxed font-normal">
                     {evaluation.complication_present 
-                      ? "Great job including an unexpected complication; this is vital for securing an IH rating."
-                      : "Tip: Add a memorable surprise hurdle, obstacle, or incident with resolution to elevate your answer to IH."}
+                      ? `Tốt lắm! Bạn đã đưa ra sự cố/tình huống phát sinh cụ thể, phù hợp với tiêu chuẩn Mức ${chosenLevelCode}.`
+                      : `Gợi ý: Thêm chi tiết về tình huống bất ngờ hoặc khó khăn phát sinh cùng cách xử lý để hoàn thiện câu trả lời ở Mức ${chosenLevelCode}.`}
                   </p>
                 </div>
               </div>
@@ -423,7 +446,7 @@ export const AnswerCoaching = ({
               <div className="p-5 rounded-2xl bg-emerald-50/70 dark:bg-slate-900/90 border border-emerald-300 dark:border-emerald-500/30 flex flex-col gap-3 shadow-sm">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-400 flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4" />
-                  <span>3 Concrete Actions to Reach Intermediate High (IH)</span>
+                  <span>3 Hành động cụ thể để đạt chuẩn Mức {chosenLevelCode} ({chosenLevelCode === 'IL' ? 'Intermediate Low' : chosenLevelCode === 'IM' ? 'Intermediate Mid' : chosenLevelCode === 'IH' ? 'Intermediate High' : chosenLevelCode})</span>
                 </h3>
 
                 <div className="space-y-2.5">
@@ -495,18 +518,27 @@ export const AnswerCoaching = ({
       {activeTab === 'models' && (
         <div className="flex flex-col gap-4">
           {/* Level Switcher (IL, IM, IH) */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {['IL', 'IM', 'IH'].map((lvl) => (
               <button
                 key={lvl}
                 onClick={() => setSelectedModelLevel(lvl)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   selectedModelLevel === lvl
                     ? 'bg-brand-500 text-white shadow-sm'
                     : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-slate-800'
                 }`}
               >
-                Level {lvl} Model {lvl === 'IH' && '★'}
+                <span>Level {lvl} Model</span>
+                {lvl === defaultModelLevel && (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                    selectedModelLevel === lvl
+                      ? 'bg-white/20 text-white'
+                      : 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30'
+                  }`}>
+                    (Mức bạn chọn)
+                  </span>
+                )}
               </button>
             ))}
           </div>

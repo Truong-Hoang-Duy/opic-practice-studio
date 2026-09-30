@@ -68,7 +68,7 @@ export const DiffViewer = ({
           <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-200 dark:border-slate-800">
             <span className="text-xs font-bold uppercase tracking-wider text-brand-700 dark:text-brand-400 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5" />
-              Upgraded to Intermediate High
+              Upgraded to Level {target_level}
             </span>
             <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30">
               Level {target_level}

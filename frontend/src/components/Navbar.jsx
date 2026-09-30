@@ -102,7 +102,7 @@ export const Navbar = ({ currentTab, setTab, onOpenRubric }) => {
             <div className="flex items-center gap-2.5">
               <div className="hidden sm:flex flex-col text-right">
                 <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">{user.full_name || user.email}</span>
-                <span className="text-[10px] text-brand-600 dark:text-brand-400 font-medium">Aiming for Intermediate High</span>
+                <span className="text-[10px] text-brand-600 dark:text-brand-400 font-medium">ACTFL OPIc Simulation</span>
               </div>
               <button
                 onClick={logout}

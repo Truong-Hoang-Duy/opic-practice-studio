@@ -7,35 +7,35 @@ const ASSESSMENT_LEVELS = [
   {
     level: 1,
     label: "Level 1: Novice Low-Mid",
-    target: "IL",
+    target: "NL",
     en: "I can only say individual words and memorized phrases like greetings.",
     vi: "Tôi chỉ có thể nói các từ đơn lẻ và cụm từ quen thuộc học vẹt như lời chào hỏi.",
-    difficultyNote: "Generates basic descriptive questions."
+    difficultyNote: "Bao gồm các câu hỏi miêu tả đơn giản nhất."
   },
   {
     level: 2,
     label: "Level 2: Novice High",
-    target: "IL",
+    target: "NH",
     en: "I can make simple sentences in the present tense about basic personal facts.",
     vi: "Tôi có thể nói các câu đơn giản thì hiện tại về thông tin cá nhân cơ bản.",
-    difficultyNote: "Focuses on present-tense descriptions."
+    difficultyNote: "Tập trung vào miêu tả người và sự vật ở thì hiện tại."
   },
   {
     level: 3,
     label: "Level 3: Intermediate Low",
-    target: "IM",
+    target: "IL",
     en: "I can ask and answer simple questions, but I struggle to speak in connected sentences.",
     vi: "Tôi có thể hỏi và trả lời các câu hỏi đơn giản, nhưng gặp khó khăn khi nói câu ghép liên tục.",
-    difficultyNote: "Combines descriptions with basic routine questions."
+    difficultyNote: "Bao gồm các câu hỏi miêu tả cơ bản và thói quen hằng ngày."
   },
   {
     level: 4,
-    label: "Level 4: Intermediate Mid (Recommended for IH Goal)",
-    target: "IH",
+    label: "Level 4: Intermediate Mid",
+    target: "IM",
     recommended: true,
     en: "I can speak in full sentences and describe my routine and past events with some errors.",
     vi: "Tôi có thể nói thành câu hoàn chỉnh, miêu tả thói quen và sự kiện quá khứ (vẫn có vài lỗi sai).",
-    difficultyNote: "Optimal choice to unlock 15-question set targeting Intermediate High."
+    difficultyNote: "Bao gồm các câu hỏi miêu tả chi tiết, thói quen và trải nghiệm quá khứ."
   },
   {
     level: 5,
@@ -43,15 +43,15 @@ const ASSESSMENT_LEVELS = [
     target: "IH",
     en: "I can speak comfortably in paragraphs, narrate stories across past, present, and future, and handle unexpected situations.",
     vi: "Tôi nói tự tin thành từng đoạn văn, kể chuyện mượt mà ở các thì, và xử lý được tình huống bất ngờ.",
-    difficultyNote: "Unlocks role-plays with complex complications and comparison tasks."
+    difficultyNote: "Bao gồm các câu hỏi kể chuyện, xử lý tình huống bất ngờ (role-play) và so sánh."
   },
   {
     level: 6,
     label: "Level 6: Advanced",
-    target: "IH",
+    target: "AL",
     en: "I can speak fluently and in detail about complex abstract, social, and professional topics.",
     vi: "Tôi có thể nói lưu loát, chi tiết về các chủ đề trừu tượng, xã hội và chuyên môn phức tạp.",
-    difficultyNote: "Challenges candidate with abstract socio-cultural discourse."
+    difficultyNote: "Bao gồm các câu hỏi thảo luận xã hội và các vấn đề thời sự phức tạp."
   }
 ];
 
