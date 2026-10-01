@@ -2,23 +2,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Volume2, RotateCcw, VolumeX } from 'lucide-react';
 import { ViTooltip } from './Tooltip';
 import { resolveMediaUrl } from '../api/client';
+import { getSharedAudio, getVoices } from '../utils/audioUnlock';
 
 // Browser voices closest to Eva (calm young American female), used when server audio is unavailable
 const PREFERRED_VOICES = ['Aria', 'Jenny', 'Ava', 'Samantha', 'Google US English', 'Zira'];
-
-const loadVoices = () => new Promise((resolve) => {
-  const synth = window.speechSynthesis;
-  const voices = synth.getVoices();
-  if (voices.length) return resolve(voices);
-  const timer = setTimeout(() => resolve(synth.getVoices()), 1000);
-  synth.addEventListener('voiceschanged', () => {
-    clearTimeout(timer);
-    resolve(synth.getVoices());
-  }, { once: true });
-});
+// Safari drops speech that wasn't started by a user gesture without firing any event
+const SPEECH_START_TIMEOUT_MS = 2000;
 
 const pickEvaVoice = (voices) => {
-  const english = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en-us'));
+  const english = voices.filter(v => v.lang && v.lang.toLowerCase().replace('_', '-').startsWith('en-us'));
   for (const name of PREFERRED_VOICES) {
     const match = english.find(v => v.name.includes(name));
     if (match) return match;
@@ -44,6 +36,7 @@ export const EvaAvatar = ({
   const [replayWindowLeft, setReplayWindowLeft] = useState(null); // null = not opened yet, 0 = expired
   const audioRef = useRef(null);
   const utteranceRef = useRef(null);
+  const speechWatchdogRef = useRef(null);
   const isReplayingRef = useRef(false);
 
   const handlePlaybackEnded = () => {
@@ -54,6 +47,9 @@ export const EvaAvatar = ({
     isReplayingRef.current = false;
     if (onAudioEnded) onAudioEnded();
   };
+  // The shared <audio> listeners are attached once per question; route them to the latest handler
+  const playbackEndedRef = useRef(handlePlaybackEnded);
+  playbackEndedRef.current = handlePlaybackEnded;
 
   // Count down the replay window; once it hits 0 the replay is lost
   useEffect(() => {
@@ -69,31 +65,51 @@ export const EvaAvatar = ({
 
   const stopSpeech = () => {
     if (!speechSupported) return;
+    clearTimeout(speechWatchdogRef.current);
     utteranceRef.current = null;
     window.speechSynthesis.cancel();
   };
 
-  const speakText = async () => {
+  // Must stay synchronous: Safari only honours speak() while still inside the click that triggered it
+  const speakText = () => {
     if (!speechSupported || !text) return;
-    stopSpeech();
-    const voices = await loadVoices();
+    const synth = window.speechSynthesis;
+    clearTimeout(speechWatchdogRef.current);
+    // Safari may swallow the next utterance after cancel(), so only cancel when something is queued
+    if (synth.speaking || synth.pending) synth.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    const voice = pickEvaVoice(voices);
+    const voice = pickEvaVoice(getVoices());
     if (voice) utterance.voice = voice;
     utterance.lang = 'en-US';
     utterance.rate = 0.95;
     utterance.volume = isMuted ? 0 : 1;
-    utterance.onstart = () => setIsPlaying(true);
+    utterance.onstart = () => {
+      if (utteranceRef.current !== utterance) return;
+      clearTimeout(speechWatchdogRef.current);
+      setAutoplayBlocked(false);
+      setIsPlaying(true);
+    };
     utterance.onend = () => {
       // Ignore events from utterances that were cancelled/replaced
       if (utteranceRef.current !== utterance) return;
+      clearTimeout(speechWatchdogRef.current);
       handlePlaybackEnded();
     };
-    utterance.onerror = () => {
-      if (utteranceRef.current === utterance) setIsPlaying(false);
+    utterance.onerror = (e) => {
+      if (utteranceRef.current !== utterance) return;
+      clearTimeout(speechWatchdogRef.current);
+      setIsPlaying(false);
+      if (e.error === 'not-allowed') setAutoplayBlocked(true);
     };
     utteranceRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
+    synth.speak(utterance);
+    speechWatchdogRef.current = setTimeout(() => {
+      if (utteranceRef.current !== utterance) return;
+      console.warn("Browser speech did not start (autoplay blocked); user interaction needed.");
+      stopSpeech();
+      setIsPlaying(false);
+      setAutoplayBlocked(true);
+    }, SPEECH_START_TIMEOUT_MS);
   };
 
   // New question: reset the failure flag
@@ -101,23 +117,59 @@ export const EvaAvatar = ({
     setAudioFailed(false);
   }, [audioUrl]);
 
+  // Server audio: load it into the shared (Safari-unlocked) element and autoplay
   useEffect(() => {
-    if (!autoPlay) return;
-    if (src && !audioFailed && audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(e => {
+    if (!src || audioFailed) return;
+    const audio = getSharedAudio();
+    if (!audio) return;
+    audioRef.current = audio;
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    const onEnded = () => playbackEndedRef.current();
+    const onError = () => {
+      console.warn("Eva audio failed to load; falling back to browser speech.");
+      setIsPlaying(false);
+      setAudioFailed(true);
+    };
+    audio.pause();
+    audio.muted = false;
+    audio.src = src;
+    audio.addEventListener('play', onPlay);
+    audio.addEventListener('pause', onPause);
+    audio.addEventListener('ended', onEnded);
+    audio.addEventListener('error', onError);
+    if (autoPlay) {
+      audio.play().catch(e => {
+        // AbortError just means the question changed before playback started
+        if (e.name === 'AbortError') return;
         console.warn("Autoplay blocked by browser policy; user interaction needed:", e);
         setAutoplayBlocked(true);
       });
-    } else if (useSpeech) {
-      speakText();
     }
+    return () => {
+      audio.removeEventListener('play', onPlay);
+      audio.removeEventListener('pause', onPause);
+      audio.removeEventListener('ended', onEnded);
+      audio.removeEventListener('error', onError);
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+      audioRef.current = null;
+      setIsPlaying(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src, audioFailed]);
+
+  // Browser speech fallback autoplay
+  useEffect(() => {
+    if (!autoPlay || !useSpeech) return;
+    speakText();
     return () => {
       stopSpeech();
       setIsPlaying(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src, text, autoPlay, audioFailed]);
+  }, [useSpeech, text, autoPlay]);
 
   const handlePlayToggle = () => {
     if (useSpeech) {
@@ -178,21 +230,6 @@ export const EvaAvatar = ({
 
   return (
     <div className="flex flex-col items-center">
-      {/* Audio element */}
-      {src && !audioFailed && (
-        <audio
-          ref={audioRef}
-          src={src}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onError={() => {
-            console.warn("Eva audio failed to load; falling back to browser speech.");
-            setIsPlaying(false);
-            setAudioFailed(true);
-          }}
-          onEnded={handlePlaybackEnded}
-        />
-      )}
       {/* Avatar Container */}
       <div className="relative">
         {/* Glow halo when talking */}
