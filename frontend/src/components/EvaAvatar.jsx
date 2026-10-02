@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Volume2, RotateCcw, VolumeX } from 'lucide-react';
 import { ViTooltip } from './Tooltip';
 import { resolveMediaUrl } from '../api/client';
-import { getSharedAudio, getVoices } from '../utils/audioUnlock';
+import { getSharedAudio, getVoices, playBeep, setPendingPlayback, clearPendingPlayback } from '../utils/audioUnlock';
 
 // Browser voices closest to Eva (calm young American female), used when server audio is unavailable
 const PREFERRED_VOICES = ['Aria', 'Jenny', 'Ava', 'Samantha', 'Google US English', 'Zira'];
@@ -23,6 +23,7 @@ export const EvaAvatar = ({
   text,
   autoPlay = true,
   onAudioEnded,
+  onPlayingChange, // (isPlaying) => void: lets the page pause its own timers while Eva speaks
   allowReplay = true,
   maxReplays = 1,
   // Strict exam: replay is only possible within this many seconds after Eva finishes reading
@@ -41,6 +42,8 @@ export const EvaAvatar = ({
 
   const handlePlaybackEnded = () => {
     setIsPlaying(false);
+    // Like the real OPIc: a beep marks the end of the question
+    if (!isMuted) playBeep();
     if (replayWindowSec && !isReplayingRef.current && replayCount < maxReplays) {
       setReplayWindowLeft(replayWindowSec);
     }
@@ -50,6 +53,12 @@ export const EvaAvatar = ({
   // The shared <audio> listeners are attached once per question; route them to the latest handler
   const playbackEndedRef = useRef(handlePlaybackEnded);
   playbackEndedRef.current = handlePlaybackEnded;
+
+  const playingChangeRef = useRef(onPlayingChange);
+  playingChangeRef.current = onPlayingChange;
+  useEffect(() => {
+    if (playingChangeRef.current) playingChangeRef.current(isPlaying);
+  }, [isPlaying]);
 
   // Count down the replay window; once it hits 0 the replay is lost
   useEffect(() => {
@@ -202,6 +211,16 @@ export const EvaAvatar = ({
       audioRef.current.play().catch(() => setAutoplayBlocked(true));
     }
   };
+
+  // Safari blocked autoplay: start the question on the learner's next tap anywhere, not only on the button
+  const firstPlayRef = useRef(handleFirstPlay);
+  firstPlayRef.current = handleFirstPlay;
+  useEffect(() => {
+    if (!autoplayBlocked) return;
+    const play = () => firstPlayRef.current();
+    setPendingPlayback(play);
+    return () => clearPendingPlayback(play);
+  }, [autoplayBlocked]);
 
   const handleReplay = () => {
     if (!canReplay) return;
@@ -362,6 +381,7 @@ export const EvaAvatar = ({
         {autoplayBlocked && !isPlaying ? (
           <button
             onClick={handleFirstPlay}
+            data-eva-play
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-500 hover:bg-brand-600 text-white shadow-sm cursor-pointer"
           >
             <Volume2 className="w-3.5 h-3.5" />

@@ -25,6 +25,13 @@ class Evaluation(Base):
     complication_present = Column(Boolean, default=False)
     story_narrative_present = Column(Boolean, default=False)
 
+    # Speech Intelligence: sentence-by-sentence tense map + Vietnamese-interference ("Vietlish") warnings
+    tense_timeline = Column(JSON, nullable=True)  # [{sentence, tense, status, note_vi}]
+    tense_distribution = Column(JSON, nullable=True)  # {past_pct, present_pct, future_pct}
+    vietlish_warnings = Column(JSON, nullable=True)  # [{original_phrase, issue_vi, suggested_phrase, explanation_vi}]
+    # IH/AL vocabulary upgrades the learner can save to their notebook
+    vocab_upgrades = Column(JSON, nullable=True)  # [{original_phrase, upgraded_phrase, kind, topic, example_sentence, note_vi}]
+
     # Feedback and IH Action Plan
     feedback_summary = Column(Text, nullable=False)
     actionable_steps = Column(JSON, nullable=True) # List of 3 concrete actions to reach IH

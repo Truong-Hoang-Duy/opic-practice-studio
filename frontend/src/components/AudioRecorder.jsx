@@ -7,6 +7,7 @@ export const AudioRecorder = ({
   compact = false, // embedded in another card (warm-up): no fixed height, tighter spacing
   targetDurationMin = 60,
   targetDurationMax = 120,
+  autoStart = false, // start recording as soon as the recorder appears (daily workout after the prep countdown)
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
@@ -37,6 +38,15 @@ export const AudioRecorder = ({
       stopAllStreams();
     };
   }, []);
+
+  // Once per recorder (StrictMode re-runs effects; the ref survives that)
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (!autoStart || autoStartedRef.current) return;
+    autoStartedRef.current = true;
+    startRecording();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart]);
 
   const stopAllStreams = () => {
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);

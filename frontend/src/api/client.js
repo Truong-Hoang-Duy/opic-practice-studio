@@ -81,6 +81,25 @@ export const libraryApi = {
   playlist: (data) => api.post('/library/playlist', data),
 };
 
+export const vocabularyApi = {
+  meta: () => api.get('/vocabulary/meta'),
+  list: (params) => api.get('/vocabulary', { params }),
+  save: (data) => api.post('/vocabulary', data),
+  update: (id, data) => api.patch(`/vocabulary/${id}`, data),
+  remove: (id) => api.delete(`/vocabulary/${id}`),
+  speak: (text) => api.post('/vocabulary/speak', { text }),
+};
+
+export const dailyApi = {
+  today: () => api.get('/daily/today'),
+  history: () => api.get('/daily/history'),
+  get: (id) => api.get(`/daily/${id}`),
+  submit: (id, formData) => api.post(`/daily/${id}/submit`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  regrade: (id, formData) => api.post(`/daily/${id}/regrade`, formData),
+};
+
 export const systemApi = {
   ping: () => api.get('/system/ping'),
   getSampleQuestion: () => api.get('/system/sample-question'),

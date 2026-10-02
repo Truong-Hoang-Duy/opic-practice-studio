@@ -143,11 +143,21 @@ def _generate_session_questions(session: TestSession, db: Session, background_ta
     db.query(Question).filter(Question.session_id == session.id).delete()
 
     level = session.self_assessment_level or 4
+    # Unexpected topics / role-play scenarios of the learner's last tests are not drawn again right away
+    recent_topics = [
+        topic for (topic,) in db.query(Question.topic)
+        .join(TestSession, Question.session_id == TestSession.id)
+        .filter(TestSession.user_id == session.user_id, TestSession.id != session.id, Question.order_index.between(8, 13))
+        .order_by(TestSession.id.desc())
+        .limit(6 * 5)
+        .all()
+    ]
     generated_qs, usage, source = build_session_questions(
         survey_data=session.survey_data or {},
         self_assessment_level=level,
         chosen_topics=session.topics or ["environment", "socio_cultural", "communication_media"],
-        use_ai=use_ai
+        use_ai=use_ai,
+        avoid_topics=recent_topics
     )
 
     created_questions = []

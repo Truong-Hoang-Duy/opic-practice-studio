@@ -15,6 +15,8 @@ import { TestSession } from './pages/TestSession';
 import { SessionReport } from './pages/SessionReport';
 import { HistoryPage } from './pages/HistoryPage';
 import { QuestionLibrary } from './pages/QuestionLibrary';
+import { VocabularyNotebook } from './pages/VocabularyNotebook';
+import { DailyWorkout } from './pages/DailyWorkout';
 
 import { sessionApi } from './api/client';
 
@@ -36,6 +38,13 @@ export const App = () => {
   });
   const [isRubricModalOpen, setIsRubricModalOpen] = useState(false);
   const [sessionSetup, setSessionSetup] = useState({}); // saved topics / level when resuming an unfinished setup
+
+  const isExamScreen = currentTab === 'test' && !!user;
+  // Lock the page behind the full-height exam shell so dragging on iOS doesn't bounce/shift the whole UI
+  useEffect(() => {
+    document.documentElement.classList.toggle('exam-locked', isExamScreen);
+    return () => document.documentElement.classList.remove('exam-locked');
+  }, [isExamScreen]);
 
   // Sync session state to sessionStorage
   useEffect(() => {
@@ -82,13 +91,8 @@ export const App = () => {
   // Not logged in -> show Login
   if (!user) {
     return (
-      <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-        <Navbar currentTab="login" setTab={setCurrentTab} onOpenRubric={() => setIsRubricModalOpen(true)} />
-        <main className="flex-1">
-          <Login onLoginSuccess={() => setCurrentTab('dashboard')} />
-        </main>
-        <Footer />
-        <RubricGuideModal isOpen={isRubricModalOpen} onClose={() => setIsRubricModalOpen(false)} />
+      <div className="h-dvh overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+        <Login onLoginSuccess={() => setCurrentTab('dashboard')} />
       </div>
     );
   }
@@ -182,7 +186,6 @@ export const App = () => {
     setCurrentTab('dashboard');
   };
 
-  const isExamScreen = currentTab === 'test';
 
   return (
     <div className={
@@ -202,15 +205,20 @@ export const App = () => {
       )}
 
       {/* Main Screen Router */}
-      <main className={isExamScreen ? "flex-1 w-full min-h-0 flex flex-col items-center overflow-y-auto" : "flex-1"}>
+      <main className={isExamScreen ? "flex-1 w-full min-h-0 flex flex-col items-center overflow-y-auto overflow-x-hidden overscroll-contain" : "flex-1 min-w-0"}>
         {currentTab === 'dashboard' && (
           <Dashboard
             onStartTest={handleStartNewTest}
             onResumeSession={handleResumeSession}
             onViewReport={handleViewReport}
             onDeleteSession={handleDeleteSession}
+            onOpenDaily={() => setCurrentTab('daily')}
           />
         )}
+
+        {currentTab === 'daily' && <DailyWorkout onBack={() => setCurrentTab('dashboard')} />}
+
+        {currentTab === 'vocabulary' && <VocabularyNotebook onGoPractice={() => setCurrentTab('daily')} />}
 
         {currentTab === 'system_check' && (
           <SystemCheck
@@ -275,6 +283,7 @@ export const App = () => {
             onViewReport={handleViewReport}
             onResumeSession={handleResumeSession}
             onDeleteSession={handleDeleteSession}
+            onOpenDaily={() => setCurrentTab('daily')}
           />
         )}
       </main>

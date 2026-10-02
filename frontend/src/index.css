@@ -15,6 +15,22 @@
 
   body {
     @apply font-sans antialiased transition-colors duration-200;
+    /* Never let the page pan sideways on phones (a too-wide element would make the whole UI drag left/right) */
+    overflow-x: clip;
+  }
+
+  /* iOS Safari / in-app browsers draw the password mask with the input's font; the Inter web font has no
+     bullet glyph there and shows "NO GLYPH" boxes, so mask with the system font instead */
+  input[type="password"] {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+
+  /* Exam screen is a fixed full-height app shell: stop iOS rubber-band scrolling of the page behind it */
+  html.exam-locked,
+  html.exam-locked body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
   }
 
   html.dark body {

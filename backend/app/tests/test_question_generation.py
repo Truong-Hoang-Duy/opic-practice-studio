@@ -79,3 +79,44 @@ def test_build_uses_llm_questions_with_default_guides(monkeypatch):
     assert questions[0]["question_text"] == SELF_INTRO_QUESTION["question_text"]
     assert questions[12]["question_type"] == "role_play_experience"
     assert all(q["vietnamese_guide"] for q in questions)
+
+
+def test_unexpected_topic_draw_skips_survey_choices_recent_tests_and_shares_no_domain():
+    import random
+    from app.core.unexpected_topics import pick_unexpected, UNEXPECTED_TOPICS
+    survey = {"hobbies": ["Getting my hair done"], "leisure_activities": ["Shopping at malls"]}
+    avoid = ["Weather & Seasons", "Hotel Reservation"]
+    labels = set()
+    for seed in range(300):
+        topic, scenario = pick_unexpected(survey, avoid, random.Random(seed))
+        labels.add(topic["label"])
+        assert topic["label"] not in ("Hair & Hair Salons", "Shopping Malls & Stores", "Weather & Seasons")
+        assert scenario["label"] not in ("Hair Salon Booking", "Hotel Reservation")
+        assert topic["domain"] != scenario["domain"]
+    assert len(labels) > len(UNEXPECTED_TOPICS) // 2  # really varied
+
+
+def test_ai_set_follows_real_test_layout(monkeypatch):
+    parsed = GeneratedQuestionSet.model_validate(_valid_payload())
+    captured = {}
+
+    def fake_llm(survey, level, diff, topics, unexpected, role_play):
+        captured.update(unexpected=unexpected, role_play=role_play)
+        return parsed, 1, 1, 0.0
+
+    monkeypatch.setattr(question_generator.settings, "AI_QUESTION_GENERATION", True)
+    monkeypatch.setattr(question_generator, "generate_questions_llm", fake_llm)
+    questions, _, _ = build_session_questions({}, 4, ["environment", "human_rights", "socio_cultural"], avoid_topics=["Pets"])
+    cats = {q["order_index"]: q["category"] for q in questions}
+    assert cats[8] == cats[9] == cats[10] == "unexpected"
+    assert cats[11] == "role_play" and cats[14] == "environment" and cats[15] == "human_rights"
+    assert captured["unexpected"]["label"] != "Pets"
+
+
+def test_generation_prompt_carries_assigned_topics():
+    from app.prompts.templates import get_generate_questions_prompt
+    prompt = get_generate_questions_prompt("{}", 4, "IM", ["environment", "human_rights", "socio_cultural"],
+                                           "Dentists & Dental Care", "Hotel Reservation", "book a hotel room")
+    assert 'Unexpected topic (Q8-Q10): Dentists & Dental Care' in prompt
+    assert 'Hotel Reservation - the learner needs to book a hotel room' in prompt
+    assert 'Issue topic 1 (Q14): Environment' in prompt and 'Issue topic 2 (Q15): Human Rights' in prompt

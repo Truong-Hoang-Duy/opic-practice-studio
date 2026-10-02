@@ -259,13 +259,13 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
               <thead className="bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 font-bold">
                 <tr>
                   <th className="py-2.5 px-3">#</th>
-                  <th className="py-2.5 px-3 min-w-[240px]">Question</th>
+                  <th className="py-2.5 px-3 sm:min-w-[240px]">Question</th>
                   <th className="py-2.5 px-3">Level</th>
-                  <th className="py-2.5 px-3 text-center">Fluency</th>
-                  <th className="py-2.5 px-3 text-center">Tenses</th>
-                  <th className="py-2.5 px-3 text-center">Org</th>
-                  <th className="py-2.5 px-3 text-center">Vocab</th>
-                  <th className="py-2.5 px-3 text-center">Grammar</th>
+                  <th className="hidden sm:table-cell py-2.5 px-3 text-center">Fluency</th>
+                  <th className="hidden sm:table-cell py-2.5 px-3 text-center">Tenses</th>
+                  <th className="hidden sm:table-cell py-2.5 px-3 text-center">Org</th>
+                  <th className="hidden sm:table-cell py-2.5 px-3 text-center">Vocab</th>
+                  <th className="hidden sm:table-cell py-2.5 px-3 text-center">Grammar</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-800 dark:text-slate-300">
@@ -284,6 +284,12 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
                       <div className="font-semibold text-slate-900 dark:text-white">{row.topic}</div>
                       {row.question_text && (
                         <p className="mt-0.5 text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">"{row.question_text}"</p>
+                      )}
+                      {/* Phones: the five criteria columns are hidden, so show the scores under the question */}
+                      {status === 'scored' && (
+                        <p className="sm:hidden mt-1 text-[11px] font-medium text-slate-600 dark:text-slate-400">
+                          Flu {row.score_fluency} · Ten {row.score_tenses} · Org {row.score_organization} · Voc {row.score_vocabulary} · Gra {row.score_grammar} <span className="text-slate-400">/5</span>
+                        </p>
                       )}
                       {(row.transcript || row.audio_path) && (
                         <details className="mt-1">
@@ -308,11 +314,11 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
                             {row.estimated_level}
                           </span>
                         </td>
-                        <td className="py-2 px-3 text-center font-medium">{row.score_fluency}/5</td>
-                        <td className="py-2 px-3 text-center font-medium">{row.score_tenses}/5</td>
-                        <td className="py-2 px-3 text-center font-medium">{row.score_organization}/5</td>
-                        <td className="py-2 px-3 text-center font-medium">{row.score_vocabulary}/5</td>
-                        <td className="py-2 px-3 text-center font-medium">{row.score_grammar}/5</td>
+                        <td className="hidden sm:table-cell py-2 px-3 text-center font-medium">{row.score_fluency}/5</td>
+                        <td className="hidden sm:table-cell py-2 px-3 text-center font-medium">{row.score_tenses}/5</td>
+                        <td className="hidden sm:table-cell py-2 px-3 text-center font-medium">{row.score_organization}/5</td>
+                        <td className="hidden sm:table-cell py-2 px-3 text-center font-medium">{row.score_vocabulary}/5</td>
+                        <td className="hidden sm:table-cell py-2 px-3 text-center font-medium">{row.score_grammar}/5</td>
                       </>
                     ) : (
                       <td colSpan={6} className="py-2 px-3">

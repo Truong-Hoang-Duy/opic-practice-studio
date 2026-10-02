@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from app.config import settings
 from app.prompts.templates import (
     get_evaluate_prompt,
+    get_daily_feedback_prompt,
     get_rewrite_prompt,
     get_model_answers_prompt,
     get_session_report_prompt,
@@ -106,6 +107,42 @@ def evaluate_answer_llm(
     )
     return call_openai_json(prompt, temperature=0.2, mock=mock)
 
+def daily_feedback_llm(
+    question_text: str,
+    question_type: str,
+    task_requirement: str,
+    focus_tense: str,
+    duration_sec: float,
+    transcript: str,
+    metrics: Optional[Dict[str, Any]] = None,
+    mock: bool = False
+) -> Optional[Tuple[Dict[str, Any], int, int, float]]:
+    """
+    Quick 3-pillar feedback for the daily 5-minute workout, validated against DailyFeedbackLLM.
+    Returns None when the AI fails twice: the caller reports it (never a canned answer passed off as grading).
+    DEV mock sessions / no API key use the simulated response.
+    """
+    from app.schemas.daily import DailyFeedbackLLM
+    prompt = get_daily_feedback_prompt(
+        question_text=question_text,
+        question_type=question_type,
+        task_requirement=task_requirement,
+        focus_tense=focus_tense,
+        duration_sec=duration_sec,
+        transcript=transcript,
+        metrics=metrics
+    )
+    if mock or not get_openai_client():
+        return DailyFeedbackLLM.model_validate(get_mock_json_response(prompt)).model_dump(), 0, 0, 0.0
+    result = _call_openai_validated(
+        prompt, DailyFeedbackLLM, timeout=60.0, temperature=0.1,
+        system_prompt="You are a certified ACTFL OPIc rater. Grade strictly and consistently. Always respond with pure valid JSON only."
+    )
+    if not result:
+        return None
+    parsed, p_tok, c_tok, cost = result
+    return parsed.model_dump(), p_tok, c_tok, cost
+
 def rewrite_answer_llm(
     question_text: str,
     current_level: str,
@@ -161,6 +198,31 @@ def generate_session_report_llm(
 
 def get_mock_json_response(prompt: str) -> Dict[str, Any]:
     """Generates realistic structured responses for local development / test without API key."""
+    if "DAILY 5-MINUTE WORKOUT" in prompt:
+        return {
+            "estimated_level": "IM",
+            "task": {"met": True, "note_vi": "Đã kể được một trải nghiệm cụ thể nhưng phần kết còn ngắn."},
+            "tense_control": {
+                "verdict": "partial",
+                "focus_sentences": 2,
+                "total_sentences": 3,
+                "evidence": [
+                    {"quote": "something unforgettable happened", "ok": True, "fix": ""},
+                    {"quote": "I really enjoy spending my weekends", "ok": True, "fix": ""},
+                    {"quote": "I will join again next year", "ok": True, "fix": ""}
+                ],
+                "note_vi": "Bạn đã mở đầu bằng thì quá khứ nhưng giữa câu chuyện lại quay về hiện tại ('I go', 'we have').",
+                "example_fix": "Last month our group organised a clean-up, and we collected over fifty bags of trash."
+            },
+            "coherence": {
+                "verdict": "good",
+                "note_vi": "Các ý được nối với nhau khá tự nhiên bằng 'when', 'because'."
+            },
+            "golden_tip": {
+                "tip_vi": "Thêm một chi tiết 'bước ngoặt' (điều bất ngờ xảy ra) và kết bằng cảm xúc của bạn - đây là dấu hiệu rõ nhất của band IH.",
+                "example": "Out of nowhere, it started pouring, but instead of going home, we kept working in the rain."
+            }
+        }
     if "CANDIDATE RESPONSE TO EVALUATE" in prompt:
         return {
             "estimated_level": "IM",
@@ -206,6 +268,32 @@ def get_mock_json_response(prompt: str) -> Dict[str, Any]:
                     "explanation_vi": "Không dùng đồng thời 'Because' và 'so' trong cùng một câu tiếng Anh.",
                     "category": "grammar"
                 }
+            ],
+            "tense_timeline": [
+                {"sentence": "Well, to be honest, I really enjoy spending my weekends at home with my family.", "tense": "present", "status": "correct",
+                 "note_vi": "Thì hiện tại đơn mô tả thói quen - mở bài đúng cách."},
+                {"sentence": "Last month something unforgettable happened when our environmental group organised a clean-up,", "tense": "past", "status": "correct",
+                 "note_vi": "Chuyển sang quá khứ đơn với mốc 'last month' để bắt đầu kể chuyện."},
+                {"sentence": "and I think I will join again next year because it was extraordinary.", "tense": "mixed", "status": "correct",
+                 "note_vi": "Kết hợp tương lai 'will join' và quá khứ 'was' - có dự định tương lai là điểm cộng IH."}
+            ],
+            "tense_distribution": {"past_pct": 40, "present_pct": 35, "future_pct": 25},
+            "vietlish_warnings": [
+                {"original_phrase": "Last week I go with my friend", "issue_vi": "Bỏ quên chia động từ quá khứ (tiếng Việt không chia thì)",
+                 "suggested_phrase": "Last week I went with my friend", "explanation_vi": "Có mốc 'last week' thì động từ phải ở quá khứ: go -> went."},
+                {"original_phrase": "open the light", "issue_vi": "Dịch từng chữ từ 'mở đèn' của tiếng Việt",
+                 "suggested_phrase": "turn on the light", "explanation_vi": "Thiết bị điện dùng 'turn on/off' hoặc 'switch on/off', không dùng 'open/close'."}
+            ],
+            "vocab_upgrades": [
+                {"original_phrase": "really enjoy", "upgraded_phrase": "look forward to", "kind": "phrasal_verb", "topic": "home",
+                 "example_sentence": "I always look forward to lazy weekends at home with my family.",
+                 "note_vi": "'look forward to' = háo hức mong chờ, diễn tả cảm xúc chủ động hơn 'really enjoy'."},
+                {"original_phrase": "organised a clean-up", "upgraded_phrase": "rolled up our sleeves", "kind": "idiom", "topic": "environment",
+                 "example_sentence": "Everyone rolled up their sleeves and picked up trash along the riverbank.",
+                 "note_vi": "'roll up one's sleeves' = xắn tay áo bắt tay vào việc, tự nhiên và sinh động khi kể chuyện."},
+                {"original_phrase": "it was extraordinary", "upgraded_phrase": "an eye-opening experience", "kind": "collocation", "topic": "environment",
+                 "example_sentence": "Honestly, it was an eye-opening experience that changed how I think about plastic waste.",
+                 "note_vi": "'eye-opening' = mở mang tầm mắt, nêu rõ tác động thay vì chỉ khen chung chung."}
             ]
         }
     elif "REWRITE INSTRUCTIONS" in prompt:
@@ -323,7 +411,13 @@ def get_mock_json_response(prompt: str) -> Dict[str, Any]:
             }
         }
 
-def _call_openai_validated(prompt: str, schema, timeout: float) -> Optional[Tuple[Any, int, int, float]]:
+def _call_openai_validated(
+    prompt: str,
+    schema,
+    timeout: float,
+    temperature: float = 0.7,
+    system_prompt: str = "You are an expert OPIc test designer. Always respond with pure valid JSON only."
+) -> Optional[Tuple[Any, int, int, float]]:
     """
     Strict variant of call_openai_json for generation tasks: validates against a Pydantic schema,
     retries once, and returns None (instead of a mock) so the caller can use its own fallback.
@@ -333,7 +427,7 @@ def _call_openai_validated(prompt: str, schema, timeout: float) -> Optional[Tupl
         return None
     for attempt in range(2):
         try:
-            response = _create_json_completion(client, prompt, 0.7, "You are an expert OPIc test designer. Always respond with pure valid JSON only.")
+            response = _create_json_completion(client, prompt, temperature, system_prompt)
             usage = response.usage
             p_tok = usage.prompt_tokens if usage else 0
             c_tok = usage.completion_tokens if usage else 0
@@ -350,7 +444,9 @@ def generate_questions_llm(
     survey_data: Dict[str, Any],
     level: int,
     base_difficulty: str,
-    topics: List[str]
+    topics: List[str],
+    unexpected_topic: Dict[str, Any],
+    role_play: Dict[str, Any]
 ):
     """Returns (GeneratedQuestionSet, prompt_tokens, completion_tokens, cost) or None on failure."""
     from app.schemas.question import GeneratedQuestionSet
@@ -358,7 +454,10 @@ def generate_questions_llm(
         survey_json=json.dumps(survey_data, ensure_ascii=False),
         level=level,
         base_difficulty=base_difficulty,
-        topics=topics
+        topics=topics,
+        unexpected_topic=unexpected_topic["label"],
+        role_play_label=role_play["label"],
+        role_play_setup=role_play["setup"]
     )
     return _call_openai_validated(prompt, GeneratedQuestionSet, timeout=45.0)
 

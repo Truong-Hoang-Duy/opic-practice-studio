@@ -159,7 +159,7 @@ export const QuestionLibrary = () => {
       if (!map[q.category]) map[q.category] = { key: q.category, label: q.category_label, items: [] };
       map[q.category].items.push({ q, s: set });
     }));
-    const order = ['home', 'leisure', 'role_play', 'environment', 'human_rights', 'global_workplace', 'socio_cultural', 'communication_media', 'self_intro'];
+    const order = ['home', 'leisure', 'unexpected', 'role_play', 'environment', 'human_rights', 'global_workplace', 'socio_cultural', 'communication_media', 'self_intro'];
     return Object.values(map).sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
   }, [sets]);
 

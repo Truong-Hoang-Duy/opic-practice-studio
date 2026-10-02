@@ -37,6 +37,8 @@ class AnswerVersion(Base):
     notes = Column(String(255), nullable=True)
     audio_path = Column(String(255), nullable=True)  # recording of this take (each take keeps its own file)
     duration_seconds = Column(Float, nullable=True)
+    # Speech flow analysis of this take's audio (WPM, pauses, fillers); None for typed/rewritten text
+    speech_metrics = Column(JSON, nullable=True)
 
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 

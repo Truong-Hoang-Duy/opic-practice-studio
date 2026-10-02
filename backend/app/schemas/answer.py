@@ -27,6 +27,7 @@ class AnswerVersionResponse(BaseModel):
     notes: Optional[str] = None
     audio_path: Optional[str] = None
     duration_seconds: Optional[float] = None
+    speech_metrics: Optional[Dict[str, Any]] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

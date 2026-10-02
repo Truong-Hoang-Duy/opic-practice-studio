@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # Question generation: personalise the 15 questions with the LLM (falls back to the curated bank on failure)
     AI_QUESTION_GENERATION: bool = True
 
+    # Daily 5-minute workout: the challenge day starts at 00:00 in this UTC offset (Vietnam, no DST)
+    DAILY_UTC_OFFSET_HOURS: int = 7
+
     # Soniox Speech-to-Text
     SONIOX_API_KEY: str = ""
     SONIOX_ASYNC_MODEL: str = "stt-async-v5"  # batch transcription of finished recordings

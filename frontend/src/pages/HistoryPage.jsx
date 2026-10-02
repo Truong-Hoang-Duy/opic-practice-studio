@@ -9,18 +9,29 @@ import {
   Calendar, 
   FileText, 
   ArrowRight,
-  Sparkles
+  Sparkles,
+  Zap,
+  ClipboardList
 } from 'lucide-react';
 import { ViTooltip } from '../components/Tooltip';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
+import { DailyHistoryPanel } from '../components/DailyHistoryPanel';
 
-export const HistoryPage = ({ onViewReport, onResumeSession, onDeleteSession }) => {
+export const HistoryPage = ({ onViewReport, onResumeSession, onDeleteSession, onOpenDaily }) => {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [levelFilter, setLevelFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [sessionToDelete, setSessionToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  // 'sessions' = full 15-question tests, 'daily' = 5-minute daily workouts (kept separate on purpose)
+  const [view, setView] = useState(() => {
+    try { return sessionStorage.getItem('opic_history_view') || 'sessions'; } catch (e) { return 'sessions'; }
+  });
+  const switchView = (v) => {
+    setView(v);
+    try { sessionStorage.setItem('opic_history_view', v); } catch (e) { /* storage unavailable */ }
+  };
 
   useEffect(() => {
     loadHistory();
@@ -78,7 +89,7 @@ export const HistoryPage = ({ onViewReport, onResumeSession, onDeleteSession }) 
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-3">
+        {view === 'sessions' && <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-xl p-1 text-xs shadow-sm">
             <Filter className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 ml-2" />
             <select
@@ -104,8 +115,36 @@ export const HistoryPage = ({ onViewReport, onResumeSession, onDeleteSession }) 
               <option value="in_progress" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">In Progress</option>
             </select>
           </div>
-        </div>
+        </div>}
       </div>
+
+      {/* Sessions / Daily workout tabs */}
+      <div className="grid grid-cols-2 sm:inline-flex sm:self-start gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800" role="tablist">
+        {[
+          { key: 'sessions', label: 'Bài thi 15 câu', count: sessions.length, icon: ClipboardList },
+          { key: 'daily', label: 'Daily Workout', icon: Zap },
+        ].map(({ key, label, count, icon: Icon }) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={view === key}
+            onClick={() => switchView(key)}
+            className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
+              view === key
+                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Icon className={`w-4 h-4 ${key === 'daily' ? 'text-orange-500' : 'text-sky-500'}`} />
+            {label}{count != null && !loading ? ` (${count})` : ''}
+          </button>
+        ))}
+      </div>
+
+      {view === 'daily' ? (
+        <DailyHistoryPanel onOpenDaily={onOpenDaily} />
+      ) : (
+      <>
 
       {loading ? (
         <div className="min-h-[50vh] flex flex-col items-center justify-center gap-3">
@@ -199,6 +238,9 @@ export const HistoryPage = ({ onViewReport, onResumeSession, onDeleteSession }) 
             </div>
           ))}
         </div>
+      )}
+
+      </>
       )}
 
       {/* Confirm Delete Modal */}

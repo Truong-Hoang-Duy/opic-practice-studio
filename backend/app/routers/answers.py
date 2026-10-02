@@ -21,7 +21,11 @@ from app.schemas.evaluation import (
     DiffChunk,
 )
 from app.core.security import get_current_user
-from app.services.evaluation_service import run_evaluation_llm, save_evaluation, exam_level_for, is_mock_session
+from app.services.evaluation_service import (
+    run_evaluation_llm, save_evaluation, exam_level_for, is_mock_session,
+    attach_speech_intelligence, speech_metrics_for_version,
+)
+from app.services.speech_metrics import compute_speech_metrics
 from app.schemas.question import UNSCORED_QUESTION_TYPES
 import logging
 import os
@@ -106,6 +110,9 @@ async def submit_answer(
             logger.error(f"Transcription failed for question {question_id}: {e}")
             transcript_raw, word_confidences, stt_note = "", [], "transcription_failed"
 
+    # Speech flow of this take (WPM, pauses, fillers) from the STT word timings
+    speech_metrics = compute_speech_metrics(word_confidences, duration_seconds)
+
     # Check if answer exists for this question
     existing = db.query(Answer).filter(Answer.question_id == question_id, Answer.session_id == session_id).first()
     if existing:
@@ -125,7 +132,8 @@ async def submit_answer(
             source="stt",
             notes=stt_note or "Re-recorded answer",
             audio_path=audio_url,
-            duration_seconds=duration_seconds
+            duration_seconds=duration_seconds,
+            speech_metrics=speech_metrics
         )
         db.add(new_version)
         db.commit()
@@ -153,7 +161,8 @@ async def submit_answer(
         source="stt",
         notes=stt_note or "Initial STT recognition",
         audio_path=audio_url,
-        duration_seconds=duration_seconds
+        duration_seconds=duration_seconds,
+        speech_metrics=speech_metrics
     )
     db.add(v1)
     db.commit()
@@ -174,13 +183,16 @@ def edit_transcript(
 
     answer.transcript_edited = edit_in.transcript_edited.strip()
     max_ver = max([v.version_number for v in answer.versions] or [0])
-    
+    # A typed correction keeps the audio of the take it corrects, so it keeps that take's speech flow too
+    latest_take = max((v for v in answer.versions if v.source == "stt"), key=lambda v: v.version_number, default=None)
+
     new_version = AnswerVersion(
         answer_id=answer.id,
         version_number=max_ver + 1,
         transcript=edit_in.transcript_edited.strip(),
         source="user_edit",
-        notes=edit_in.notes or "User corrected transcript"
+        notes=edit_in.notes or "User corrected transcript",
+        speech_metrics=speech_metrics_for_version(latest_take)
     )
     db.add(new_version)
     db.commit()
@@ -212,14 +224,14 @@ def evaluate_answer(
     # Check if already evaluated
     existing_eval = db.query(Evaluation).filter(Evaluation.answer_version_id == ver.id).first()
     if existing_eval:
-        return existing_eval
+        return attach_speech_intelligence(existing_eval, ver, answer.question)
 
     q = answer.question
     session = answer.session or db.query(TestSession).filter(TestSession.id == answer.session_id).first()
     eval_data, p_tok, c_tok, cost = run_evaluation_llm(q, exam_level_for(session), ver.transcript, is_mock_session(session))
     eval_obj = save_evaluation(db, answer.session_id, ver, eval_data, p_tok, c_tok, cost)
 
-    return eval_obj
+    return attach_speech_intelligence(eval_obj, ver, q)
 
 @router.post("/{answer_id}/rewrite", response_model=RewriteResponse)
 def rewrite_answer(

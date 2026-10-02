@@ -17,6 +17,8 @@ from app.routers import (
     history_router,
     system_router,
     library_router,
+    vocabulary_router,
+    daily_router,
 )
 
 # Auto-create tables on startup (graceful handling if remote DB is unreachable locally)
@@ -78,6 +80,8 @@ app.include_router(stt_router, prefix="/api")
 app.include_router(history_router, prefix="/api")
 app.include_router(system_router, prefix="/api")
 app.include_router(library_router, prefix="/api")
+app.include_router(vocabulary_router, prefix="/api")
+app.include_router(daily_router, prefix="/api")
 
 @app.get("/health")
 def health():

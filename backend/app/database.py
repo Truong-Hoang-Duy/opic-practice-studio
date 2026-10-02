@@ -82,8 +82,10 @@ engine = create_database_engine()
 # no migration tool, so missing columns are added here (idempotent, works on SQLite and PostgreSQL).
 ADDED_COLUMNS = {
     "questions": {"category": "VARCHAR(50)"},
-    "answer_versions": {"audio_path": "VARCHAR(255)", "duration_seconds": "FLOAT"},
+    "answer_versions": {"audio_path": "VARCHAR(255)", "duration_seconds": "FLOAT", "speech_metrics": "JSON"},
+    "evaluations": {"tense_timeline": "JSON", "tense_distribution": "JSON", "vietlish_warnings": "JSON", "vocab_upgrades": "JSON"},
     "test_sessions": {"dev_mock": "BOOLEAN DEFAULT FALSE"},
+    "daily_workouts": {"source_question_id": "INTEGER"},
 }
 
 

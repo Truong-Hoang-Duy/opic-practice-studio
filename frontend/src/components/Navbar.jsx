@@ -1,5 +1,5 @@
 import React from 'react';
-import { Headphones, Award, History, Library, LogOut, User, Sun, Moon } from 'lucide-react';
+import { Headphones, Award, History, Library, BookMarked, LogOut, User, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -22,6 +22,7 @@ export const Navbar = ({ currentTab, setTab, onTakeTest, onOpenRubric }) => {
     { key: 'test', label: 'Take Test', shortLabel: 'Test', icon: Headphones, active: TEST_FLOW_TABS.includes(currentTab), onClick: handleTestClick },
     { key: 'history', label: 'History', shortLabel: 'History', icon: History, active: currentTab === 'history', onClick: () => setTab('history') },
     { key: 'library', label: 'Question Bank', shortLabel: 'Bộ đề', icon: Library, active: currentTab === 'library', onClick: () => setTab('library') },
+    { key: 'vocabulary', label: 'Sổ tay từ vựng', shortLabel: 'Sổ tay', icon: BookMarked, active: currentTab === 'vocabulary', onClick: () => setTab('vocabulary') },
   ];
 
   return (
@@ -50,18 +51,20 @@ export const Navbar = ({ currentTab, setTab, onTakeTest, onOpenRubric }) => {
         {/* Navigation Tabs (tablet & desktop) */}
         {user && (
           <nav className="hidden md:flex items-center gap-1 bg-slate-100 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
-            {navItems.map(({ key, label, icon: Icon, active, onClick }) => (
+            {navItems.map(({ key, label, shortLabel, icon: Icon, active, onClick }) => (
               <button
                 key={key}
                 onClick={onClick}
-                className={`flex items-center gap-2 px-3 lg:px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
+                title={label}
+                className={`flex items-center gap-2 px-2.5 lg:px-3.5 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all cursor-pointer ${
                   active
                     ? 'bg-brand-500 text-white shadow-sm'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
                 }`}
               >
                 <Icon className="w-4 h-4" />
-                <span>{label}</span>
+                <span className="hidden xl:inline">{label}</span>
+                <span className="xl:hidden">{shortLabel}</span>
               </button>
             ))}
           </nav>
@@ -114,7 +117,7 @@ export const Navbar = ({ currentTab, setTab, onTakeTest, onOpenRubric }) => {
     {/* Bottom tab bar (phones) */}
     {user && (
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]">
-        <div className="grid grid-cols-4 h-16">
+        <div className="grid grid-cols-5 h-16">
           {navItems.map(({ key, shortLabel, icon: Icon, active, onClick }) => (
             <button
               key={key}

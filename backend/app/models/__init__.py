@@ -5,6 +5,8 @@ from app.models.question import Question, ModelAnswer
 from app.models.answer import Answer, AnswerVersion
 from app.models.evaluation import Evaluation, FeedbackItem
 from app.models.report import SessionReport, LLMUsageLog
+from app.models.vocabulary import UserVocabulary
+from app.models.daily import DailyWorkout
 
 __all__ = [
     "Base",
@@ -18,4 +20,6 @@ __all__ = [
     "FeedbackItem",
     "SessionReport",
     "LLMUsageLog",
+    "UserVocabulary",
+    "DailyWorkout",
 ]

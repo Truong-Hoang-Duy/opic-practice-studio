@@ -12,6 +12,7 @@ CATEGORY_LABELS: Dict[str, str] = {
     "home": "Nhà ở & sinh hoạt",
     "leisure": "Sở thích & hoạt động",
     "role_play": "Role-play (đóng vai)",
+    "unexpected": "Chủ đề đột xuất",
     "environment": "Environment (Môi trường)",
     "human_rights": "Human Rights (Quyền con người)",
     "global_workplace": "Global Workplace (Làm việc toàn cầu)",
@@ -50,6 +51,15 @@ def derive_category(order_index: int, question_type: str, topic_label: Optional[
     if order_index == 15 and len(topics) > 2:
         return topics[2]
     return "leisure"
+
+
+# Story-type prompts (combo Q3 past experience, unexpected situation, Q13 role-play experience, Q14 comparison
+# "then vs now"): an IH answer has to carry a past-tense narrative
+NARRATIVE_QUESTION_TYPES = {"past_experience", "unexpected_situation", "role_play_experience", "comparison"}
+
+
+def is_narrative_question(question_type: Optional[str]) -> bool:
+    return (question_type or "") in NARRATIVE_QUESTION_TYPES
 
 
 # (recommended min seconds, recommended max seconds / hard limit) at IM-IH level

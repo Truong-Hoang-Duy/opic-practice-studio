@@ -18,6 +18,10 @@ import {
 import { DiffViewer } from '../components/DiffViewer';
 import { ShadowingPlayer } from '../components/ShadowingPlayer';
 import { ViTooltip } from '../components/Tooltip';
+import { SpeechFlowPanel } from '../components/coaching/SpeechFlowPanel';
+import { TenseTimeline } from '../components/coaching/TenseTimeline';
+import { VietlishWarnings } from '../components/coaching/VietlishWarnings';
+import { VocabUpgrades } from '../components/coaching/VocabUpgrades';
 
 export const AnswerCoaching = ({
   answerId,
@@ -191,10 +195,10 @@ export const AnswerCoaching = ({
   const selectedModel = modelAnswers.find(m => m.level === selectedModelLevel) || modelAnswers[0];
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 flex flex-col gap-6">
+    <div className="w-full max-w-5xl mx-auto px-4 py-6 flex flex-col gap-6">
       
       {/* Top Header: Question Card & Actions - Sticky and prominent */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border-2 border-brand-500/20 dark:border-brand-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-md sticky top-0 z-20 backdrop-blur-md bg-white/95 dark:bg-slate-900/95">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border-2 border-brand-500/20 dark:border-brand-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-md md:sticky md:top-0 z-20 md:backdrop-blur-md bg-white/95 dark:bg-slate-900/95">
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1.5">
             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-brand-500 text-white shadow-xs">
@@ -234,15 +238,15 @@ export const AnswerCoaching = ({
       {/* 1. Transcript View with Editable Mode */}
       {!noAnswer && (
       <div className="glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex flex-col gap-3 shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80 pb-2.5">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800/80 pb-2.5">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
               Candidate Speech Transcript
             </span>
             <ViTooltip vi="Bạn có thể chỉnh sửa lại bản ghi âm để sửa các từ nhận diện nhầm. Mỗi lần bấm lưu sẽ tạo ra một Answer Version mới.">
               <span className="text-[11px] text-brand-600 dark:text-brand-400 flex items-center gap-1 font-medium">
                 <HelpCircle className="w-3 h-3" />
-                <span>Editable Versioning</span>
+                <span className="whitespace-nowrap">Editable Versioning</span>
               </span>
             </ViTooltip>
           </div>
@@ -257,7 +261,7 @@ export const AnswerCoaching = ({
                 className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-slate-800 text-xs font-medium transition-colors cursor-pointer"
               >
                 <Edit3 className="w-3.5 h-3.5" />
-                <span>Fix Recognition Errors</span>
+                <span className="whitespace-nowrap">Fix Recognition Errors</span>
               </button>
             ) : (
               <div className="flex items-center gap-2">
@@ -361,11 +365,11 @@ export const AnswerCoaching = ({
       )}
 
       {/* Navigation Tabs for Coaching Panels */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-1 overflow-x-auto [&>button]:flex-shrink-0 [&>button]:whitespace-nowrap">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-stretch sm:items-center gap-2 [&_svg]:shrink-0 border-b border-slate-200 dark:border-slate-800 pb-1">
         {!hideScoring && (
         <button
           onClick={() => setActiveTab('evaluation')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer ${
             activeTab === 'evaluation'
               ? 'bg-brand-500 text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900'
@@ -378,7 +382,7 @@ export const AnswerCoaching = ({
 
         <button
           onClick={() => setActiveTab('guide')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer ${
             activeTab === 'guide'
               ? 'bg-brand-500 text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900'
@@ -393,7 +397,7 @@ export const AnswerCoaching = ({
         <button
           onClick={handleTriggerRewrite}
           disabled={rewriting}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer ${
             activeTab === 'rewrite'
               ? 'bg-brand-500 text-white shadow-sm'
               : 'text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 hover:bg-amber-500/10'
@@ -406,7 +410,7 @@ export const AnswerCoaching = ({
 
         <button
           onClick={() => setActiveTab('models')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold text-left transition-all cursor-pointer ${
             activeTab === 'models'
               ? 'bg-brand-500 text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900'
@@ -463,6 +467,25 @@ export const AnswerCoaching = ({
                   <span className="text-lg font-bold text-slate-900 dark:text-white">{evaluation.score_task_completion} / 5</span>
                 </div>
               </div>
+
+              {/* Speech Intelligence: speech flow (audio), tense map and Vietlish interference (AI) */}
+              <SpeechFlowPanel metrics={evaluation.speech_metrics} />
+              {(evaluation.tense_distribution || evaluation.tense_timeline?.length || evaluation.vietlish_warnings?.length) ? (
+                <>
+                  <TenseTimeline
+                    timeline={evaluation.tense_timeline}
+                    distribution={evaluation.tense_distribution}
+                    narrativeExpected={evaluation.narrative_expected}
+                  />
+                  <VietlishWarnings warnings={evaluation.vietlish_warnings} />
+                  <VocabUpgrades upgrades={evaluation.vocab_upgrades} questionId={question?.id} />
+                </>
+              ) : activeTranscript.trim() ? (
+                // Scored before the tense map / Vietlish detector existed
+                <p className="text-xs text-slate-500 dark:text-slate-400 px-1">
+                  Bài này được chấm trước khi có Bản đồ 3 thì và Bộ phát hiện lỗi Vietlish. Ghi âm lại hoặc sửa transcript để chấm lại với phân tích mới.
+                </p>
+              ) : null}
 
               {/* Tenses and Complication Breakdown */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

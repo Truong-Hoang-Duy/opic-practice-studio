@@ -27,6 +27,31 @@ def get_evaluate_prompt(
         TRANSCRIPT=transcript.strip()
     )
 
+def get_daily_feedback_prompt(
+    question_text: str,
+    question_type: str,
+    task_requirement: str,
+    focus_tense: str,
+    duration_sec: float,
+    transcript: str,
+    metrics: dict = None
+) -> str:
+    template = load_template("daily_feedback.txt")
+    metrics = metrics or {}
+    return template.format(
+        RUBRICS=get_rubric_prompt_text(),
+        QUESTION_TEXT=question_text,
+        QUESTION_TYPE=question_type,
+        TASK_REQUIREMENT=task_requirement,
+        FOCUS_TENSE=focus_tense,
+        DURATION_SEC=round(duration_sec or 0),
+        WORD_COUNT=metrics.get("total_words", len(transcript.split())),
+        WPM=metrics.get("wpm") if metrics.get("wpm") is not None else "unknown",
+        PAUSES=metrics.get("pause_count", "unknown") if metrics.get("has_timing", True) else "unknown",
+        FILLERS=(metrics.get("fillers") or {}).get("total", 0),
+        TRANSCRIPT=transcript.strip()
+    )
+
 def get_rewrite_prompt(
     question_text: str,
     current_level: str,
@@ -96,7 +121,10 @@ def get_generate_questions_prompt(
     survey_json: str,
     level: int,
     base_difficulty: str,
-    topics: list
+    topics: list,
+    unexpected_topic: str,
+    role_play_label: str,
+    role_play_setup: str
 ) -> str:
     template = load_template("generate_questions.txt")
     labels = [t.replace("_", " ").title() for t in topics]
@@ -105,9 +133,11 @@ def get_generate_questions_prompt(
         LEVEL=level,
         BASE_DIFFICULTY=base_difficulty,
         LEVEL_GUIDANCE=LEVEL_GUIDANCE.get(level, LEVEL_GUIDANCE[4]),
+        UNEXPECTED_TOPIC=unexpected_topic,
+        ROLE_PLAY_LABEL=role_play_label,
+        ROLE_PLAY_SETUP=role_play_setup,
         TOPIC_1=labels[0],
-        TOPIC_2=labels[1],
-        TOPIC_3=labels[2]
+        TOPIC_2=labels[1] if len(labels) > 1 else labels[0]
     )
 
 def get_generate_guides_prompt(questions_json: str, level: int, base_difficulty: str) -> str:

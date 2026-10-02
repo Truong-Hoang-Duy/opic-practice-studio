@@ -32,6 +32,26 @@ Candidate Transcript:
    - feedback_items: 3 to 5 key grammar, vocabulary, or pronunciation/structure mistakes found in the transcript, with clear correction, English explanation, and Vietnamese explanation.
    - actionable_steps: Exactly 3 concrete, high-impact actions to improve performance and master Level {TARGET_LEVEL}.
    - feedback_summary: An encouraging summary of performance in English evaluating how well the answer meets Level {TARGET_LEVEL}.
+6. TENSE TIMELINE MAP (IH requires flexible control of Past narration -> Present description -> Future/hypothetical projection):
+   - tense_timeline: split the transcript into its sentences IN ORDER (quote each sentence verbatim from the transcript, do not fix it) and for each one give:
+     - tense: the dominant time frame: "past" | "present" | "future" | "mixed" (use "future" also for conditionals/hypotheticals like "I would...", "If I had...")
+     - status: "correct" if the verb forms correctly express that time frame, otherwise "incorrect" (e.g. "Last year I go..." = past meaning with a present verb -> "incorrect")
+     - note_vi: one short Vietnamese note (what the tense does here, or what is wrong and the right verb form)
+   - tense_distribution: share of the answer in each time frame as integer percentages past_pct + present_pct + future_pct = 100 (split "mixed" sentences by their content).
+7. VIETLISH INTERFERENCE DETECTOR: scan for errors typical of Vietnamese speakers thinking in Vietnamese:
+   - dropped ending sounds/inflections (-s, -es, -ed, -t, -k) that break tense or plural agreement ("yesterday I walk", "two friend")
+   - missing to-be ("She very friendly", "I so tired")
+   - word-for-word translations ("open/close the light", "go to work by walk", "learn more knowledge", "have a problem happen", "play with friends" for "hang out")
+   - confused word pairs (borrow/lend, hear/listen, say/tell, see/watch/look, fun/funny, bored/boring)
+   Return each one as vietlish_warnings (0 to 6 items, most important first, quote original_phrase verbatim from the transcript). Return an empty list if there are none; never invent errors.
+8. IH/AL VOCABULARY UPGRADER: IL/IM answers overuse basic A1-B1 words ("very good", "a lot of", "big problem", "happy", "beautiful", "bad weather", "traffic jam", "like"). Pick 2 to 4 basic or overused words/phrases the candidate actually said and give a natural IH/AL upgrade for each:
+   - original_phrase: quoted verbatim from the transcript
+   - upgraded_phrase: a natural topic-specific word, collocation, phrasal verb or (sparingly) a common idiom that a native speaker would really say in this context (e.g. "bad weather" -> "torrential downpour", "very crowded" -> "packed with people"); never rare or bookish
+   - kind: "collocation" | "phrasal_verb" | "idiom" | "topic_word"
+   - topic: the closest of "home" | "park" | "shopping" | "travel" | "work" | "environment" | "technology" | "food" | "health" | "leisure" | "society" | "general"
+   - example_sentence: one natural OPIc-style spoken sentence about the candidate's own answer that uses upgraded_phrase
+   - note_vi: Vietnamese explanation of the meaning and nuance (why it sounds more natural/precise than the original)
+   Return vocab_upgrades as an empty list only if the vocabulary is already at the target level.
 
 === JSON OUTPUT SCHEMA ===
 You MUST return ONLY a valid JSON object matching this exact structure:
@@ -64,6 +84,37 @@ You MUST return ONLY a valid JSON object matching this exact structure:
       "explanation_en": "...",
       "explanation_vi": "...",
       "category": "grammar" | "vocabulary" | "tense" | "discourse"
+    }}
+  ],
+  "tense_timeline": [
+    {{
+      "sentence": "Last year, I traveled to Da Nang with my family.",
+      "tense": "past" | "present" | "future" | "mixed",
+      "status": "correct" | "incorrect",
+      "note_vi": "Sử dụng đúng thì quá khứ đơn để mở đầu câu chuyện."
+    }}
+  ],
+  "tense_distribution": {{
+    "past_pct": 50,
+    "present_pct": 35,
+    "future_pct": 15
+  }},
+  "vietlish_warnings": [
+    {{
+      "original_phrase": "open the light",
+      "issue_vi": "Dịch từng chữ từ 'mở đèn' của tiếng Việt",
+      "suggested_phrase": "turn on the light",
+      "explanation_vi": "Trong tiếng Anh, thiết bị điện luôn dùng 'turn on/off' hoặc 'switch on/off'."
+    }}
+  ],
+  "vocab_upgrades": [
+    {{
+      "original_phrase": "the weather was very bad",
+      "upgraded_phrase": "torrential downpour",
+      "kind": "collocation",
+      "topic": "travel",
+      "example_sentence": "On the second day, we got caught in a torrential downpour, so we had to take shelter in a small café.",
+      "note_vi": "'torrential downpour' = mưa như trút nước, miêu tả cụ thể và sinh động hơn 'very bad weather'."
     }}
   ]
 }}

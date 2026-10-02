@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 class FeedbackItemResponse(BaseModel):
     id: Optional[int] = None
@@ -34,7 +34,25 @@ class EvaluationResponse(BaseModel):
     feedback_summary: str
     actionable_steps: List[str]
     feedback_items: List[FeedbackItemResponse] = []
+    # Speech Intelligence
+    tense_timeline: List[Dict[str, Any]] = []
+    tense_distribution: Optional[Dict[str, int]] = None
+    vietlish_warnings: List[Dict[str, Any]] = []
+    vocab_upgrades: List[Dict[str, Any]] = []
+    speech_metrics: Optional[Dict[str, Any]] = None  # from the audio of the evaluated take (not stored on the evaluation)
+    narrative_expected: bool = False  # story-type question: past tense should carry the answer
     created_at: datetime
+
+    @field_validator("tense_timeline", "vietlish_warnings", "vocab_upgrades", mode="before")
+    @classmethod
+    def _none_as_empty(cls, v):
+        # Evaluations saved before Speech Intelligence have NULL here
+        return v or []
+
+    @field_validator("narrative_expected", mode="before")
+    @classmethod
+    def _none_as_false(cls, v):
+        return bool(v)
 
     model_config = ConfigDict(from_attributes=True)
 

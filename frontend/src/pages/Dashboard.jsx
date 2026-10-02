@@ -4,8 +4,9 @@ import { historyApi, sessionApi } from '../api/client';
 import { Play, Sparkles, Clock, CheckCircle, BarChart3, ArrowRight, Flame, Trash2 } from 'lucide-react';
 import { ViTooltip } from '../components/Tooltip';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
+import { DailyChallengeCard } from '../components/DailyChallengeCard';
 
-export const Dashboard = ({ onStartTest, onResumeSession, onViewReport, onDeleteSession }) => {
+export const Dashboard = ({ onStartTest, onResumeSession, onViewReport, onDeleteSession, onOpenDaily }) => {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [recentSessions, setRecentSessions] = useState([]);
@@ -118,6 +119,9 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport, onDelete
         </div>
 
       </div>
+
+      {/* 5-minute daily workout */}
+      <DailyChallengeCard onStart={onOpenDaily} />
 
       {/* Metrics Row */}
       {stats && (
