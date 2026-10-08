@@ -17,6 +17,22 @@ let speechUnlocked = false;
 let cachedVoices = [];
 let beepContext = null;
 
+export const isIOS = typeof navigator !== 'undefined' && (
+  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+);
+
+// iOS treats Web Audio (the beep) and speechSynthesis as "ambient" sound, which the Ring/Silent switch mutes,
+// while YouTube-style media keeps playing. The Audio Session API (Safari 17+) lets us declare the page as
+// media playback so Eva is audible in silent mode; recording needs "play-and-record" instead.
+const setAudioSessionType = (type) => {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.audioSession) navigator.audioSession.type = type;
+  } catch (e) {}
+};
+export const beginRecordingAudioSession = () => setAudioSessionType('play-and-record');
+export const endRecordingAudioSession = () => setAudioSessionType('playback');
+
 // One Web Audio context for the OPIc-style "beep" that follows each question (Safari also needs it unlocked)
 const getBeepContext = () => {
   if (!beepContext && typeof window !== 'undefined') {
@@ -110,6 +126,7 @@ const unlockOnGesture = (event) => {
 
 export const installAudioUnlock = () => {
   if (typeof window === 'undefined') return;
+  setAudioSessionType('playback');
   if ('speechSynthesis' in window) {
     getVoices();
     window.speechSynthesis.addEventListener('voiceschanged', () => {

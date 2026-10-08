@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Volume2, RotateCcw, VolumeX } from 'lucide-react';
 import { ViTooltip } from './Tooltip';
 import { resolveMediaUrl } from '../api/client';
-import { getSharedAudio, getVoices, playBeep, setPendingPlayback, clearPendingPlayback } from '../utils/audioUnlock';
+import { getSharedAudio, getVoices, isIOS, playBeep, setPendingPlayback, clearPendingPlayback } from '../utils/audioUnlock';
 
 // Browser voices closest to Eva (calm young American female), used when server audio is unavailable
 const PREFERRED_VOICES = ['Aria', 'Jenny', 'Ava', 'Samantha', 'Google US English', 'Zira'];
@@ -426,6 +426,13 @@ export const EvaAvatar = ({
           {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
         </button>
       </div>
+
+      {/* The browser voice can still be muted by the iPhone Ring/Silent switch on older iOS */}
+      {useSpeech && isIOS && (
+        <p className="mt-2 max-w-[240px] text-center text-[11px] leading-snug text-slate-500 dark:text-slate-400">
+          Không nghe thấy Eva? Hãy gạt tắt chế độ im lặng (nút bên hông iPhone).
+        </p>
+      )}
 
     </div>
   );

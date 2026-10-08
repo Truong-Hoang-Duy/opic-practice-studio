@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, AlertCircle } from 'lucide-react';
+import { beginRecordingAudioSession, endRecordingAudioSession } from '../utils/audioUnlock';
 
 export const AudioRecorder = ({
   onRecordingComplete,
@@ -36,6 +37,7 @@ export const AudioRecorder = ({
         recorder.stream?.getTracks().forEach(track => track.stop());
       }
       stopAllStreams();
+      endRecordingAudioSession();
     };
   }, []);
 
@@ -63,6 +65,7 @@ export const AudioRecorder = ({
     audioChunksRef.current = [];
 
     try {
+      beginRecordingAudioSession();
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
@@ -121,6 +124,7 @@ export const AudioRecorder = ({
 
         stream.getTracks().forEach(track => track.stop());
         stopAllStreams();
+        endRecordingAudioSession();
       };
 
       mediaRecorder.start(1000);
@@ -147,6 +151,7 @@ export const AudioRecorder = ({
       }
       setIsRecording(false);
       stopAllStreams();
+      endRecordingAudioSession();
     }
   };
 

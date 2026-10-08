@@ -16,6 +16,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { ViTooltip } from '../components/Tooltip';
+import { beginRecordingAudioSession, endRecordingAudioSession } from '../utils/audioUnlock';
 
 export const SystemCheck = ({ onAllChecksPassed }) => {
   // Check statuses: 'pending', 'testing', 'passed', 'failed'
@@ -90,6 +91,7 @@ export const SystemCheck = ({ onAllChecksPassed }) => {
     audioChunksRef.current = [];
 
     try {
+      beginRecordingAudioSession();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream);
       mediaRecorderRef.current = mr;
@@ -103,11 +105,13 @@ export const SystemCheck = ({ onAllChecksPassed }) => {
         const url = URL.createObjectURL(blob);
         setAudioUrl(url);
         stream.getTracks().forEach(t => t.stop());
+        endRecordingAudioSession();
       };
 
       mr.start();
       setIsRecording(true);
     } catch (e) {
+      endRecordingAudioSession();
       setShowMicHelp(true);
       setMicStatus('failed');
     }
