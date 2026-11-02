@@ -109,25 +109,24 @@ export const App = () => {
     isCreatingSessionRef.current = true;
     setActiveSessionMode(mode);
     try {
-      const res = await sessionApi.create({ mode });
+      let initialSurvey = null;
+      if (mode === 'practice') {
+        // Fast-track for Coached Practice: Auto-populate default survey preset & jump straight to Topic Selection in 1 request
+        initialSurvey = USER_DEFAULT_PRESET;
+        try {
+          const saved = localStorage.getItem('opic_user_survey_preset');
+          if (saved) initialSurvey = JSON.parse(saved);
+        } catch (e) {
+          console.warn("Could not parse saved preset:", e);
+        }
+      }
+
+      const res = await sessionApi.create({ mode, survey_data: initialSurvey });
       const newSessionId = res.data.id;
       setActiveSessionId(newSessionId);
       setSessionSetup({});
 
       if (mode === 'practice') {
-        // Fast-track for Coached Practice: Auto-populate default survey preset & jump straight to Topic Selection
-        let surveyData = USER_DEFAULT_PRESET;
-        try {
-          const saved = localStorage.getItem('opic_user_survey_preset');
-          if (saved) surveyData = JSON.parse(saved);
-        } catch (e) {
-          console.warn("Could not parse saved preset:", e);
-        }
-        try {
-          await sessionApi.submitSurvey(newSessionId, surveyData);
-        } catch (surveyErr) {
-          console.warn("Failed to auto-submit survey preset for practice mode:", surveyErr);
-        }
         setCurrentTab('topic_selection');
       } else {
         // Full Exam Simulation: Authentic 5-step system check & full background survey

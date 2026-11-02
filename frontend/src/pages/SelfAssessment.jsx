@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ArrowRight, Sliders, CheckCircle2, Star, Sparkles, Play } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowRight, Sliders, CheckCircle2, Star, Sparkles, Play, Loader2 } from 'lucide-react';
 import { sessionApi, formatApiError } from '../api/client';
 import { ViTooltip } from '../components/Tooltip';
 
@@ -41,13 +41,36 @@ const ASSESSMENT_LEVELS = [
 // Local dev build only: generate the test from the curated bank to avoid LLM cost while checking the UI
 const SHOW_NO_AI_OPTION = import.meta.env.DEV;
 
+const LOADING_STEPS = [
+  "Đang phân tích thông tin khảo sát & chủ đề cá nhân...",
+  "AI Examiner đang khởi tạo 15 câu hỏi ACTFL...",
+  "Đang phối hợp độ khó, thì thời gian & tình huống Role-play...",
+  "Đang chuẩn bị âm thanh câu hỏi & phòng thi..."
+];
+
 export const SelfAssessment = ({ sessionId, sessionMode = 'practice', defaultStrict = false, initialLevel = null, onAssessmentCompleted }) => {
   // Levels 1-2 are no longer offered; older sessions with those levels fall back to the default
   const [selectedLevel, setSelectedLevel] = useState(initialLevel >= 3 ? initialLevel : 4);
   const isPractice = sessionMode === 'practice';
   const [strictMode, setStrictMode] = useState(isPractice ? false : (defaultStrict ?? true));
   const [submitting, setSubmitting] = useState(false);
+  const [submittingStep, setSubmittingStep] = useState(0);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    let interval = null;
+    if (submitting) {
+      setSubmittingStep(0);
+      interval = setInterval(() => {
+        setSubmittingStep((step) => (step < LOADING_STEPS.length - 1 ? step + 1 : step));
+      }, 2400);
+    } else {
+      setSubmittingStep(0);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [submitting]);
 
   const handleSubmit = async (e, useAi = true) => {
     if (e) e.preventDefault();
@@ -180,8 +203,31 @@ export const SelfAssessment = ({ sessionId, sessionMode = 'practice', defaultStr
           </div>
         )}
 
+        {/* Loading Progress State */}
+        {submitting && (
+          <div className="p-4 rounded-2xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/80 flex flex-col gap-2.5 animate-fadeIn">
+            <div className="flex items-center gap-3">
+              <Loader2 className="w-5 h-5 text-brand-600 dark:text-brand-400 animate-spin flex-shrink-0" />
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-bold text-slate-900 dark:text-white">
+                  Đang khởi tạo bài thi 15 câu hỏi
+                </span>
+                <span className="text-xs text-brand-600 dark:text-brand-400 font-medium transition-all duration-300">
+                  {LOADING_STEPS[submittingStep]}
+                </span>
+              </div>
+            </div>
+            <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-brand-600 to-sky-400 h-1.5 rounded-full transition-all duration-700 ease-out"
+                style={{ width: `${Math.min(96, (submittingStep + 1) * 25)}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Submit */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 pt-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 pt-2">
           {error && (
             <span className="text-xs font-medium text-rose-600 dark:text-rose-400 sm:mr-auto">{error}</span>
           )}
@@ -199,10 +245,21 @@ export const SelfAssessment = ({ sessionId, sessionMode = 'practice', defaultStr
           <button
             type="submit"
             disabled={submitting}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-brand-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-white font-semibold text-sm shadow-xl shadow-sky-500/25 transition-all transform active:scale-95 cursor-pointer"
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-brand-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-white font-semibold text-sm shadow-xl shadow-sky-500/25 transition-all transform active:scale-95 cursor-pointer ${
+              submitting ? 'opacity-80 cursor-wait' : ''
+            }`}
           >
-            <span>{submitting ? 'Generating 15-Question Test...' : 'Assemble 15-Question Test & Pre-Test'}</span>
-            <ArrowRight className="w-4 h-4" />
+            {submitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Đang tạo bộ đề thi...</span>
+              </>
+            ) : (
+              <>
+                <span>Assemble 15-Question Test & Pre-Test</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </div>
 

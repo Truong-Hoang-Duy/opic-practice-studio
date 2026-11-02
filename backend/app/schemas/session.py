@@ -12,6 +12,7 @@ ALLOWED_TOPICS = {
 
 class SessionCreate(BaseModel):
     mode: str = Field(default="exam", pattern="^(exam|practice)$")
+    survey_data: Optional[Dict[str, Any]] = None
 
 class SurveySubmit(BaseModel):
     occupation: str

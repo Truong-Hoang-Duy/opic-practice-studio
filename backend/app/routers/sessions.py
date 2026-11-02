@@ -64,6 +64,7 @@ def create_session(
         id=_next_session_id(db),
         user_id=current_user.id,
         mode=session_in.mode,
+        survey_data=session_in.survey_data,
         status="setup"
     )
     db.add(session)

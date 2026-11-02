@@ -9,22 +9,16 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     ENVIRONMENT: str = "development"
 
-    # OpenAI Settings
+    # OpenAI Settings (LLM Evaluation & Coaching)
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-5.6-luna"
-    TTS_MODEL: str = "gpt-4o-mini-tts"
-    TTS_VOICE: str = "alloy"  # Options: alloy, shimmer, nova, echo, fable, onyx
 
-    # Eva Text-to-Speech provider:
-    #   "kokoro"  -> open-source Kokoro-82M (Apache-2.0) running locally on CPU, no API key needed (default)
-    #   "openai"  -> OpenAI TTS (TTS_MODEL / TTS_VOICE), requires a key with TTS access
-    #   "browser" -> no server audio; the frontend reads questions with the browser's Web Speech API
-    TTS_PROVIDER: str = "kokoro"
-    KOKORO_VOICE: str = "af_heart"  # Young American female, calm & warm (closest to OPIc Eva). Alternatives: af_bella, af_sarah, af_nicole
-    KOKORO_SPEED: float = 0.95
-    KOKORO_MODEL_DIR: str = "./data/tts_models"
-    KOKORO_MODEL_URL: str = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx"
-    KOKORO_VOICES_URL: str = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"
+    # Eva Text-to-Speech (TTS):
+    #   "edge"    -> Microsoft Edge Neural Voice (free, 0 MB server RAM, studio-grade natural American female voice) (default)
+    #   "browser" -> no server audio; frontend reads questions with the browser's Web Speech API
+    TTS_PROVIDER: str = "edge"
+    EDGE_VOICE: str = "en-US-AvaNeural"  # Expressive, calm & warm American female voice (Eva)
+    EDGE_RATE: str = "-4%"              # Slightly slower for optimal OPIc test comprehension
 
     # Question generation: personalise the 15 questions with the LLM (falls back to the curated bank on failure)
     AI_QUESTION_GENERATION: bool = True

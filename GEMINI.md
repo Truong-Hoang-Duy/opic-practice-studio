@@ -28,11 +28,10 @@
   - Định dạng: Luôn dùng Structured Outputs (`response_format={"type": "json_object"}`), validate qua Pydantic schema, retry tối đa 1 lần nếu JSON lỗi.
   - Prompts: Lưu toàn bộ trong thư mục `backend/app/prompts/*.txt`.
 - **Text-to-Speech (Giám khảo ảo "Eva"):** Chọn qua `TTS_PROVIDER`:
-  - `kokoro` (mặc định): mã nguồn mở **Kokoro-82M** (Apache-2.0, bản ONNX `kokoro-onnx`) chạy CPU tại backend, không cần API key. Giọng `KOKORO_VOICE` (mặc định `af_heart` - nữ trẻ Mỹ, ấm, điềm tĩnh). Model (~340MB) tự tải về `backend/data/tts_models/` ở lần chạy đầu. Tốc độ ~2x realtime trên CPU 8 nhân.
-  - `openai`: OpenAI TTS (`TTS_MODEL`, `TTS_VOICE`) - chỉ dùng khi key có quyền TTS.
-  - `browser`: không tạo audio ở server.
-  - Nếu server không có audio (model chưa sẵn sàng/lỗi), `EvaAvatar.jsx` tự đọc câu hỏi bằng Web Speech API của trình duyệt (ưu tiên giọng nữ en-US). Không dùng âm "chime" giả.
-  - Cache trên đĩa: Lưu tại `backend/data/audio_cache/` theo `md5(text + voice + model)` (.mp3). Sau khi tạo đề, audio của cả 15 câu được tổng hợp nền theo thứ tự.
+  - `edge` (mặc định): sử dụng **Microsoft Edge Neural Voice** (`en-US-AvaNeural`), chất lượng phòng thu chuẩn giọng Mỹ tự nhiên, ấm áp, hoàn toàn miễn phí, không tốn credit API và **tốn 0 MB RAM** máy chủ. Rất thích hợp cho môi trường Free Tier (Render 512MB RAM).
+  - `browser`: không tạo audio ở server; trình duyệt tự đọc qua Web Speech API.
+  - Nếu server không có audio (lỗi mạng/chưa sẵn sàng), `EvaAvatar.jsx` tự đọc câu hỏi bằng Web Speech API của trình duyệt (ưu tiên giọng nữ en-US). Không dùng âm "chime" giả.
+  - Cache trên đĩa: Lưu tại `backend/data/audio_cache/` theo `md5(text + voice)` (.mp3). Sau khi tạo đề, audio của cả 15 câu được tổng hợp nền theo thứ tự.
 - **Speech-to-Text (Nhận diện giọng nói - Miễn phí 100%):** Chọn qua `STT_PROVIDER`:
   - `auto` (mặc định): nếu có `GROQ_API_KEY` thì ưu tiên gọi Groq Cloud Whisper Free API (`whisper-large-v3-turbo`, tốn 0MB RAM, < 1s) và tự động fallback về `faster-whisper` cục bộ nếu lỗi; nếu không có key thì chạy trực tiếp `faster-whisper` cục bộ.
   - `faster_whisper`: mã nguồn mở **faster-whisper** (CTranslate2 `int8`) chạy CPU tại backend, miễn phí 100% và không cần API key. Mặc định `WHISPER_MODEL=base.en` (~145MB, tự tải về `backend/data/stt_models/`). Khi chạy trên Render Free (`RENDER=true` hoặc `WHISPER_LOW_MEMORY=true`), tự động hạ xuống `tiny.en` (~75MB) và giải phóng RAM (`gc.collect()`) ngay sau khi dịch xong để vừa khít giới hạn 512MB RAM.
@@ -200,7 +199,7 @@ npm run build
 
 ## 8. Quy tắc cho AI Agent / Gemini khi làm việc trong Repository này
 
-1. **Không bao giờ hardcode model name:** Luôn sử dụng `settings.OPENAI_MODEL` và `settings.TTS_MODEL`.
+1. **Không bao giờ hardcode model name:** Luôn sử dụng `settings.OPENAI_MODEL`.
 2. **Không để lộ secret key ra phía frontend:** Mọi kết nối tới OpenAI hay Groq bắt buộc phải đi qua backend.
 3. **Tính toàn vẹn của Rubrics:** Mọi prompt đánh giá hay viết lại phải kế thừa từ hàm `get_rubric_prompt_text()` trong `backend/app/core/rubrics.py` để đảm bảo tiêu chí chấm điểm nhất quán.
 4. **Bảo toàn dữ liệu người dùng:** Không được xóa các trường âm thanh hoặc version cũ của ứng viên. Mọi chỉnh sửa transcript hay rewrite đều phải tạo bản ghi `AnswerVersion` mới tăng dần.

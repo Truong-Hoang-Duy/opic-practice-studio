@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional
 
 from app.config import settings
-from app.services.tts_service import cached_speech_url, synthesize_speech
+from app.services.tts_service import cached_speech_url, synthesize_speech, get_effective_tts_provider
 
 logger = logging.getLogger("opic_playlist")
 
@@ -33,8 +33,9 @@ def _playlist_dir() -> str:
 
 def playlist_key(segments: List[Dict[str, str]]) -> str:
     """Stable id for an ordered list of segments ({"kind": "question"|"answer", "text": ...})."""
-    voice = settings.KOKORO_VOICE if settings.TTS_PROVIDER != "openai" else settings.TTS_VOICE
-    payload = json.dumps({"segments": segments, "voice": voice, "provider": settings.TTS_PROVIDER}, sort_keys=True)
+    voice = getattr(settings, "EDGE_VOICE", "en-US-AvaNeural")
+    provider = get_effective_tts_provider()
+    payload = json.dumps({"segments": segments, "voice": voice, "provider": provider}, sort_keys=True)
     return hashlib.md5(payload.encode("utf-8")).hexdigest()
 
 
@@ -88,7 +89,7 @@ def request_playlist(segments: List[Dict[str, str]]) -> Dict[str, object]:
     Returns {"ready": True, "url": ...} when the MP3 exists; otherwise queues the build (once) and
     returns progress so the client can poll the same request.
     """
-    if settings.TTS_PROVIDER == "browser":
+    if get_effective_tts_provider() == "browser":
         raise RuntimeError("Server audio is disabled (TTS_PROVIDER=browser).")
 
     key = playlist_key(segments)

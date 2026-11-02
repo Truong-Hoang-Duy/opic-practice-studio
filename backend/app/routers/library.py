@@ -40,17 +40,40 @@ def get_library(
         .all()
     )
     total_sessions = len(sessions)
+    if not sessions:
+        return []
+
     session_num_by_id = {s.id: total_sessions - idx for idx, s in enumerate(sessions)}
+    session_ids = [s.id for s in sessions]
+
+    # Batch fetch all questions, model answers, and answers to eliminate N+1 queries
+    all_questions = (
+        db.query(Question)
+        .filter(Question.session_id.in_(session_ids))
+        .order_by(Question.session_id, Question.order_index)
+        .all()
+    )
+    questions_by_session: dict = {}
+    all_q_ids = []
+    for q in all_questions:
+        questions_by_session.setdefault(q.session_id, []).append(q)
+        all_q_ids.append(q.id)
+
+    models_by_q: dict = {}
+    if all_q_ids:
+        for m in db.query(ModelAnswer).filter(ModelAnswer.question_id.in_(all_q_ids)).all():
+            models_by_q.setdefault(m.question_id, []).append(m)
+
+    answers_by_q: dict = {}
+    if all_q_ids:
+        for a in db.query(Answer).filter(Answer.question_id.in_(all_q_ids)).all():
+            answers_by_q[a.question_id] = a
+
     result = []
     for s in sessions:
-        questions = db.query(Question).filter(Question.session_id == s.id).order_by(Question.order_index).all()
+        questions = questions_by_session.get(s.id, [])
         if not questions:
             continue
-        q_ids = [q.id for q in questions]
-        models_by_q = {}
-        for m in db.query(ModelAnswer).filter(ModelAnswer.question_id.in_(q_ids)).all():
-            models_by_q.setdefault(m.question_id, []).append(m)
-        answers_by_q = {a.question_id: a for a in db.query(Answer).filter(Answer.question_id.in_(q_ids)).all()}
 
         items = []
         for q in questions:

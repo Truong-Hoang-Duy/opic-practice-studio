@@ -48,7 +48,7 @@ def test_library_lists_question_sets_and_requires_model_answers_for_playlist(cli
 
 def test_playlist_builder_concatenates_segments(tmp_path, monkeypatch):
     monkeypatch.setattr(playlist_service.settings, "AUDIO_CACHE_DIR", str(tmp_path))
-    monkeypatch.setattr(playlist_service.settings, "TTS_PROVIDER", "kokoro")
+    monkeypatch.setattr(playlist_service.settings, "TTS_PROVIDER", "edge")
 
     def fake_synthesize(text):
         name = f"eva_{abs(hash(text))}.mp3"

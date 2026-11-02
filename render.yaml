@@ -13,10 +13,10 @@ services:
         sync: false
       - key: OPENAI_MODEL
         value: gpt-5.6-luna
-      - key: TTS_MODEL
-        value: gpt-4o-mini-tts
       - key: TTS_PROVIDER
-        value: kokoro
+        value: edge
+      - key: EDGE_VOICE
+        value: en-US-AvaNeural
       - key: STT_PROVIDER
         value: auto
       - key: WHISPER_MODEL

@@ -459,7 +459,7 @@ def generate_questions_llm(
         role_play_label=role_play["label"],
         role_play_setup=role_play["setup"]
     )
-    return _call_openai_validated(prompt, GeneratedQuestionSet, timeout=45.0)
+    return _call_openai_validated(prompt, GeneratedQuestionSet, timeout=30.0)
 
 def generate_guides_llm(questions: List[Dict[str, Any]], level: int, base_difficulty: str):
     """Returns (GeneratedGuideSet, prompt_tokens, completion_tokens, cost) or None on failure."""
