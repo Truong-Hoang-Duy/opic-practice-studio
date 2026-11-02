@@ -34,7 +34,7 @@ COPY backend/ ./backend/
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # Ensure data directories exist
-RUN mkdir -p /app/backend/data/audio_cache /app/backend/data/uploads /app/backend/data/reports
+RUN mkdir -p /app/backend/data/audio_cache /app/backend/data/uploads /app/backend/data/reports /app/backend/data/tts_models /app/backend/data/stt_models
 
 EXPOSE 8000
 

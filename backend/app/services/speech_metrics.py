@@ -1,7 +1,7 @@
 """
 Speech flow & hesitation analysis computed from the STT word timings (no AI call):
 speaking rate (WPM), awkward pauses (>= 2 s of dead air between words) and filler words.
-Words come from Soniox / the mock STT as {word (or text), confidence, start_ms, end_ms}.
+Words come from Whisper / the mock STT as {word (or text), confidence, start_ms, end_ms}.
 """
 import re
 from typing import Any, Dict, List, Optional

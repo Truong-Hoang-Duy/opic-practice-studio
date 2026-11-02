@@ -15,8 +15,16 @@ services:
         value: gpt-5.6-luna
       - key: TTS_MODEL
         value: gpt-4o-mini-tts
-      - key: SONIOX_API_KEY
-        sync: false
+      - key: TTS_PROVIDER
+        value: kokoro
+      - key: STT_PROVIDER
+        value: auto
+      - key: WHISPER_MODEL
+        value: tiny.en
+      - key: WHISPER_LOW_MEMORY
+        value: "true"
+      - key: GROQ_API_KEY
+        sync: false # Optional: Free Groq API key (https://console.groq.com) for 0MB-RAM whisper-large-v3-turbo
       - key: SECRET_KEY
         generateValue: true
       - key: ENVIRONMENT

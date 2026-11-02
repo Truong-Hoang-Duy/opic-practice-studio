@@ -16,14 +16,21 @@ def get_user_history(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    sessions = db.query(TestSession).filter(TestSession.user_id == current_user.id).order_by(TestSession.started_at.desc()).all()
+    sessions = (
+        db.query(TestSession)
+        .filter(TestSession.user_id == current_user.id)
+        .order_by(TestSession.started_at.desc(), TestSession.id.desc())
+        .all()
+    )
+    total = len(sessions)
 
     result = []
-    for s in sessions:
+    for idx, s in enumerate(sessions):
         report = db.query(SessionReport).filter(SessionReport.session_id == s.id).first()
         ans_count = db.query(Answer).filter(Answer.session_id == s.id).count()
         result.append({
             "id": s.id,
+            "session_number": total - idx,
             "mode": s.mode,
             "status": s.status,
             "self_assessment_level": s.self_assessment_level,

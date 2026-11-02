@@ -36,11 +36,13 @@ app = FastAPI(
 )
 
 @app.on_event("startup")
-def warm_up_eva_voice():
-    # Download (first run only) and load the local TTS model without blocking startup
+def warm_up_speech_models():
+    # Download (first run only) and load local TTS & STT models without blocking startup
     import threading
     from app.services.tts_service import warm_up_tts
+    from app.services.stt_service import warm_up_stt
     threading.Thread(target=warm_up_tts, name="eva_tts_warmup", daemon=True).start()
+    threading.Thread(target=warm_up_stt, name="whisper_stt_warmup", daemon=True).start()
 
 # CORS setup
 cors_origins = settings.cors_origins_list

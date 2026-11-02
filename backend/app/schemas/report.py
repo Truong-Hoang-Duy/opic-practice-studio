@@ -13,6 +13,7 @@ class RadarScores(BaseModel):
 class SessionReportResponse(BaseModel):
     id: int
     session_id: int
+    session_number: Optional[int] = None
     overall_level: str
     passed: Optional[bool] = False
     justification: str

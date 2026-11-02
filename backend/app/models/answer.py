@@ -14,7 +14,7 @@ class Answer(Base):
     duration_seconds = Column(Float, default=0.0)
 
     # Transcripts
-    transcript_raw = Column(Text, nullable=True) # Direct from Soniox
+    transcript_raw = Column(Text, nullable=True) # Direct from STT
     transcript_edited = Column(Text, nullable=True) # Latest active transcript
     word_confidences = Column(JSON, nullable=True) # List of {word, confidence, start_ms, end_ms}
 

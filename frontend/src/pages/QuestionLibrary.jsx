@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Library, ChevronDown, ChevronRight, Mic, Sparkles, Headphones, Download, Repeat,
-  ListMusic, Loader2, ArrowLeft, CheckSquare, Square, X
+  ListMusic, Loader2, ArrowLeft, CheckSquare, Square, X, Trash2
 } from 'lucide-react';
-import { libraryApi, questionApi, answerApi, resolveMediaUrl, formatApiError, recordingFileName } from '../api/client';
+import { libraryApi, sessionApi, questionApi, answerApi, resolveMediaUrl, formatApiError, recordingFileName } from '../api/client';
 import { EvaAvatar } from '../components/EvaAvatar';
 import { AudioRecorder } from '../components/AudioRecorder';
 import { AnswerCoaching } from './AnswerCoaching';
@@ -180,6 +180,31 @@ export const QuestionLibrary = () => {
     await load();
   };
 
+  const handleDeleteSet = async (s) => {
+    const label = s.set_number ?? s.session_number ?? s.session_id;
+    if (!window.confirm(`Xóa Bộ đề #${label}? Toàn bộ câu hỏi và câu trả lời của bộ đề này sẽ bị xóa.`)) return;
+    try {
+      await sessionApi.delete(s.session_id);
+      setSelected(prev => prev.filter(id => !s.questions.some(q => q.id === id)));
+      await load();
+    } catch (err) {
+      alert(formatApiError(err, 'Không xóa được bộ đề.'));
+    }
+  };
+
+  const handleDeleteAllSets = async () => {
+    if (!sets.length) return;
+    if (!window.confirm('Xóa toàn bộ tất cả bộ đề đã thi và reset số thứ tự về #1? (Tài khoản đăng nhập và sổ từ vựng vẫn được giữ nguyên)')) return;
+    try {
+      await sessionApi.deleteAll();
+      setSelected([]);
+      setPlayer(null);
+      await load();
+    } catch (err) {
+      alert(formatApiError(err, 'Không xóa được toàn bộ bộ đề.'));
+    }
+  };
+
   // Build (or fetch) the single MP3 for the selection, polling until it's ready
   const pollPlaylist = async (body) => {
     try {
@@ -257,7 +282,7 @@ export const QuestionLibrary = () => {
             <span className="text-xs font-bold text-brand-600 dark:text-brand-400">Q{q.order_index}</span>
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">{q.category_label || q.topic}</span>
             {showSet && (
-              <span className="text-[10px] text-slate-500 dark:text-slate-400">Bộ đề #{s.session_id} · {new Date(s.started_at).toLocaleDateString()}</span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400">Bộ đề #{s.set_number ?? s.session_number ?? s.session_id} · {new Date(s.started_at).toLocaleDateString()}</span>
             )}
             {q.practice_count > 0 && (
               <span className="text-[10px] text-slate-500 dark:text-slate-400">Đã luyện {q.practice_count} lần{q.last_level ? ` · gần nhất ${q.last_level}` : ''}</span>
@@ -360,18 +385,29 @@ export const QuestionLibrary = () => {
       </div>
 
       {/* View switcher */}
-      <div className="inline-flex self-start p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-        {[{ key: 'sets', label: 'Theo bộ đề' }, { key: 'topics', label: 'Theo chủ đề' }].map(tab => (
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+          {[{ key: 'sets', label: 'Theo bộ đề' }, { key: 'topics', label: 'Theo chủ đề' }].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setView(tab.key)}
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                view === tab.key ? 'bg-brand-500 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {sets.length > 0 && (
           <button
-            key={tab.key}
-            onClick={() => setView(tab.key)}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
-              view === tab.key ? 'bg-brand-500 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300'
-            }`}
+            onClick={handleDeleteAllSets}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30 hover:bg-rose-500/10 transition-colors cursor-pointer"
           >
-            {tab.label}
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Xóa tất cả bộ đề</span>
           </button>
-        ))}
+        )}
       </div>
 
       {view === 'topics' && !loading && sets.length > 0 && (() => {
@@ -442,7 +478,7 @@ export const QuestionLibrary = () => {
                 {isOpen ? <ChevronDown className="w-4 h-4 flex-shrink-0" /> : <ChevronRight className="w-4 h-4 flex-shrink-0" />}
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-slate-900 dark:text-white">
-                    Bộ đề #{s.session_id} · {new Date(s.started_at).toLocaleDateString()}
+                    Bộ đề #{s.set_number ?? s.session_number ?? s.session_id} · {new Date(s.started_at).toLocaleDateString()}
                     {s.dev_mock && <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded border border-dashed border-amber-400 text-amber-700 dark:text-amber-300">DEV</span>}
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
@@ -467,6 +503,13 @@ export const QuestionLibrary = () => {
                 >
                   {allSelected ? <CheckSquare className="w-3.5 h-3.5 text-brand-500" /> : <Square className="w-3.5 h-3.5" />}
                   <span>{allSelected ? 'Bỏ chọn' : 'Chọn cả bộ'}</span>
+                </button>
+                <button
+                  onClick={() => handleDeleteSet(s)}
+                  title="Xóa bộ đề này"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </div>
             </div>

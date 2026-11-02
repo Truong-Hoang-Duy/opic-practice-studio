@@ -464,7 +464,7 @@ export const TestSession = ({
       <div className="flex items-center justify-end gap-3 pb-[env(safe-area-inset-bottom)]">
         {sessionInfo?.dev_mock && (
           <p className="mr-auto min-w-0 px-3 py-1.5 rounded-lg border border-dashed border-amber-400 dark:border-amber-500/50 bg-amber-50 dark:bg-amber-500/10 text-[11px] leading-snug text-amber-800 dark:text-amber-300">
-            DEV (giả lập, không gọi AI/Soniox): ghi dưới 3 giây = giả lập im lặng; từ 3 giây trở lên = transcript mẫu có từ phát âm chưa rõ.
+            DEV (giả lập, không gọi AI/STT): ghi dưới 3 giây = giả lập im lặng; từ 3 giây trở lên = transcript mẫu có từ phát âm chưa rõ.
           </p>
         )}
         <ViTooltip vi="Sang câu tiếp theo mà không cần ghi âm câu này.">

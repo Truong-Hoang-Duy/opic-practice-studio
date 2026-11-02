@@ -33,7 +33,14 @@ def get_library(
     db: Session = Depends(get_db)
 ):
     """Every AI question set the learner has taken, newest first, with model answers and practice stats."""
-    sessions = db.query(TestSession).filter(TestSession.user_id == current_user.id).order_by(TestSession.started_at.desc()).all()
+    sessions = (
+        db.query(TestSession)
+        .filter(TestSession.user_id == current_user.id)
+        .order_by(TestSession.started_at.desc(), TestSession.id.desc())
+        .all()
+    )
+    total_sessions = len(sessions)
+    session_num_by_id = {s.id: total_sessions - idx for idx, s in enumerate(sessions)}
     result = []
     for s in sessions:
         questions = db.query(Question).filter(Question.session_id == s.id).order_by(Question.order_index).all()
@@ -79,6 +86,7 @@ def get_library(
 
         result.append({
             "session_id": s.id,
+            "session_number": session_num_by_id.get(s.id, s.id),
             "mode": s.mode,
             "status": s.status,
             "dev_mock": bool(getattr(s, "dev_mock", False)),
@@ -88,6 +96,9 @@ def get_library(
             "topics": s.topics or [],
             "questions": items,
         })
+    total_sets = len(result)
+    for idx, entry in enumerate(result):
+        entry["set_number"] = total_sets - idx
     return result
 
 

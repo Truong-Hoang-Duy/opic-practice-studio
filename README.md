@@ -19,7 +19,7 @@
   - Direct bcrypt password hashing and JWT authentication
 - **Speech & AI Intelligence**:
   - **LLM**: OpenAI API (`OPENAI_MODEL` env var, default `"gpt-5.6-luna"`, structured outputs)
-  - **STT (Speech-to-Text)**: Soniox real-time WebSocket streaming (`/ws/stt` proxy + temporary token generator; permanent API key is never exposed to the client)
+  - **STT (Speech-to-Text)**: Open-source `faster-whisper` (`STT_PROVIDER=auto` / `faster_whisper`, CTranslate2 `int8` on CPU, no API key needed, auto-downloads to `backend/data/stt_models/` with low-RAM optimization for 512MB Render Free tier) + optional Groq Cloud Whisper Free API (`GROQ_API_KEY`, `whisper-large-v3-turbo`, 0MB server RAM)
   - **TTS (Text-to-Speech)**: open-source Kokoro-82M (`TTS_PROVIDER=kokoro`, voice `af_heart`, runs on CPU, no API key) or OpenAI TTS (`TTS_PROVIDER=openai`), with disk-based hash caching (`hash(text + voice + model)`) so every prompt is synthesized only once; browser Web Speech API fallback
 - **Frontend**:
   - React 18, Vite 5, Tailwind CSS
@@ -67,7 +67,7 @@ opic-practice-studio/
 │       ├── services/
 │       │   ├── llm_service.py  # OpenAI client with structured parsing & retry
 │       │   ├── tts_service.py  # Eva TTS (Kokoro / OpenAI) with hash disk caching
-│       │   ├── stt_service.py  # Soniox proxy & word confidence parser
+│       │   ├── stt_service.py  # Whisper STT (local faster-whisper / Groq Free API) & word confidence parser
 │       │   ├── question_generator.py # 15-question OPIc exam generator
 │       │   └── pdf_service.py  # ReportLab PDF report generation
 │       ├── routers/            # API endpoints (/auth, /sessions, /questions, /answers, /stt, /history, /system)
@@ -121,12 +121,14 @@ OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-5.6-luna
 TTS_PROVIDER=kokoro          # kokoro (open-source, no key) | openai | browser
 KOKORO_VOICE=af_heart
-SONIOX_API_KEY=...
+STT_PROVIDER=auto            # auto | faster_whisper (local CPU, no key) | groq (free API)
+WHISPER_MODEL=base.en
+GROQ_API_KEY=
 DATABASE_URL=sqlite:///./data/opic_studio.db
 SECRET_KEY=secure_random_key_here
 ```
 
-> **Offline/Mock Mode**: If `OPENAI_API_KEY` or `SONIOX_API_KEY` are not set, the studio automatically switches to built-in pedagogical mock generators and chimes, allowing 100% full testing and demonstration offline.
+> **Offline/Mock Mode**: `faster-whisper` and `kokoro-onnx` run 100% locally on CPU without any API keys. If `OPENAI_API_KEY` is not set, the studio automatically switches to built-in pedagogical mock generators, allowing 100% full testing and demonstration offline.
 
 ---
 
@@ -206,9 +208,17 @@ All tests validate:
    - Q15: Topic 3 Comparison past vs present & Future outlook
    - Q2–Q15 are personalised by the LLM from the survey, level and topics (curated bank as fallback)
 7. **Coaching & Results**:
-   - Real-time Soniox transcript with word confidence highlights
+   - Whisper STT transcript with word confidence highlights & speech flow metrics
    - Inline transcript editing (creates `answer_version`)
    - ACTFL 6 sub-scores and IH gap analysis
    - "Improve my answer" side-by-side diff
    - 3-level model answers (IL, IM, IH) with sentence-by-sentence shadowing mode
    - Diagnostic Session Report with Radar Chart & PDF Export!
+
+---
+
+## 🔧 Git & Contribution Guidelines
+
+- Only commit and push when explicitly confirmed.
+- Combine session changes into a **single commit** with a concise **English** commit message (e.g., `feat: ...`, `fix: ...`).
+- Never include AI/agent attribution trailers (such as `Co-Authored-By`, `agents`, or `Claude`) in commit messages.

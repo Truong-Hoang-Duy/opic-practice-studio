@@ -198,7 +198,7 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport, onDelete
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Session #{session.id}</span>
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Session #{session.session_number ?? session.id}</span>
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${
                       session.status === 'completed'
                         ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30'

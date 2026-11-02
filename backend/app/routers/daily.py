@@ -75,7 +75,7 @@ async def submit_workout(
     db: Session = Depends(get_db)
 ):
     """
-    Records one attempt: STT (Soniox) -> speech flow metrics -> quick 3-pillar feedback.
+    Records one attempt: STT (Whisper) -> speech flow metrics -> quick 3-pillar feedback.
     Re-submitting the same day replaces the previous attempt; only answers with recognised speech count for the streak.
     """
     workout = db.query(DailyWorkout).filter(DailyWorkout.id == workout_id, DailyWorkout.user_id == current_user.id).first()

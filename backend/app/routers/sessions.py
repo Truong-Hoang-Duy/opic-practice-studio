@@ -2,8 +2,9 @@ import os
 from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
-from app.database import get_db
+from app.database import get_db, reset_table_sequences
 from app.models.user import User
 from app.models.session import TestSession
 from app.models.question import Question
@@ -29,6 +30,30 @@ from app.services.evaluation_service import evaluate_versions_in_parallel, exam_
 
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
 
+
+def _next_session_id(db: Session) -> int:
+    """
+    Returns the next sequential session ID starting from 1 when earlier sessions are deleted,
+    preventing SQL auto-increment sequences from jumping to 4, 5 after 1, 2, 3 are removed.
+    """
+    max_id = db.query(func.max(TestSession.id)).scalar() or 0
+    return int(max_id) + 1
+
+
+def get_user_session_number(db: Session, user_id: int, session_id: int) -> int:
+    """Returns the 1-based chronological number (1, 2, 3...) among the user's remaining sessions."""
+    rows = (
+        db.query(TestSession.id)
+        .filter(TestSession.user_id == user_id)
+        .order_by(TestSession.started_at.asc(), TestSession.id.asc())
+        .all()
+    )
+    for idx, (sid,) in enumerate(rows, start=1):
+        if sid == session_id:
+            return idx
+    return session_id
+
+
 @router.post("", response_model=SessionResponse)
 def create_session(
     session_in: SessionCreate,
@@ -36,6 +61,7 @@ def create_session(
     db: Session = Depends(get_db)
 ):
     session = TestSession(
+        id=_next_session_id(db),
         user_id=current_user.id,
         mode=session_in.mode,
         status="setup"
@@ -43,6 +69,7 @@ def create_session(
     db.add(session)
     db.commit()
     db.refresh(session)
+    session.session_number = get_user_session_number(db, current_user.id, session.id)
     return session
 
 @router.delete("/{session_id}")
@@ -90,7 +117,58 @@ def delete_session(
 
     db.delete(session)
     db.commit()
+
+    # If no sessions remain in the database, reset all sequences back to 1
+    if db.query(TestSession).count() == 0:
+        reset_table_sequences(db.connection())
+        db.commit()
+
     return {"message": "Session deleted successfully.", "session_id": session_id}
+
+
+@router.delete("")
+def delete_all_user_sessions(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Deletes all question sets / test sessions of the current user (keeping user login intact)."""
+    sessions = db.query(TestSession).filter(TestSession.user_id == current_user.id).all()
+    deleted_count = len(sessions)
+    for session in sessions:
+        for ans in session.answers:
+            if ans.audio_path:
+                clean_rel = ans.audio_path.lstrip("/").replace("data/uploads/", "")
+                local_path = os.path.join(settings.AUDIO_UPLOAD_DIR, clean_rel)
+                if os.path.exists(local_path):
+                    try:
+                        os.remove(local_path)
+                    except OSError:
+                        pass
+            for ver in ans.versions:
+                if ver.audio_path:
+                    clean_rel = ver.audio_path.lstrip("/").replace("data/uploads/", "")
+                    local_path = os.path.join(settings.AUDIO_UPLOAD_DIR, clean_rel)
+                    if os.path.exists(local_path):
+                        try:
+                            os.remove(local_path)
+                        except OSError:
+                            pass
+        if session.report and session.report.pdf_path:
+            clean_rel = session.report.pdf_path.lstrip("/").replace("data/reports/", "")
+            local_pdf = os.path.join(settings.REPORTS_DIR, clean_rel)
+            if os.path.exists(local_pdf):
+                try:
+                    os.remove(local_pdf)
+                except OSError:
+                    pass
+        db.delete(session)
+    db.commit()
+
+    if db.query(TestSession).count() == 0:
+        reset_table_sequences(db.connection())
+        db.commit()
+
+    return {"message": "All question sets deleted successfully.", "deleted_count": deleted_count}
 
 @router.post("/{session_id}/survey")
 def submit_survey(
@@ -266,6 +344,7 @@ def get_session_status(
 
     return {
         "id": session.id,
+        "session_number": get_user_session_number(db, current_user.id, session.id),
         "mode": session.mode,
         "status": session.status,
         "total_questions": total_questions,
@@ -411,9 +490,11 @@ def get_session_report(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
 
+    session_num = get_user_session_number(db, current_user.id, session.id)
     existing_report = db.query(SessionReport).filter(SessionReport.session_id == session.id).first()
     if existing_report:
         existing_report.target_level = exam_level_for(session)
+        existing_report.session_number = session_num
         return existing_report
 
     # Generate new report
@@ -552,5 +633,6 @@ def get_session_report(
     db.commit()
     db.refresh(new_report)
     new_report.target_level = exam_level_for(session)
+    new_report.session_number = session_num
 
     return new_report

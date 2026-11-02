@@ -166,7 +166,7 @@ export const HistoryPage = ({ onViewReport, onResumeSession, onDeleteSession, on
             >
               <div className="flex flex-col gap-1.5">
                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                  <span className="text-sm font-bold text-slate-900 dark:text-white">Session #{session.id}</span>
+                  <span className="text-sm font-bold text-slate-900 dark:text-white">Session #{session.session_number ?? session.id}</span>
                   <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize ${
                     session.status === 'completed'
                       ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30'

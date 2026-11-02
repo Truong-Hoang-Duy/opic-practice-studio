@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create data directories
-RUN mkdir -p /app/data/audio_cache /app/data/uploads /app/data/reports
+RUN mkdir -p /app/data/audio_cache /app/data/uploads /app/data/reports /app/data/tts_models /app/data/stt_models
 
 EXPOSE 8000
 

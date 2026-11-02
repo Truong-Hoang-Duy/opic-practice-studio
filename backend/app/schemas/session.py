@@ -47,6 +47,7 @@ class TopicsSubmit(BaseModel):
 
 class SessionResponse(BaseModel):
     id: int
+    session_number: Optional[int] = None
     user_id: int
     mode: str
     status: str

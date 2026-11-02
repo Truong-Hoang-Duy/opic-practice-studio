@@ -190,7 +190,7 @@ export const SelfAssessment = ({ sessionId, sessionMode = 'practice', defaultStr
               type="button"
               disabled={submitting}
               onClick={() => handleSubmit(null, false)}
-              title="Chỉ hiện khi chạy local (npm run dev). Giả lập toàn bộ: bộ đề mặc định, nhận dạng giọng nói, chấm điểm, bài mẫu, báo cáo — không gọi AI/Soniox."
+              title="Chỉ hiện khi chạy local (npm run dev). Giả lập toàn bộ: bộ đề mặc định, nhận dạng giọng nói, chấm điểm, bài mẫu, báo cáo — không gọi AI/STT."
               className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-dashed border-amber-400 dark:border-amber-500/50 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 font-semibold text-xs cursor-pointer disabled:opacity-60"
             >
               <span>DEV: Giả lập toàn bộ (không gọi AI)</span>

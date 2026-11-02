@@ -19,3 +19,4 @@ pytest>=8.1.1
 pytest-asyncio>=0.23.6
 kokoro-onnx>=0.4.0
 soundfile>=0.12.1
+faster-whisper>=1.1.0

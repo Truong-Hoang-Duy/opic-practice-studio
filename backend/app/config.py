@@ -32,9 +32,19 @@ class Settings(BaseSettings):
     # Daily 5-minute workout: the challenge day starts at 00:00 in this UTC offset (Vietnam, no DST)
     DAILY_UTC_OFFSET_HOURS: int = 7
 
-    # Soniox Speech-to-Text
-    SONIOX_API_KEY: str = ""
-    SONIOX_ASYNC_MODEL: str = "stt-async-v5"  # batch transcription of finished recordings
+    # Speech-to-Text (STT) provider:
+    #   "auto"           -> uses Groq Free Whisper API if GROQ_API_KEY is set, otherwise local faster-whisper (default)
+    #   "faster_whisper" -> open-source Whisper (CTranslate2 int8) running locally on CPU, 100% free & offline
+    #   "groq"           -> Groq Cloud Whisper Free API (whisper-large-v3-turbo), 0 MB RAM on Render/Vercel
+    STT_PROVIDER: str = "auto"
+    WHISPER_MODEL: str = "base.en"  # Options: tiny.en (~75MB), base.en (~145MB), small.en (~480MB), distil-medium.en (~750MB)
+    WHISPER_COMPUTE_TYPE: str = "int8"
+    WHISPER_MODEL_DIR: str = "./data/stt_models"
+    WHISPER_LOW_MEMORY: bool = False  # Set true on 512MB Render Free tier (auto-detected when RENDER=true)
+
+    # Optional Groq Free Whisper API (https://console.groq.com - free tier, 0 MB server RAM)
+    GROQ_API_KEY: str = ""
+    GROQ_WHISPER_MODEL: str = "whisper-large-v3-turbo"
 
     # Database
     DATABASE_URL: str = "sqlite:///./data/opic_studio.db"

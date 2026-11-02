@@ -398,7 +398,7 @@ export const DailyWorkout = ({ onBack }) => {
       {SHOW_MOCK_OPTION && ['listening', 'prep', 'recording'].includes(phase) && (
         <label className="self-start flex items-center gap-2 text-[11px] text-amber-700 dark:text-amber-300 cursor-pointer">
           <input type="checkbox" checked={useMock} onChange={(e) => setUseMock(e.target.checked)} />
-          DEV: giả lập STT & AI (không gọi Soniox/OpenAI)
+          DEV: giả lập STT & AI (không gọi Whisper/OpenAI)
         </label>
       )}
 

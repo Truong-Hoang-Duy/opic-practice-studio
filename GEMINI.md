@@ -33,12 +33,14 @@
   - `browser`: không tạo audio ở server.
   - Nếu server không có audio (model chưa sẵn sàng/lỗi), `EvaAvatar.jsx` tự đọc câu hỏi bằng Web Speech API của trình duyệt (ưu tiên giọng nữ en-US). Không dùng âm "chime" giả.
   - Cache trên đĩa: Lưu tại `backend/data/audio_cache/` theo `md5(text + voice + model)` (.mp3). Sau khi tạo đề, audio của cả 15 câu được tổng hợp nền theo thứ tự.
-- **Speech-to-Text (Nhận diện giọng nói):** Soniox **async (batch) API**, không stream realtime.
-  - Trình duyệt chỉ ghi âm (`AudioRecorder.jsx`) rồi upload file qua `POST /api/answers`; backend gửi file tới Soniox (`SONIOX_ASYNC_MODEL`, mặc định `stt-async-v5`), nhận transcript + độ tin cậy từng từ (`stt_service.transcribe_audio_file`), xóa bản sao trên Soniox, rồi mới chấm điểm.
-  - **Quy tắc bảo mật:** Key Soniox chỉ nằm ở backend, không bao giờ gửi xuống Frontend.
+- **Speech-to-Text (Nhận diện giọng nói - Miễn phí 100%):** Chọn qua `STT_PROVIDER`:
+  - `auto` (mặc định): nếu có `GROQ_API_KEY` thì ưu tiên gọi Groq Cloud Whisper Free API (`whisper-large-v3-turbo`, tốn 0MB RAM, < 1s) và tự động fallback về `faster-whisper` cục bộ nếu lỗi; nếu không có key thì chạy trực tiếp `faster-whisper` cục bộ.
+  - `faster_whisper`: mã nguồn mở **faster-whisper** (CTranslate2 `int8`) chạy CPU tại backend, miễn phí 100% và không cần API key. Mặc định `WHISPER_MODEL=base.en` (~145MB, tự tải về `backend/data/stt_models/`). Khi chạy trên Render Free (`RENDER=true` hoặc `WHISPER_LOW_MEMORY=true`), tự động hạ xuống `tiny.en` (~75MB) và giải phóng RAM (`gc.collect()`) ngay sau khi dịch xong để vừa khít giới hạn 512MB RAM.
+  - `groq`: Groq Whisper Free API (`GROQ_WHISPER_MODEL=whisper-large-v3-turbo`).
+  - Trình duyệt ghi âm (`AudioRecorder.jsx`) rồi upload file qua `POST /api/answers`; backend nhận transcript + `word_timestamps` + độ tin cậy từng từ (`stt_service.transcribe_audio_file`) kèm `initial_prompt` giữ lại các từ ngập ngừng (`um`, `uh`, `like`, `you know`) cho bộ phân tích nhịp nói (`speech_metrics.py`).
   - Mỗi lần ghi được lưu thành file riêng (`data/uploads/user_{id}_q{qid}_{timestamp}_{rand}.webm`) và gắn với `AnswerVersion.audio_path`, nên có thể nghe lại ở trang coaching (kèm các lần ghi trước), báo cáo (mở từ History) và Question Bank.
   - Nhận dạng lỗi hoặc không có lời nói **không chặn** người học: bản ghi vẫn được lưu (`notes` = `transcription_failed` / `no_speech`) và câu vẫn được chấm theo chuẩn — không có nội dung thì mức thấp nhất (`below_IL`, 1/5, không gọi LLM). Có thể sửa transcript để chấm lại.
-  - Phân tích độ tin cậy từ: Highlight các từ nhận diện tự tin thấp (< 0.8) để người học phát hiện lỗi phát âm.
+  - Phân tích độ tin cậy từ: Highlight các từ nhận diện tự tin thấp (< 0.8) để người học phát âm chuẩn hơn.
 
 ### Frontend:
 - **Framework:** React 18 + Vite 5 + Tailwind CSS + Lucide Icons.
@@ -143,7 +145,7 @@ Hệ thống được thiết kế để **dùng chung 1 Database duy nhất**:
    - **Phân loại chủ đề** (`questions.category`, gán lúc tạo đề qua `derive_category`): self_intro, home, leisure, role_play và 5 chủ đề chính. Cột được thêm tự động bằng `ensure_schema()` khi khởi động (dự án không dùng Alembic).
    - Không còn mục tiêu cố định IH: báo cáo, lộ trình học và nhận xét được đánh giá theo mức người học đã chọn.
    - Tiếp tục phiên dở dang (Dashboard/History) sẽ quay về đúng bước setup còn thiếu (survey → chủ đề → mức độ) hoặc vào thi nếu đã có đề.
-   - Chỉ khi chạy local (`npm run dev`): nút "DEV: Giả lập toàn bộ (không gọi AI)" ở bước Self-Assessment (`use_ai=false` → `test_sessions.dev_mock=true`, backend bỏ qua khi `ENVIRONMENT=production`). Phiên DEV dùng bộ đề mặc định và **giả lập mọi lệnh gọi AI/Soniox**: nhận dạng (ghi < 3 giây = im lặng, ≥ 3 giây = transcript mẫu có từ độ tin cậy thấp), chấm điểm, Improve, bài mẫu, báo cáo (dữ liệu mock trong `llm_service.get_mock_json_response`). Giao diện hiện badge "DEV".
+   - Chỉ khi chạy local (`npm run dev`): nút "DEV: Giả lập toàn bộ (không gọi AI)" ở bước Self-Assessment (`use_ai=false` → `test_sessions.dev_mock=true`, backend bỏ qua khi `ENVIRONMENT=production`). Phiên DEV dùng bộ đề mặc định và **giả lập mọi lệnh gọi AI/STT**: nhận dạng (ghi < 3 giây = im lặng, ≥ 3 giây = transcript mẫu có từ độ tin cậy thấp), chấm điểm, Improve, bài mẫu, báo cáo (dữ liệu mock trong `llm_service.get_mock_json_response`). Giao diện hiện badge "DEV".
    - Self-Assessment chỉ còn Level 3–6 (API từ chối level 1–2).
 8. **Question Bank (tab "Bộ đề", `QuestionLibrary.jsx`, router `/api/library`):**
    - Hai chế độ xem: **Theo bộ đề** (từng lần thi) và **Theo chủ đề** (gom câu hỏi của mọi bộ đề theo `category`). Mỗi câu có bài mẫu (IL/IM/IH, mặc định theo mức đã thi), số lần đã luyện và level gần nhất.
@@ -199,8 +201,8 @@ npm run build
 ## 8. Quy tắc cho AI Agent / Gemini khi làm việc trong Repository này
 
 1. **Không bao giờ hardcode model name:** Luôn sử dụng `settings.OPENAI_MODEL` và `settings.TTS_MODEL`.
-2. **Không để lộ secret key ra phía frontend:** Mọi kết nối tới Soniox hay OpenAI bắt buộc phải đi qua backend proxy hoặc cấp token tạm thời có thời hạn ngắn.
+2. **Không để lộ secret key ra phía frontend:** Mọi kết nối tới OpenAI hay Groq bắt buộc phải đi qua backend.
 3. **Tính toàn vẹn của Rubrics:** Mọi prompt đánh giá hay viết lại phải kế thừa từ hàm `get_rubric_prompt_text()` trong `backend/app/core/rubrics.py` để đảm bảo tiêu chí chấm điểm nhất quán.
 4. **Bảo toàn dữ liệu người dùng:** Không được xóa các trường âm thanh hoặc version cũ của ứng viên. Mọi chỉnh sửa transcript hay rewrite đều phải tạo bản ghi `AnswerVersion` mới tăng dần.
 5. **Giữ Disclaimer pháp lý:** Trong bất kỳ trang mới hay template báo cáo PDF nào được tạo, luôn đính kèm dòng tuyên bố miễn trừ trách nhiệm (non-affiliation disclaimer) với ACTFL / LTI.
-6. **Kiểm soát Commit & Push (BẮT BUỘC):** Tuyệt đối **KHÔNG TỰ Ý** chạy lệnh `git commit` hoặc `git push` lên repository. Chỉ khi nào người dùng (USER) yêu cầu cụ thể hoặc xác nhận cho phép commit/push thì Agent mới được thực hiện. Khi hoàn thành công việc, hãy báo cáo danh sách các file đã thay đổi và chờ xác nhận từ người dùng. **Khi được người dùng xác nhận commit, chỉ đưa lên đúng 1 commit duy nhất (single commit) với commit message tóm tắt ngắn gọn, rõ ràng các nội dung chính đã chỉnh sửa trong phiên.**
+6. **Kiểm soát Commit & Push (BẮT BUỘC):** Tuyệt đối **KHÔNG TỰ Ý** chạy lệnh `git commit` hoặc `git push` lên repository. Chỉ khi nào người dùng (USER) yêu cầu cụ thể hoặc xác nhận cho phép commit/push thì Agent mới được thực hiện. Khi hoàn thành công việc, hãy báo cáo danh sách các file đã thay đổi và chờ xác nhận từ người dùng. **Khi được người dùng xác nhận commit, chỉ đưa lên đúng 1 commit duy nhất (single commit) với commit message viết bằng tiếng Anh (English) ngắn gọn, rõ ràng, tuyệt đối không gắn chữ agents / Co-Authored-By / Claude.**

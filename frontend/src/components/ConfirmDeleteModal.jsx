@@ -36,7 +36,7 @@ export const ConfirmDeleteModal = ({ isOpen, onClose, onConfirm, session, deleti
         <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 flex flex-col gap-1.5">
           <div className="flex justify-between items-center">
             <span className="text-slate-500 dark:text-slate-400">Phiên thi:</span>
-            <span className="font-bold text-slate-800 dark:text-slate-100">Session #{session.id}</span>
+            <span className="font-bold text-slate-800 dark:text-slate-100">Session #{session.session_number ?? session.id}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-slate-500 dark:text-slate-400">Chế độ:</span>

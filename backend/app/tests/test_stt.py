@@ -1,19 +1,70 @@
+from types import SimpleNamespace
+from app.config import settings
 from app.routers import answers as answers_router
-from app.services.stt_service import merge_soniox_tokens, TranscriptionError
+from app.services import stt_service
+from app.services.stt_service import (
+    format_whisper_words,
+    merge_groq_words,
+    resolve_whisper_model_name,
+    TranscriptionError,
+)
 
 
-def test_merge_soniox_subword_tokens_into_words():
-    tokens = [
-        {"text": "T", "start_ms": 90, "end_ms": 150, "confidence": 0.99},
-        {"text": "ell", "start_ms": 150, "end_ms": 210, "confidence": 0.62},
-        {"text": " me", "start_ms": 210, "end_ms": 270, "confidence": 0.98},
-        {"text": ",", "start_ms": 270, "end_ms": 280, "confidence": 0.97},
-        {"text": " Eva", "start_ms": 300, "end_ms": 420, "confidence": 0.9},
+def test_format_faster_whisper_words_with_timings_and_confidence():
+    raw_words = [
+        SimpleNamespace(word=" Umm,", start=0.12, end=0.45, probability=0.91),
+        SimpleNamespace(word=" I", start=0.50, end=0.62, probability=0.99),
+        SimpleNamespace(word=" live", start=0.62, end=0.88, probability=0.95),
+        SimpleNamespace(word=" in", start=0.88, end=1.02, probability=0.98),
+        SimpleNamespace(word=" Hanoi", start=1.05, end=1.48, probability=0.72),
+        SimpleNamespace(word=".", start=1.48, end=1.52, probability=0.96),
     ]
-    words = merge_soniox_tokens(tokens)
-    assert [w["word"] for w in words] == ["Tell", "me,", "Eva"]
-    assert words[0]["confidence"] == 0.62  # weakest piece
-    assert words[0]["start_ms"] == 90 and words[0]["end_ms"] == 210
+    words = format_whisper_words(raw_words)
+    assert [w["word"] for w in words] == ["Umm,", "I", "live", "in", "Hanoi."]
+    assert words[0]["start_ms"] == 120 and words[0]["end_ms"] == 450
+    assert words[-1]["confidence"] == 0.72  # weakest piece preserved when attaching punctuation
+    assert words[-1]["end_ms"] == 1520
+
+
+def test_merge_groq_verbose_json_words():
+    raw_words = [
+        {"word": "Well,", "start": 0.2, "end": 0.5},
+        {"word": "environment", "start": 0.6, "end": 1.3},
+    ]
+    segments = [{"start": 0.0, "end": 2.0, "avg_logprob": -0.10}]
+    words = merge_groq_words(raw_words, segments)
+    assert [w["word"] for w in words] == ["Well,", "environment"]
+    assert words[0]["start_ms"] == 200 and words[0]["end_ms"] == 500
+    assert 0.8 <= words[0]["confidence"] <= 0.99
+
+
+def test_provider_routing_and_render_low_memory(monkeypatch):
+    # On Render Free (RENDER=true), default base.en automatically steps down to tiny.en
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.delenv("WHISPER_MODEL", raising=False)
+    monkeypatch.setattr(settings, "WHISPER_MODEL", "base.en")
+    assert resolve_whisper_model_name() == "tiny.en"
+
+    # Auto mode without Groq key routes directly to local faster-whisper
+    monkeypatch.setattr(settings, "STT_PROVIDER", "auto")
+    monkeypatch.setattr(settings, "GROQ_API_KEY", "")
+    monkeypatch.setattr(
+        stt_service,
+        "transcribe_with_faster_whisper",
+        lambda *a, **k: {"text": "Local whisper transcript", "words": []},
+    )
+    res = stt_service.transcribe_audio_file(b"audio", "q2.webm")
+    assert res["text"] == "Local whisper transcript"
+
+    # Auto mode with Groq key tries Groq first, then falls back to local faster-whisper on error
+    monkeypatch.setattr(settings, "GROQ_API_KEY", "gsk_test_free_key")
+
+    def fail_groq(*a, **k):
+        raise TranscriptionError("rate limit")
+
+    monkeypatch.setattr(stt_service, "transcribe_with_groq", fail_groq)
+    res_fallback = stt_service.transcribe_audio_file(b"audio", "q2.webm")
+    assert res_fallback["text"] == "Local whisper transcript"
 
 
 def _question(client, email):

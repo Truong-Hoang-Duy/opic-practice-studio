@@ -135,7 +135,7 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
         <div>
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">OPIc Diagnostic Assessment</span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-500">Session #{sessionId}</span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-500">Session #{report.session_number ?? sessionId}</span>
           </div>
 
           <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
