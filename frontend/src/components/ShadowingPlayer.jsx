@@ -1,24 +1,38 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, RotateCcw, Volume2, Mic, CheckCircle, FastForward } from 'lucide-react';
-import { ViTooltip } from './Tooltip';
+import { Play, Pause, Volume2, Loader2 } from 'lucide-react';
+import { resolveMediaUrl } from '../api/client';
+import { speakPhrase, stopSpeaking } from '../utils/speakPhrase';
 
 export const ShadowingPlayer = ({
   modelAnswer,
-  onRecordSentence
 }) => {
   if (!modelAnswer) return null;
 
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlayingAll, setIsPlayingAll] = useState(false);
+  const [loadingAudio, setLoadingAudio] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
-  const [activeSentenceIndex, setActiveSentenceIndex] = useState(0);
-  const [isShadowRecording, setIsShadowRecording] = useState(false);
-  const [userRepetition, setUserRepetition] = useState({});
+  const [activeSentenceIndex, setActiveSentenceIndex] = useState(null);
+  const [playingSentenceIdx, setPlayingSentenceIdx] = useState(null);
 
   const audioRef = useRef(null);
 
   const sentences = modelAnswer.sentences && modelAnswer.sentences.length > 0
     ? modelAnswer.sentences
-    : modelAnswer.text.split(/(?<=[.?!])\s+/).filter(Boolean);
+    : (modelAnswer.text || '').split(/(?<=[.?!])\s+/).filter(Boolean);
+
+  useEffect(() => {
+    stopSpeaking();
+    setIsPlayingAll(false);
+    setPlayingSentenceIdx(null);
+    setActiveSentenceIndex(null);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    return () => {
+      stopSpeaking();
+    };
+  }, [modelAnswer?.level, modelAnswer?.text]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -26,12 +40,38 @@ export const ShadowingPlayer = ({
     }
   }, [playbackSpeed]);
 
-  const togglePlay = () => {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
+  const togglePlayAll = async () => {
+    setPlayingSentenceIdx(null);
+    if (isPlayingAll) {
+      if (audioRef.current && !audioRef.current.paused) {
+        audioRef.current.pause();
+      }
+      stopSpeaking();
+      setIsPlayingAll(false);
+      return;
+    }
+
+    if (modelAnswer.audio_path && audioRef.current) {
+      try {
+        stopSpeaking();
+        audioRef.current.playbackRate = playbackSpeed;
+        await audioRef.current.play();
+        setIsPlayingAll(true);
+        return;
+      } catch (e) {
+        console.warn('Direct audio element failed, falling back to on-demand TTS:', e);
+      }
+    }
+
+    setLoadingAudio(true);
+    setIsPlayingAll(true);
+    try {
+      await speakPhrase(modelAnswer.text, {
+        rate: playbackSpeed,
+        onEnd: () => setIsPlayingAll(false),
+      });
+    } finally {
+      setLoadingAudio(false);
     }
   };
 
@@ -42,37 +82,42 @@ export const ShadowingPlayer = ({
     }
   };
 
-  const playSentenceAudio = (index) => {
-    setActiveSentenceIndex(index);
-    if (audioRef.current) {
-      // Approximate sentence offset based on index
-      const totalSentences = sentences.length;
-      if (audioRef.current.duration) {
-        const estTime = (index / totalSentences) * audioRef.current.duration;
-        audioRef.current.currentTime = estTime;
-        audioRef.current.play();
-      }
+  const playSingleSentence = async (index) => {
+    if (audioRef.current && !audioRef.current.paused) {
+      audioRef.current.pause();
     }
+    setIsPlayingAll(false);
+    setActiveSentenceIndex(index);
+
+    if (playingSentenceIdx === index) {
+      stopSpeaking();
+      setPlayingSentenceIdx(null);
+      return;
+    }
+
+    setPlayingSentenceIdx(index);
+    await speakPhrase(sentences[index], {
+      rate: playbackSpeed,
+      onEnd: () => setPlayingSentenceIdx(null),
+    });
   };
 
   return (
-    <div className="w-full glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 flex flex-col gap-4 shadow-sm">
-      
-      {/* Audio element */}
+    <div className="w-full glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 flex flex-col gap-4 shadow-sm">
       {modelAnswer.audio_path && (
         <audio
           ref={audioRef}
-          src={modelAnswer.audio_path}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onEnded={() => setIsPlaying(false)}
+          src={resolveMediaUrl(modelAnswer.audio_path)}
+          onPlay={() => setIsPlayingAll(true)}
+          onPause={() => setIsPlayingAll(false)}
+          onEnded={() => setIsPlayingAll(false)}
         />
       )}
 
       {/* Header with Level & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
-        <div>
-          <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3.5">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
             <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full uppercase border ${
               modelAnswer.level === 'IH'
                 ? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30'
@@ -80,20 +125,26 @@ export const ShadowingPlayer = ({
                 ? 'bg-sky-50 dark:bg-sky-500/20 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-500/30'
                 : 'bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/30'
             }`}>
-              Level {modelAnswer.level} Model
+              Bài mẫu Mức {modelAnswer.level}
             </span>
-            <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">Interactive Shadowing & Pacing Studio</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              Luyện nghe & nhại lại từng câu (Shadowing)
+            </span>
           </div>
-          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 italic font-normal">"{modelAnswer.rationale}"</p>
+          {modelAnswer.rationale && (
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
+              💡 {modelAnswer.rationale}
+            </p>
+          )}
         </div>
 
         {/* Playback Controls & Speed Selectors */}
-        <div className="flex items-center gap-2">
-          {/* Speed Buttons */}
+        <div className="flex items-center gap-2 shrink-0">
           <div className="flex items-center bg-slate-100 dark:bg-slate-950 rounded-lg p-0.5 border border-slate-200 dark:border-slate-800 text-xs">
             {[0.7, 0.85, 1.0, 1.2].map((s) => (
               <button
                 key={s}
+                type="button"
                 onClick={() => handleSpeedChange(s)}
                 className={`px-2 py-1 rounded font-medium transition-colors cursor-pointer ${
                   playbackSpeed === s
@@ -106,40 +157,48 @@ export const ShadowingPlayer = ({
             ))}
           </div>
 
-          {/* Master Play Button */}
           <button
-            onClick={togglePlay}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-medium text-xs transition-colors shadow-sm cursor-pointer"
+            type="button"
+            onClick={togglePlayAll}
+            disabled={loadingAudio}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer disabled:opacity-60"
           >
-            {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-            <span>{isPlaying ? 'Pause' : 'Play All'}</span>
+            {loadingAudio ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : isPlayingAll ? (
+              <Pause className="w-3.5 h-3.5 fill-current" />
+            ) : (
+              <Play className="w-3.5 h-3.5 fill-current" />
+            )}
+            <span>{isPlayingAll ? 'Dừng' : 'Nghe cả bài'}</span>
           </button>
         </div>
       </div>
 
       {/* Sentence-by-sentence Shadowing List */}
-      <div className="flex flex-col gap-2.5 mt-2">
-        <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
-          <span className="font-bold text-slate-800 dark:text-slate-200">Sentence-by-Sentence Practice:</span>
-          <span className="font-normal">Click a sentence to jump & listen, then repeat aloud</span>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+          <span className="font-bold text-slate-800 dark:text-slate-200">Luyện nói từng câu ({sentences.length} câu):</span>
+          <span>Chạm vào từng câu để nghe Eva đọc & nói nhại theo</span>
         </div>
 
         {sentences.map((sent, idx) => {
           const isActive = activeSentenceIndex === idx;
+          const isSpeakingThis = playingSentenceIdx === idx;
           return (
             <div
               key={idx}
-              onClick={() => playSentenceAudio(idx)}
-              className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start justify-between gap-3 ${
+              onClick={() => playSingleSentence(idx)}
+              className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start justify-between gap-2.5 ${
                 isActive
-                  ? 'bg-brand-50 dark:bg-brand-500/15 border-brand-300 dark:border-brand-500/40 text-brand-900 dark:text-white shadow-sm font-medium'
-                  : 'bg-slate-50 dark:bg-slate-950/40 border-slate-200 dark:border-slate-800/80 text-slate-800 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-700'
+                  ? 'bg-brand-50 dark:bg-brand-500/15 border-brand-300 dark:border-brand-500/40 text-brand-900 dark:text-white shadow-xs font-medium'
+                  : 'bg-slate-50 dark:bg-slate-950/40 border-slate-200 dark:border-slate-800/80 text-slate-800 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900/60'
               }`}
             >
-              <div className="flex items-start gap-2.5 flex-1">
-                <span className={`text-[11px] font-mono px-2 py-0.5 rounded mt-0.5 ${
-                  isActive 
-                    ? 'bg-brand-500 text-white font-bold' 
+              <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                <span className={`text-[11px] font-mono px-1.5 py-0.5 rounded mt-0.5 shrink-0 ${
+                  isActive
+                    ? 'bg-brand-500 text-white font-bold'
                     : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-400 font-semibold'
                 }`}>
                   #{idx + 1}
@@ -147,23 +206,25 @@ export const ShadowingPlayer = ({
                 <p className="text-sm leading-relaxed">{sent}</p>
               </div>
 
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    playSentenceAudio(idx);
-                  }}
-                  title="Listen to this sentence"
-                  className="p-1.5 rounded-lg bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 border border-slate-200 dark:border-slate-800 transition-colors shadow-xs"
-                >
-                  <Volume2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  playSingleSentence(idx);
+                }}
+                title="Nghe câu này"
+                className={`p-2 rounded-lg border transition-colors shrink-0 ${
+                  isSpeakingThis
+                    ? 'bg-brand-500 text-white border-brand-500'
+                    : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 border-slate-200 dark:border-slate-800'
+                }`}
+              >
+                <Volume2 className={`w-4 h-4 ${isSpeakingThis ? 'animate-pulse' : ''}`} />
+              </button>
             </div>
           );
         })}
       </div>
-
     </div>
   );
 };

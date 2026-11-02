@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Volume2, RotateCcw, VolumeX } from 'lucide-react';
 import { ViTooltip } from './Tooltip';
-import { resolveMediaUrl } from '../api/client';
-import { getSharedAudio, getVoices, isIOS, playBeep, setPendingPlayback, clearPendingPlayback } from '../utils/audioUnlock';
+import { resolveMediaUrl, vocabularyApi } from '../api/client';
+import { getSharedAudio, getVoices, playBeep, endRecordingAudioSession, setPendingPlayback, clearPendingPlayback } from '../utils/audioUnlock';
 
 // Browser voices closest to Eva (calm young American female), used when server audio is unavailable
 const PREFERRED_VOICES = ['Aria', 'Jenny', 'Ava', 'Samantha', 'Google US English', 'Zira'];
@@ -23,6 +23,7 @@ export const EvaAvatar = ({
   text,
   autoPlay = true,
   onAudioEnded,
+  onSecondReadEnded, // called right after the 2nd reading (replay) + beep finishes so the recorder can auto-start
   onPlayingChange, // (isPlaying) => void: lets the page pause its own timers while Eva speaks
   allowReplay = true,
   maxReplays = 1,
@@ -33,22 +34,37 @@ export const EvaAvatar = ({
   const [replayCount, setReplayCount] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [audioFailed, setAudioFailed] = useState(false);
+  const [onDemandUrl, setOnDemandUrl] = useState(null);
+  const [onDemandFailed, setOnDemandFailed] = useState(false);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [replayWindowLeft, setReplayWindowLeft] = useState(null); // null = not opened yet, 0 = expired
   const audioRef = useRef(null);
   const utteranceRef = useRef(null);
   const speechWatchdogRef = useRef(null);
   const isReplayingRef = useRef(false);
+  const autoRecordTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => clearTimeout(autoRecordTimerRef.current);
+  }, [audioUrl, text]);
 
   const handlePlaybackEnded = () => {
     setIsPlaying(false);
+    const wasReplay = isReplayingRef.current;
     // Like the real OPIc: a beep marks the end of the question
     if (!isMuted) playBeep();
-    if (replayWindowSec && !isReplayingRef.current && replayCount < maxReplays) {
+    if (replayWindowSec && !wasReplay && replayCount < maxReplays) {
       setReplayWindowLeft(replayWindowSec);
     }
     isReplayingRef.current = false;
-    if (onAudioEnded) onAudioEnded();
+    if (onAudioEnded) onAudioEnded({ isReplay: wasReplay });
+    if (wasReplay && onSecondReadEnded) {
+      clearTimeout(autoRecordTimerRef.current);
+      // Wait 500ms so the 0.45s OPIc beep finishes before switching the mic audio session on
+      autoRecordTimerRef.current = setTimeout(() => {
+        onSecondReadEnded();
+      }, 500);
+    }
   };
   // The shared <audio> listeners are attached once per question; route them to the latest handler
   const playbackEndedRef = useRef(handlePlaybackEnded);
@@ -67,10 +83,36 @@ export const EvaAvatar = ({
     return () => clearTimeout(timer);
   }, [replayWindowLeft]);
 
-  const src = resolveMediaUrl(audioUrl);
+  const src = resolveMediaUrl(audioUrl || onDemandUrl);
   const speechSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
-  // Fall back to browser speech when the server has no audio for this question or it fails to load
-  const useSpeech = (!src || audioFailed) && !!text && speechSupported;
+  // Fall back to browser speech only when server MP3 audio is unavailable or fails to load
+  const useSpeech = ((audioFailed || onDemandFailed) || (!src && !text)) && !!text && speechSupported;
+
+  // If a question does not yet have a pre-cached audioUrl, synthesize its MP3 on demand so iOS plays
+  // through the HTML5 <audio> Media channel (audible even when the iPhone Silent switch is on).
+  useEffect(() => {
+    setAudioFailed(false);
+    setOnDemandUrl(null);
+    setOnDemandFailed(false);
+    if (audioUrl || !text || !text.trim()) return undefined;
+    let cancelled = false;
+    vocabularyApi
+      .speak(text.trim().slice(0, 2400))
+      .then((res) => {
+        if (cancelled) return;
+        if (res.data?.url) {
+          setOnDemandUrl(res.data.url);
+        } else {
+          setOnDemandFailed(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setOnDemandFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [audioUrl, text]);
 
   const stopSpeech = () => {
     if (!speechSupported) return;
@@ -121,11 +163,6 @@ export const EvaAvatar = ({
     }, SPEECH_START_TIMEOUT_MS);
   };
 
-  // New question: reset the failure flag
-  useEffect(() => {
-    setAudioFailed(false);
-  }, [audioUrl]);
-
   // Server audio: load it into the shared (Safari-unlocked) element and autoplay
   useEffect(() => {
     if (!src || audioFailed) return;
@@ -140,8 +177,9 @@ export const EvaAvatar = ({
       setIsPlaying(false);
       setAudioFailed(true);
     };
+    endRecordingAudioSession();
     audio.pause();
-    audio.muted = false;
+    audio.muted = isMuted;
     audio.src = src;
     audio.addEventListener('play', onPlay);
     audio.addEventListener('pause', onPause);
@@ -161,8 +199,6 @@ export const EvaAvatar = ({
       audio.removeEventListener('ended', onEnded);
       audio.removeEventListener('error', onError);
       audio.pause();
-      audio.removeAttribute('src');
-      audio.load();
       audioRef.current = null;
       setIsPlaying(false);
     };
@@ -359,7 +395,11 @@ export const EvaAvatar = ({
           </span>
         </h3>
         <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
-          {isPlaying ? 'Speaking question...' : 'Listening attentively'}
+          {isPlaying
+            ? replayCount > 0
+              ? 'Đang đọc lần 2 (tự ghi âm sau khi đọc xong)...'
+              : 'Speaking question...'
+            : 'Listening attentively'}
         </p>
       </div>
 
@@ -426,13 +466,6 @@ export const EvaAvatar = ({
           {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
         </button>
       </div>
-
-      {/* The browser voice can still be muted by the iPhone Ring/Silent switch on older iOS */}
-      {useSpeech && isIOS && (
-        <p className="mt-2 max-w-[240px] text-center text-[11px] leading-snug text-slate-500 dark:text-slate-400">
-          Không nghe thấy Eva? Hãy gạt tắt chế độ im lặng (nút bên hông iPhone).
-        </p>
-      )}
 
     </div>
   );

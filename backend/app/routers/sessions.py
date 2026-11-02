@@ -23,10 +23,10 @@ from app.schemas.report import SessionReportResponse
 from app.core.security import get_current_user
 from app.config import settings
 from app.services.question_generator import build_session_questions, generate_personalised_guides
-from app.services.tts_service import prefetch_speech, refresh_question_audio
+from app.services.tts_service import cached_speech_url, prefetch_speech, refresh_question_audio
 from app.services.llm_service import generate_session_report_llm
 from app.services.pdf_service import generate_session_pdf
-from app.services.evaluation_service import evaluate_versions_in_parallel, exam_level_for, is_mock_session
+from app.services.evaluation_service import evaluate_versions_in_parallel, exam_level_for, is_mock_session, normalize_level_code
 
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
 
@@ -249,6 +249,7 @@ def _generate_session_questions(session: TestSession, db: Session, background_ta
             topic=q_data["topic"],
             difficulty=q_data["difficulty"],
             category=q_data.get("category"),
+            audio_path=cached_speech_url(q_data["question_text"]),
             vietnamese_guide=q_data.get("vietnamese_guide")
         )
         db.add(question)
@@ -411,6 +412,9 @@ def get_session_questions(
         raise HTTPException(status_code=404, detail="Session not found.")
 
     questions = db.query(Question).filter(Question.session_id == session.id).order_by(Question.order_index).all()
+    for q in questions:
+        if not q.audio_path:
+            q.audio_path = cached_speech_url(q.question_text)
     return questions
 
 @router.get("/{session_id}/questions/{order_index}", response_model=QuestionResponse)
@@ -563,7 +567,9 @@ def get_session_report(
         avg_grammar = sum(e.score_grammar for e in evaluations) / len(evaluations)
         avg_task = sum(e.score_task_completion for e in evaluations) / len(evaluations)
     else:
-        avg_fluency = avg_tenses = avg_org = avg_vocab = avg_grammar = avg_task = 3.0
+        avg_fluency = avg_tenses = avg_org = avg_vocab = avg_grammar = avg_task = 1.0
+
+    overall_avg = (avg_fluency + avg_tenses + avg_org + avg_vocab + avg_grammar + avg_task) / 6.0
 
     radar_scores = {
         "fluency_and_length": round(avg_fluency, 1),
@@ -591,6 +597,16 @@ def get_session_report(
         avg_task_completion=avg_task,
         mock=is_mock_session(session)
     )
+
+    overall_level = normalize_level_code(report_data.get("overall_level"), default="IL")
+    below_il_count = sum(1 for e in evaluations if e.estimated_level == "below_IL")
+    if not evaluations or overall_avg < 2.0 or (evaluations and below_il_count > len(evaluations) / 2):
+        overall_level = "below_IL"
+    elif overall_level in ("IM", "IH") and overall_avg < 2.6:
+        overall_level = "IL"
+    elif overall_level == "IH" and overall_avg < 3.6:
+        overall_level = "IM"
+    report_data["overall_level"] = overall_level
 
     # Log LLM usage
     llm_log = LLMUsageLog(

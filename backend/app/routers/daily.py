@@ -21,7 +21,7 @@ from app.services.speech_metrics import compute_speech_metrics
 from app.services.stt_service import (
     TranscriptionError, mock_transcribe, parse_words_with_confidence, save_raw_audio, transcribe_audio_file,
 )
-from app.services.tts_service import prefetch_speech
+from app.services.tts_service import prefetch_speech, synthesize_speech
 
 logger = logging.getLogger("opic_daily")
 
@@ -32,7 +32,9 @@ def _today_payload(db: Session, user: User) -> dict:
     workout = daily_service.get_or_create_today(db, user.id)
     data = daily_service.workout_to_dict(workout)
     if not data["audio_path"]:
-        prefetch_speech([workout.question_text])  # Eva's audio is ready on a later poll; the browser voice covers now
+        data["audio_path"] = synthesize_speech(workout.question_text)
+        if not data["audio_path"]:
+            prefetch_speech([workout.question_text])
     return {
         "workout": data,
         "streak": daily_service.streak_info(db, user.id),

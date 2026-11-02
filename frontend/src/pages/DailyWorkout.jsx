@@ -178,7 +178,11 @@ const HistoryList = ({ items, todayDate }) => {
             <span className="flex items-center gap-1.5 shrink-0">
               {it.status === 'completed' ? (
                 <>
-                  {it.estimated_level && <span className="font-bold text-sky-700 dark:text-sky-300">{it.estimated_level}</span>}
+                  {it.estimated_level && (
+                    <span className={`font-bold ${it.estimated_level === 'below_IL' ? 'text-rose-600 dark:text-rose-400' : 'text-sky-700 dark:text-sky-300'}`}>
+                      {it.estimated_level === 'below_IL' ? 'Dưới IL' : it.estimated_level}
+                    </span>
+                  )}
                   {it.tense_verdict && <VerdictBadge verdict={it.tense_verdict} />}
                 </>
               ) : (
@@ -239,8 +243,12 @@ export const DailyWorkout = ({ onBack }) => {
     return () => clearTimeout(t);
   }, [phase, prepLeft, evaSpeaking]);
 
-  // First reading finished -> preparation; a replay finished during preparation -> a fresh 10 seconds
-  const handleEvaEnded = () => {
+  // First reading finished -> preparation; second reading (replay) finished -> auto-start recording immediately
+  const handleEvaEnded = ({ isReplay } = {}) => {
+    if (isReplay) {
+      setPhase('recording');
+      return;
+    }
     if (phaseRef.current === 'listening' || phaseRef.current === 'prep') {
       setPrepLeft(prepSeconds);
       setPhase('prep');
@@ -372,8 +380,8 @@ export const DailyWorkout = ({ onBack }) => {
           <span className={`text-5xl font-black tabular-nums ${evaSpeaking ? 'text-slate-400 dark:text-slate-500' : 'text-brand-600 dark:text-brand-400'}`} aria-live="polite">{prepLeft}</span>
           <p className="text-xs text-slate-600 dark:text-slate-400 max-w-sm">
             {evaSpeaking
-              ? '⏸ Eva đang đọc lại câu hỏi - đồng hồ tạm dừng. Nghe xong bạn có lại đủ 10 giây chuẩn bị.'
-              : 'Nghĩ nhanh: mở bài → 2 ý chính có chi tiết → kết. Hết giờ, micro sẽ tự bật. Có thể bấm Replay ở trên để nghe lại 1 lần.'}
+              ? '⏸ Eva đang đọc lại lần 2 - đọc xong micro sẽ tự động bật để bạn trả lời ngay.'
+              : 'Nghĩ nhanh: mở bài → 2 ý chính có chi tiết → kết. Hết giờ (hoặc sau khi nghe lại lần 2), micro sẽ tự bật.'}
           </p>
           <button onClick={() => setPhase('recording')} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-sm font-bold cursor-pointer">
             <Mic className="w-4 h-4" /> Bắt đầu nói ngay
@@ -423,7 +431,9 @@ export const DailyWorkout = ({ onBack }) => {
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-lg font-extrabold text-slate-900 dark:text-white">Phản hồi nhanh chuẩn IH</h1>
             {workout.feedback.estimated_level && (
-              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-sky-500 text-white">Ước lượng: {workout.feedback.estimated_level}</span>
+              <span className={`text-xs font-bold px-2.5 py-1 rounded-full text-white ${workout.feedback.estimated_level === 'below_IL' ? 'bg-rose-500' : 'bg-sky-500'}`}>
+                Ước lượng: {workout.feedback.estimated_level === 'below_IL' ? 'Dưới IL (Novice)' : workout.feedback.estimated_level}
+              </span>
             )}
             {workout.status === 'completed' && streak?.done_today && (
               <span className="text-xs font-semibold text-orange-600 dark:text-orange-300">🔥 Chuỗi {streak.current} ngày - hẹn gặp lại ngày mai!</span>

@@ -104,7 +104,7 @@ export const SelfAssessment = ({ sessionId, sessionMode = 'practice', defaultStr
         </div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Self-Assessment</h1>
         <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-xl mx-auto">
-          In OPIc, selecting your self-assessment level determines the complexity, topic depth, and role-play difficulty of the 15 questions generated.
+          Chọn mức độ phù hợp để hệ thống điều chỉnh độ khó của 15 câu hỏi.
         </p>
       </div>
 
@@ -166,37 +166,31 @@ export const SelfAssessment = ({ sessionId, sessionMode = 'practice', defaultStr
 
         {/* Mode indicator */}
         {isPractice ? (
-          <div className="flex items-start gap-3.5 p-4 rounded-2xl border border-sky-200 dark:border-sky-800/80 bg-sky-50/80 dark:bg-sky-950/30">
-            <div className="p-2 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex-shrink-0">
-              <Sparkles className="w-5 h-5 text-amber-500" />
+          <div className="flex items-start gap-3 p-3.5 rounded-2xl border border-sky-200 dark:border-sky-800/80 bg-sky-50/80 dark:bg-sky-950/30">
+            <div className="p-1.5 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex-shrink-0">
+              <Sparkles className="w-4 h-4 text-amber-500" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <p className="text-sm font-bold text-slate-900 dark:text-white">Chế độ Luyện tập Có Hướng Dẫn (Coached Practice)</p>
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-brand-500/15 text-brand-600 dark:text-brand-400 border border-brand-500/30">
-                  Coached Mode
-                </span>
+                <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Chế độ Luyện tập (Coached)</p>
               </div>
-              <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
-                Bạn sẽ được xem trước câu hỏi, gợi ý cấu trúc kể chuyện tiếng Việt, nghe lại không giới hạn, tự do nhảy câu và nhận ngay đánh giá AI, sửa lỗi cùng bài mẫu IL/IM/IH sau mỗi câu trả lời.
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-snug">
+                Xem đề bài, gợi ý tiếng Việt, chuyển câu tự do và nhận chấm chữa AI ngay sau mỗi câu.
               </p>
             </div>
           </div>
         ) : (
-          <div className="flex items-start justify-between gap-4 p-4 rounded-2xl border bg-rose-50/70 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40">
-            <div className="flex items-start gap-3.5 min-w-0">
-              <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex-shrink-0">
-                <Play className="w-5 h-5 text-rose-500" />
+          <div className="flex items-start justify-between gap-3 p-3.5 rounded-2xl border bg-rose-50/70 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="p-1.5 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex-shrink-0">
+                <Play className="w-4 h-4 text-rose-500" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">Chế độ Thi Thử Nghiêm Túc (Strict Exam Mode)</p>
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
-                    OPIc Standard
-                  </span>
+                  <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Chế độ Thi Thử (Strict Exam)</p>
                 </div>
-                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
-                  Mô phỏng 100% phòng thi thật: Giám khảo Eva đọc đề, bạn có 5 giây đếm ngược để nghe lại (1 lần duy nhất), ẩn đề bài và transcript, không quay lại/nhảy câu. Toàn bộ báo cáo chẩn đoán ACTFL sẽ xuất hiện sau khi hoàn thành cả 15 câu.
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-snug">
+                  Ẩn câu hỏi, giới hạn 5s nghe lại 1 lần, không lùi câu và chấm tổng kết cuối bài.
                 </p>
               </div>
             </div>

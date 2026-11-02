@@ -32,6 +32,7 @@ const generateModelAnswers = async (questionIds, onDone) => {
 const LibraryPractice = ({ question, session, onBack }) => {
   const [answer, setAnswer] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [autoStartRecord, setAutoStartRecord] = useState(false);
 
   const handleRecordingComplete = async ({ audioBlob, durationSeconds }) => {
     setSubmitting(true);
@@ -60,7 +61,10 @@ const LibraryPractice = ({ question, session, onBack }) => {
         assessmentLevel={session.self_assessment_level || 4}
         nextLabel="Quay lại bộ đề"
         onNextQuestion={onBack}
-        onRetryQuestion={() => setAnswer(null)}
+        onRetryQuestion={() => {
+          setAnswer(null);
+          setAutoStartRecord(false);
+        }}
       />
     );
   }
@@ -73,7 +77,14 @@ const LibraryPractice = ({ question, session, onBack }) => {
       </button>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-5 glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex flex-col items-center gap-4">
-          <EvaAvatar key={question.id} audioUrl={question.audio_path} text={question.question_text} autoPlay maxReplays={3} />
+          <EvaAvatar
+            key={question.id}
+            audioUrl={question.audio_path}
+            text={question.question_text}
+            autoPlay
+            maxReplays={1}
+            onSecondReadEnded={() => setAutoStartRecord(true)}
+          />
           <div className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800">
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
               Q{question.order_index} · {question.topic}
@@ -85,6 +96,7 @@ const LibraryPractice = ({ question, session, onBack }) => {
           <AudioRecorder
             onRecordingComplete={handleRecordingComplete}
             isPracticeMode
+            autoStart={autoStartRecord}
             targetDurationMin={question.timing?.target_min_sec || 45}
             targetDurationMax={question.timing?.time_limit_sec || 90}
           />
@@ -285,7 +297,9 @@ export const QuestionLibrary = () => {
               <span className="text-[10px] text-slate-500 dark:text-slate-400">Bộ đề #{s.set_number ?? s.session_number ?? s.session_id} · {new Date(s.started_at).toLocaleDateString()}</span>
             )}
             {q.practice_count > 0 && (
-              <span className="text-[10px] text-slate-500 dark:text-slate-400">Đã luyện {q.practice_count} lần{q.last_level ? ` · gần nhất ${q.last_level}` : ''}</span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                Đã luyện {q.practice_count} lần{q.last_level ? ` · gần nhất ${q.last_level === 'below_IL' ? 'Dưới IL' : q.last_level}` : ''}
+              </span>
             )}
           </div>
           <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed">{q.question_text}</p>

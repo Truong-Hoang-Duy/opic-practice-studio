@@ -96,6 +96,7 @@ def evaluate_answer_llm(
     topic: str,
     target_level: str,
     transcript: str,
+    duration_seconds: Optional[float] = None,
     mock: bool = False
 ) -> Tuple[Dict[str, Any], int, int, float]:
     prompt = get_evaluate_prompt(
@@ -103,7 +104,8 @@ def evaluate_answer_llm(
         question_type=question_type,
         topic=topic,
         target_level=target_level,
-        transcript=transcript
+        transcript=transcript,
+        duration_seconds=duration_seconds
     )
     return call_openai_json(prompt, temperature=0.2, mock=mock)
 

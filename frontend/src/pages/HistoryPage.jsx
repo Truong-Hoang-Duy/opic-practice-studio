@@ -101,6 +101,7 @@ export const HistoryPage = ({ onViewReport, onResumeSession, onDeleteSession, on
               <option value="IH" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">IH (Intermediate High)</option>
               <option value="IM" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">IM (Intermediate Mid)</option>
               <option value="IL" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">IL (Intermediate Low)</option>
+              <option value="below_IL" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">Below IL (Dưới IL / Novice)</option>
             </select>
           </div>
 
@@ -203,8 +204,8 @@ export const HistoryPage = ({ onViewReport, onResumeSession, onDeleteSession, on
                 {session.overall_level && (
                   <div className="flex flex-col items-end mr-2">
                     <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold">Awarded</span>
-                    <span className="text-base font-extrabold text-emerald-700 dark:text-emerald-400">
-                      Level {session.overall_level}
+                    <span className={`text-base font-extrabold ${session.overall_level === 'below_IL' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                      {session.overall_level === 'below_IL' ? 'Below IL' : `Level ${session.overall_level}`}
                     </span>
                   </div>
                 )}

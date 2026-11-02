@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+import re
 from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy.orm import Session
 from app.models.answer import AnswerVersion
@@ -13,6 +14,90 @@ from app.core.vocab_meta import normalize_kind, normalize_topic, topic_for_categ
 
 # Self-assessment level -> level the answer is evaluated against
 EXAM_LEVEL_MAP = {1: "Novice", 2: "Novice", 3: "IL", 4: "IM", 5: "IH", 6: "AL"}
+
+BELOW_IL_ALIASES = {
+    "below_il", "below il", "below-il", "novice", "novice low", "novice mid", "novice high", "nl", "nm", "nh",
+}
+FILLER_TOKENS = {"uh", "um", "umm", "uhh", "er", "erm", "ah", "ahh", "hmm"}
+
+
+def normalize_level_code(raw: Any, default: str = "IL") -> str:
+    """Normalises any LLM proficiency label into one of 'below_IL', 'IL', 'IM', 'IH'."""
+    val = (raw or "").strip() if isinstance(raw, str) else ""
+    if not val:
+        return default
+    low = val.lower()
+    if low in BELOW_IL_ALIASES or "below" in low or "novice" in low:
+        return "below_IL"
+    up = val.upper()
+    if up in ("IL", "IM", "IH"):
+        return up
+    if up == "AL":
+        return "IH"
+    return default
+
+
+def count_meaningful_words(transcript: str) -> int:
+    tokens = re.findall(r"[A-Za-z']+", (transcript or "").lower())
+    return sum(1 for t in tokens if t not in FILLER_TOKENS)
+
+
+def calibrate_evaluation_level(
+    data: Dict[str, Any],
+    transcript: str = "",
+    duration_seconds: Optional[float] = None
+) -> Dict[str, Any]:
+    """
+    Ensures the returned estimated_level strictly reflects ACTFL sub-scores and spoken evidence,
+    so responses that fail to reach Intermediate Low (IL) always return 'below_IL'.
+    """
+    score_keys = (
+        "score_fluency",
+        "score_tenses",
+        "score_organization",
+        "score_vocabulary",
+        "score_grammar",
+        "score_task_completion",
+    )
+    scores: List[int] = []
+    for k in score_keys:
+        try:
+            s = max(1, min(5, int(round(float(data.get(k, 3))))))
+        except (TypeError, ValueError):
+            s = 3
+        data[k] = s
+        scores.append(s)
+
+    avg_score = sum(scores) / len(scores)
+    ones_count = sum(1 for s in scores if s <= 1)
+    level = normalize_level_code(data.get("estimated_level"), default="IL")
+    meaningful_words = count_meaningful_words(transcript)
+
+    # Objective ACTFL conditions where the response is below Intermediate Low (Novice):
+    # 1. Average of the 6 core criteria is strictly below 2.0 (2.0 is the IL anchor)
+    # 2. Half or more of the 6 criteria are scored 1/5 (Novice breakdown)
+    # 3. Off-topic / fails to answer the core question (task_completion = 1)
+    # 4. Cannot sustain basic sentences (both fluency and grammar are 1/5)
+    # 5. Isolated words / tiny fragment (< 5 meaningful words)
+    if (
+        avg_score < 2.0
+        or ones_count >= 3
+        or data["score_task_completion"] <= 1
+        or (data["score_fluency"] <= 1 and data["score_grammar"] <= 1)
+        or meaningful_words < 5
+    ):
+        level = "below_IL"
+        if meaningful_words < 5:
+            data["score_fluency"] = 1
+            data["score_organization"] = min(data["score_organization"], 1)
+            data["score_task_completion"] = min(data["score_task_completion"], 2)
+    elif level in ("IM", "IH") and avg_score < 2.6:
+        level = "IL"
+    elif level == "IH" and avg_score < 3.6:
+        level = "IM"
+
+    data["estimated_level"] = level
+    return data
 
 
 def exam_level_for(session: Optional[TestSession]) -> str:
@@ -140,9 +225,15 @@ def normalize_speech_intelligence(data: Dict[str, Any]) -> Dict[str, Any]:
     return data
 
 
-def run_evaluation_llm(question: Optional[Question], exam_level: str, transcript: str, mock: bool = False) -> Tuple[Dict[str, Any], int, int, float]:
+def run_evaluation_llm(
+    question: Optional[Question],
+    exam_level: str,
+    transcript: str,
+    mock: bool = False,
+    duration_seconds: Optional[float] = None
+) -> Tuple[Dict[str, Any], int, int, float]:
     """Pure LLM call (no DB access) so it can run in worker threads. Empty answers get the standard lowest score."""
-    if not (transcript or "").strip():
+    if not (transcript or "").strip() or count_meaningful_words(transcript) == 0:
         return dict(EMPTY_ANSWER_EVALUATION), 0, 0, 0.0
     data, p_tok, c_tok, cost = evaluate_answer_llm(
         question_text=question.question_text if question else "General OPIc Question",
@@ -150,8 +241,10 @@ def run_evaluation_llm(question: Optional[Question], exam_level: str, transcript
         topic=question.topic if question else "General",
         target_level=exam_level,
         transcript=transcript,
+        duration_seconds=duration_seconds,
         mock=mock
     )
+    data = calibrate_evaluation_level(data, transcript=transcript, duration_seconds=duration_seconds)
     data = normalize_speech_intelligence(data)
     data["vocab_upgrades"] = normalize_vocab_upgrades(
         data.get("vocab_upgrades"), topic_for_category(getattr(question, "category", None))
@@ -256,6 +349,15 @@ def evaluate_versions_in_parallel(
     exam_level = exam_level_for(session)
     mock = is_mock_session(session)
     with ThreadPoolExecutor(max_workers=min(max_workers, len(pending))) as pool:
-        results = list(pool.map(lambda item: run_evaluation_llm(item[1], exam_level, item[0].transcript, mock), pending))
+        results = list(pool.map(
+            lambda item: run_evaluation_llm(
+                item[1],
+                exam_level,
+                item[0].transcript,
+                mock,
+                duration_seconds=item[0].duration_seconds
+            ),
+            pending
+        ))
     for (version, _), (eval_data, p_tok, c_tok, cost) in zip(pending, results):
         save_evaluation(db, session.id, version, eval_data, p_tok, c_tok, cost)

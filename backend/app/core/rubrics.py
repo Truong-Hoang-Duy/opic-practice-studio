@@ -166,8 +166,9 @@ def get_rubric_prompt_text() -> str:
     """Format rubrics as clear instructional text for LLM injection."""
     text = "=== ACTFL / OPIC OFFICIAL PROFICIENCY SCALE ===\n"
     for lvl, desc in LEVEL_DESCRIPTORS.items():
-        text += f"- [{lvl.upper()}]: {desc['summary']}\n"
-    text += "\n=== 6 CORE EVALUATION CRITERIA (Score 1 to 5) ===\n"
+        text += f"- [{lvl}] ({desc['title']}): {desc['summary']}\n"
+    text += "\n=== 6 CORE EVALUATION CRITERIA (Score 1 to 5: 1=below_IL/Novice, 2=IL, 3=IM, 4=IH, 5=IH+/AL) ===\n"
     for key, crit in SUB_SCORE_CRITERIA.items():
-        text += f"• {crit['name']}: {crit['description']}\n"
+        scale_str = " | ".join(f"{k}: {v}" for k, v in crit["scale"].items())
+        text += f"• {crit['name']}: {crit['description']}\n  Scale: {scale_str}\n"
     return text

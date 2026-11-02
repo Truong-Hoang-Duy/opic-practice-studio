@@ -1,4 +1,5 @@
 import difflib
+import re
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy.orm import Session
@@ -228,7 +229,13 @@ def evaluate_answer(
 
     q = answer.question
     session = answer.session or db.query(TestSession).filter(TestSession.id == answer.session_id).first()
-    eval_data, p_tok, c_tok, cost = run_evaluation_llm(q, exam_level_for(session), ver.transcript, is_mock_session(session))
+    eval_data, p_tok, c_tok, cost = run_evaluation_llm(
+        q,
+        exam_level_for(session),
+        ver.transcript,
+        is_mock_session(session),
+        duration_seconds=ver.duration_seconds or answer.duration_seconds
+    )
     eval_obj = save_evaluation(db, answer.session_id, ver, eval_data, p_tok, c_tok, cost)
 
     return attach_speech_intelligence(eval_obj, ver, q)
@@ -240,12 +247,25 @@ def rewrite_answer(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    from app.services.tts_service import cached_speech_url, prefetch_speech
+
     answer = db.query(Answer).filter(Answer.id == answer_id).first()
     if not answer:
         raise HTTPException(status_code=404, detail="Answer not found.")
     _ensure_scored_question(answer)
 
-    ver = db.query(AnswerVersion).filter(AnswerVersion.id == req.answer_version_id).first()
+    if req.answer_version_id:
+        ver = db.query(AnswerVersion).filter(
+            AnswerVersion.id == req.answer_version_id,
+            AnswerVersion.answer_id == answer.id
+        ).first()
+    else:
+        ver = (
+            db.query(AnswerVersion)
+            .filter(AnswerVersion.answer_id == answer.id)
+            .order_by(AnswerVersion.version_number.desc())
+            .first()
+        )
     if not ver:
         raise HTTPException(status_code=404, detail="Target answer version not found.")
 
@@ -269,6 +289,10 @@ def rewrite_answer(
 
     improved_text = data.get("improved_text", ver.transcript)
     diff_chunks = compute_diff_chunks(ver.transcript, improved_text)
+    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', (improved_text or "").strip()) if s.strip()]
+    audio_url = cached_speech_url(improved_text)
+    if not audio_url and improved_text:
+        prefetch_speech([improved_text])
 
     # Log LLM
     llm_log = LLMUsageLog(
@@ -291,7 +315,9 @@ def rewrite_answer(
         changes_explanation=data.get("changes_explanation", ""),
         vietnamese_coaching_notes=data.get("vietnamese_coaching_notes", ""),
         diff_chunks=diff_chunks,
-        key_expressions_added=data.get("key_expressions_added", [])
+        key_expressions_added=data.get("key_expressions_added", []),
+        audio_path=audio_url,
+        sentences=sentences
     )
 
 @router.post("/{answer_id}/accept-rewrite", response_model=AnswerVersionResponse)

@@ -8,6 +8,7 @@ import { AudioRecorder } from '../components/AudioRecorder';
 export const PreTestSetup = ({ onStartExam }) => {
   const [sampleData, setSampleData] = useState(null);
   const [recordedPractice, setRecordedPractice] = useState(null);
+  const [autoStartRecord, setAutoStartRecord] = useState(false);
 
   useEffect(() => {
     systemApi.getSampleQuestion()
@@ -46,7 +47,8 @@ export const PreTestSetup = ({ onStartExam }) => {
             text={sampleData?.question_text}
             autoPlay={true}
             allowReplay={true}
-            maxReplays={2}
+            maxReplays={1}
+            onSecondReadEnded={() => setAutoStartRecord(true)}
           />
           <div className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 text-left">
             <span className="text-[11px] font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400 block mb-1">
@@ -78,6 +80,7 @@ export const PreTestSetup = ({ onStartExam }) => {
             onRecordingComplete={handleRecordingComplete}
             isPracticeMode={true}
             compact
+            autoStart={autoStartRecord}
             targetDurationMin={15}
             targetDurationMax={60}
           />

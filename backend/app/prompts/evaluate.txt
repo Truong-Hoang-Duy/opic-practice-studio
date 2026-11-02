@@ -8,6 +8,7 @@ Question: {QUESTION_TEXT}
 Question Type: {QUESTION_TYPE}
 Topic: {TOPIC}
 Candidate's Chosen Exam Level: {TARGET_LEVEL}
+Speaking Duration: {DURATION_SEC}s | Word Count: {WORD_COUNT} words
 Candidate Transcript:
 """
 {TRANSCRIPT}
@@ -17,14 +18,23 @@ Candidate Transcript:
 1. Judge pure spoken English proficiency according to the ACTFL OPIc standard for Level {TARGET_LEVEL}. Do not penalize for personal opinions or fictional details.
 2. Reward appropriate discourse length, consistent control of tenses matching the level, vocabulary richness, and task completion.
 3. Be encouraging, objective, and constructive. Tailor advice specifically for Vietnamese learners (e.g. paying attention to ending sounds -s/-ed, tense consistency, and transition connectors).
-4. Evaluate the 6 core criteria on a 1-5 scale:
+4. Evaluate the 6 core criteria on a 1-5 scale (1 = below_IL / Novice, 2 = IL, 3 = IM, 4 = IH, 5 = IH+/AL):
    - fluency_and_length (1-5)
    - tense_control (1-5)
    - organization (1-5)
    - vocabulary (1-5)
    - grammar (1-5)
    - task_completion (1-5)
-5. Identify:
+5. STRICT LEVEL CLASSIFICATION ("below_IL" vs "IL" vs "IM" vs "IH"):
+   Do NOT default to "IL" out of politeness when a response does not meet the Intermediate Low threshold.
+   - "below_IL" (Below Intermediate Low / Novice Low–Mid–High): MUST be assigned when ANY of these holds:
+     * The response consists only of isolated words, memorized phrases, or 1–2 very short/fragmented sentences (e.g. under ~15 words or < 12 seconds) without sustained sentence-level creation.
+     * The response is off-topic, fails to answer the core prompt (task_completion = 1), or merely repeats words from the question.
+     * Grammatical/lexical breakdown is so severe that complete sentences are not sustained (grammar = 1 and fluency_and_length = 1), or the average of the 6 criteria is below 2.0.
+   - "IL" (Intermediate Low): Can create with language to form multiple complete, simple sentences (at least 3+ complete sentences on topic, ~20–45 words), mainly in the present tense, with frequent hesitation (average sub-scores ~2.0 to 2.6, task_completion >= 2).
+   - "IM" (Intermediate Mid): Connected sentences forming a basic paragraph (~45–80 words), attempts past/future tenses as required, and completes the core task (average sub-scores ~2.7 to 3.6, task_completion >= 3).
+   - "IH" (Intermediate High): Sustained paragraph-length discourse (60–120s / 80+ words), solid control across past, present, and future tenses, includes narrative detail/complication, and fully completes the task (average sub-scores >= 3.7, task_completion >= 4).
+6. Identify:
    - estimated_level: one of "below_IL", "IL", "IM", "IH"
    - tense_control_details: past_used (true/false), present_used (true/false), future_used (true/false), explanation
    - complication_present: boolean (did the candidate describe an unexpected problem, hurdle, or turning point?)
@@ -32,19 +42,19 @@ Candidate Transcript:
    - feedback_items: 3 to 5 key grammar, vocabulary, or pronunciation/structure mistakes found in the transcript, with clear correction, English explanation, and Vietnamese explanation.
    - actionable_steps: Exactly 3 concrete, high-impact actions to improve performance and master Level {TARGET_LEVEL}.
    - feedback_summary: An encouraging summary of performance in English evaluating how well the answer meets Level {TARGET_LEVEL}.
-6. TENSE TIMELINE MAP (IH requires flexible control of Past narration -> Present description -> Future/hypothetical projection):
+7. TENSE TIMELINE MAP (IH requires flexible control of Past narration -> Present description -> Future/hypothetical projection):
    - tense_timeline: split the transcript into its sentences IN ORDER (quote each sentence verbatim from the transcript, do not fix it) and for each one give:
      - tense: the dominant time frame: "past" | "present" | "future" | "mixed" (use "future" also for conditionals/hypotheticals like "I would...", "If I had...")
      - status: "correct" if the verb forms correctly express that time frame, otherwise "incorrect" (e.g. "Last year I go..." = past meaning with a present verb -> "incorrect")
      - note_vi: one short Vietnamese note (what the tense does here, or what is wrong and the right verb form)
    - tense_distribution: share of the answer in each time frame as integer percentages past_pct + present_pct + future_pct = 100 (split "mixed" sentences by their content).
-7. VIETLISH INTERFERENCE DETECTOR: scan for errors typical of Vietnamese speakers thinking in Vietnamese:
+8. VIETLISH INTERFERENCE DETECTOR: scan for errors typical of Vietnamese speakers thinking in Vietnamese:
    - dropped ending sounds/inflections (-s, -es, -ed, -t, -k) that break tense or plural agreement ("yesterday I walk", "two friend")
    - missing to-be ("She very friendly", "I so tired")
    - word-for-word translations ("open/close the light", "go to work by walk", "learn more knowledge", "have a problem happen", "play with friends" for "hang out")
    - confused word pairs (borrow/lend, hear/listen, say/tell, see/watch/look, fun/funny, bored/boring)
    Return each one as vietlish_warnings (0 to 6 items, most important first, quote original_phrase verbatim from the transcript). Return an empty list if there are none; never invent errors.
-8. IH/AL VOCABULARY UPGRADER: IL/IM answers overuse basic A1-B1 words ("very good", "a lot of", "big problem", "happy", "beautiful", "bad weather", "traffic jam", "like"). Pick 2 to 4 basic or overused words/phrases the candidate actually said and give a natural IH/AL upgrade for each:
+9. IH/AL VOCABULARY UPGRADER: IL/IM answers overuse basic A1-B1 words ("very good", "a lot of", "big problem", "happy", "beautiful", "bad weather", "traffic jam", "like"). Pick 2 to 4 basic or overused words/phrases the candidate actually said and give a natural IH/AL upgrade for each:
    - original_phrase: quoted verbatim from the transcript
    - upgraded_phrase: a natural topic-specific word, collocation, phrasal verb or (sparingly) a common idiom that a native speaker would really say in this context (e.g. "bad weather" -> "torrential downpour", "very crowded" -> "packed with people"); never rare or bookish
    - kind: "collocation" | "phrasal_verb" | "idiom" | "topic_word"
@@ -56,7 +66,7 @@ Candidate Transcript:
 === JSON OUTPUT SCHEMA ===
 You MUST return ONLY a valid JSON object matching this exact structure:
 {{
-  "estimated_level": "IL" | "IM" | "IH" | "below_IL",
+  "estimated_level": "below_IL" | "IL" | "IM" | "IH",
   "score_fluency": 1-5,
   "score_tenses": 1-5,
   "score_organization": 1-5,

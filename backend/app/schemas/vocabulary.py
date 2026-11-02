@@ -35,4 +35,4 @@ class VocabularyResponse(BaseModel):
 
 
 class SpeakRequest(BaseModel):
-    text: str = Field(min_length=1, max_length=300)
+    text: str = Field(min_length=1, max_length=2500)

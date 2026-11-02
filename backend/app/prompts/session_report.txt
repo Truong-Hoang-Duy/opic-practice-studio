@@ -18,6 +18,10 @@ Average Sub-scores across session:
 
 === REPORT REQUIREMENTS ===
 1. Determine the overall estimated proficiency level: "below_IL", "IL", "IM", or "IH".
+   - Assign "below_IL" if the average sub-scores across the session are below 2.0, if the majority of evaluated answers are "below_IL", or if the candidate's responses consist mostly of isolated fragments / off-topic attempts that do not sustain Intermediate Low sentence-level speech.
+   - Assign "IL" if the average sub-scores are around 2.0–2.6 (simple discrete sentences).
+   - Assign "IM" if the average sub-scores are around 2.7–3.6 (connected sentences, basic paragraphs).
+   - Assign "IH" if the average sub-scores are >= 3.7 (sustained paragraph discourse across past/present/future with complications handled).
 2. Write a detailed justification explaining why this level was awarded based on consistency across questions.
 3. List candidate's major linguistic strengths.
 4. List primary weaknesses / bottlenecks preventing consistent output at the candidate target level ({TARGET_LEVEL}) (especially typical hurdles for Vietnamese speakers).
@@ -27,7 +31,7 @@ Average Sub-scores across session:
 === JSON OUTPUT SCHEMA ===
 Return ONLY a valid JSON object:
 {{
-  "overall_level": "IL" | "IM" | "IH" | "below_IL",
+  "overall_level": "below_IL" | "IL" | "IM" | "IH",
   "justification": "...",
   "strengths": [
     "Strength 1...",

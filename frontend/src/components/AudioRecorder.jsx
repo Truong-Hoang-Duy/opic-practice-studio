@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, AlertCircle } from 'lucide-react';
-import { beginRecordingAudioSession, endRecordingAudioSession } from '../utils/audioUnlock';
+import { beginRecordingAudioSession, endRecordingAudioSession, getSharedAudio } from '../utils/audioUnlock';
 
 export const AudioRecorder = ({
   onRecordingComplete,
@@ -8,7 +8,7 @@ export const AudioRecorder = ({
   compact = false, // embedded in another card (warm-up): no fixed height, tighter spacing
   targetDurationMin = 60,
   targetDurationMax = 120,
-  autoStart = false, // start recording as soon as the recorder appears (daily workout after the prep countdown)
+  autoStart = false, // start recording automatically (e.g. after 2nd question reading or daily prep countdown)
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
@@ -23,6 +23,8 @@ export const AudioRecorder = ({
   const analyserRef = useRef(null);
   const animFrameRef = useRef(null);
   const startedAtRef = useRef(0);
+  const startingRef = useRef(false);
+  const isRecordingRef = useRef(false);
 
   // Clean up on unmount
   useEffect(() => {
@@ -36,6 +38,8 @@ export const AudioRecorder = ({
         }
         recorder.stream?.getTracks().forEach(track => track.stop());
       }
+      isRecordingRef.current = false;
+      startingRef.current = false;
       stopAllStreams();
       endRecordingAudioSession();
     };
@@ -44,7 +48,7 @@ export const AudioRecorder = ({
   // Once per recorder (StrictMode re-runs effects; the ref survives that)
   const autoStartedRef = useRef(false);
   useEffect(() => {
-    if (!autoStart || autoStartedRef.current) return;
+    if (!autoStart || autoStartedRef.current || isRecordingRef.current || startingRef.current || lastDuration !== null) return;
     autoStartedRef.current = true;
     startRecording();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -59,12 +63,23 @@ export const AudioRecorder = ({
   };
 
   const startRecording = async () => {
+    if (startingRef.current || isRecordingRef.current) return;
+    startingRef.current = true;
     setMicError(null);
     setLastDuration(null);
     setTimerSeconds(0);
     audioChunksRef.current = [];
 
     try {
+      // Stop any ongoing Eva playback so her voice is never recorded into the microphone
+      try {
+        const shared = getSharedAudio();
+        if (shared && !shared.paused) shared.pause();
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+      } catch (e) {}
+
       beginRecordingAudioSession();
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -75,30 +90,39 @@ export const AudioRecorder = ({
         }
       });
 
-      // 1. Audio Level Metering via Web Audio API
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      const audioCtx = new AudioCtx();
-      audioContextRef.current = audioCtx;
-      const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 64;
-      analyserRef.current = analyser;
+      // 1. Audio Level Metering via Web Audio API (isolated so iOS Safari AudioContext state never blocks recording)
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          const audioCtx = new AudioCtx();
+          audioContextRef.current = audioCtx;
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+          }
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 64;
+          analyserRef.current = analyser;
 
-      const source = audioCtx.createMediaStreamSource(stream);
-      source.connect(analyser);
+          const source = audioCtx.createMediaStreamSource(stream);
+          source.connect(analyser);
 
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      const updateLevel = () => {
-        if (!analyserRef.current) return;
-        analyserRef.current.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += dataArray[i];
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          const updateLevel = () => {
+            if (!analyserRef.current) return;
+            analyserRef.current.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+              sum += dataArray[i];
+            }
+            const avg = sum / dataArray.length;
+            setAudioLevel(Math.min(100, Math.round((avg / 128) * 100)));
+            animFrameRef.current = requestAnimationFrame(updateLevel);
+          };
+          updateLevel();
         }
-        const avg = sum / dataArray.length;
-        setAudioLevel(Math.min(100, Math.round((avg / 128) * 100)));
-        animFrameRef.current = requestAnimationFrame(updateLevel);
-      };
-      updateLevel();
+      } catch (meterErr) {
+        console.warn("Audio level metering unavailable:", meterErr);
+      }
 
       // 2. Record only. The finished file is uploaded and transcribed on the server (no real-time streaming).
       const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find(t => MediaRecorder.isTypeSupported(t)) || '';
@@ -112,6 +136,8 @@ export const AudioRecorder = ({
       };
 
       mediaRecorder.onstop = () => {
+        isRecordingRef.current = false;
+        startingRef.current = false;
         const type = mediaRecorder.mimeType || mimeType || 'audio/webm';
         const audioBlob = new Blob(audioChunksRef.current, { type });
         // Wall-clock duration (the timer state is stale inside this callback)
@@ -129,6 +155,8 @@ export const AudioRecorder = ({
 
       mediaRecorder.start(1000);
       startedAtRef.current = Date.now();
+      isRecordingRef.current = true;
+      startingRef.current = false;
       setIsRecording(true);
 
       // Start timer
@@ -149,6 +177,8 @@ export const AudioRecorder = ({
       } else {
         setMicError(`Unable to start microphone: ${err.message || 'Unknown error'}`);
       }
+      isRecordingRef.current = false;
+      startingRef.current = false;
       setIsRecording(false);
       stopAllStreams();
       endRecordingAudioSession();
@@ -156,6 +186,8 @@ export const AudioRecorder = ({
   };
 
   const stopRecording = () => {
+    isRecordingRef.current = false;
+    startingRef.current = false;
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
@@ -296,7 +328,7 @@ export const AudioRecorder = ({
             ? 'Đang ghi âm... Hãy nói rõ vào micro. Bấm "Complete & Submit" khi trả lời xong.'
             : lastDuration !== null
             ? `Đã ghi ${lastDuration} giây. Hệ thống đang/đã nhận dạng giọng nói để chấm điểm.`
-            : 'Bấm "Start Recording Answer" để trả lời. Sau khi ghi xong, hệ thống sẽ nhận dạng giọng nói và chấm điểm.'}
+            : 'Bấm "Start Recording Answer" để trả lời ngay, hoặc nghe lại lần 2 để hệ thống tự động bật ghi âm sau tiếng bíp.'}
         </p>
       </div>
     </div>

@@ -35,6 +35,7 @@ export const TestSession = ({
   const [latestAnswer, setLatestAnswer] = useState(null);
   const [isAnswerCoachingOpen, setIsAnswerCoachingOpen] = useState(false);
   const [replayUsed, setReplayUsed] = useState(false);
+  const [autoStartRecord, setAutoStartRecord] = useState(false);
   const [sessionInfo, setSessionInfo] = useState(null);
   const [coachingSkipped, setCoachingSkipped] = useState(false); // practice: coaching opened via "Next" without an answer
 
@@ -77,6 +78,7 @@ export const TestSession = ({
     setLatestAnswer(null);
     setIsAnswerCoachingOpen(false);
     setReplayUsed(false);
+    setAutoStartRecord(false);
 
     try {
       const res = await sessionApi.getQuestionByIndex(sessionId, targetIndex);
@@ -104,6 +106,7 @@ export const TestSession = ({
     setLatestAnswer(null);
     setIsAnswerCoachingOpen(false);
     setReplayUsed(false);
+    setAutoStartRecord(false);
 
     try {
       const res = await sessionApi.getNextQuestion(sessionId, afterOrder);
@@ -221,6 +224,7 @@ export const TestSession = ({
           setIsAnswerCoachingOpen(false);
           setLatestAnswer(null);
           setCoachingSkipped(false);
+          setAutoStartRecord(false);
         }}
       />
     );
@@ -380,6 +384,7 @@ export const TestSession = ({
                 allowReplay={!replayUsed}
                 maxReplays={1}
                 onAudioEnded={() => {}}
+                onSecondReadEnded={() => setAutoStartRecord(true)}
               />
             </div>
 
@@ -446,6 +451,7 @@ export const TestSession = ({
             onRecordingComplete={handleRecordingComplete}
             isPracticeMode={!isStrictExam}
             key={currentQuestion?.id}
+            autoStart={autoStartRecord}
             targetDurationMin={currentQuestion?.timing?.target_min_sec || 45}
             targetDurationMax={currentQuestion?.timing?.time_limit_sec || 90}
           />

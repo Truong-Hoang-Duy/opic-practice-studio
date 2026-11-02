@@ -57,7 +57,7 @@ class EvaluationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class RewriteRequest(BaseModel):
-    answer_version_id: int
+    answer_version_id: Optional[int] = None
     target_level: Optional[str] = None
 
 class DiffChunk(BaseModel):
@@ -73,3 +73,5 @@ class RewriteResponse(BaseModel):
     vietnamese_coaching_notes: str
     diff_chunks: List[DiffChunk] = []
     key_expressions_added: List[str] = []
+    audio_path: Optional[str] = None
+    sentences: List[str] = []

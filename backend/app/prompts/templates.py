@@ -14,17 +14,23 @@ def get_evaluate_prompt(
     question_type: str,
     topic: str,
     target_level: str,
-    transcript: str
+    transcript: str,
+    duration_seconds: float = None
 ) -> str:
     template = load_template("evaluate.txt")
     rubrics = get_rubric_prompt_text()
+    clean_transcript = transcript.strip()
+    word_count = len(clean_transcript.split())
+    duration_str = str(round(duration_seconds, 1)) if duration_seconds and duration_seconds > 0 else "unknown"
     return template.format(
         RUBRICS=rubrics,
         QUESTION_TEXT=question_text,
         QUESTION_TYPE=question_type,
         TOPIC=topic,
         TARGET_LEVEL=target_level,
-        TRANSCRIPT=transcript.strip()
+        DURATION_SEC=duration_str,
+        WORD_COUNT=word_count,
+        TRANSCRIPT=clean_transcript
     )
 
 def get_daily_feedback_prompt(

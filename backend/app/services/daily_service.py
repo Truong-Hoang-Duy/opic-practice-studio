@@ -232,6 +232,10 @@ def tense_verdict(focus_key: str, tense: Dict[str, Any]) -> str:
 
 def level_cap(duration: float, words: int, focus_key: str, tense: str, task_met: Optional[bool]) -> Optional[Tuple[str, str]]:
     """ACTFL text-type rules the AI may overlook: (highest possible level, Vietnamese reason) or None."""
+    if words < 12 or duration < 8:
+        return "below_IL", "Câu trả lời quá ngắn hoặc chỉ là cụm từ rời rạc (dưới 12 từ / 8 giây) - mức Dưới IL (Novice)."
+    if task_met is False and (words < 25 or tense == "missing"):
+        return "below_IL", "Chưa trả lời đúng yêu cầu câu hỏi và chưa tạo được câu hoàn chỉnh - mức Dưới IL (Novice)."
     if words < 30 or duration < 20:
         return "IL", "Câu trả lời quá ngắn (dưới ~30 từ) chỉ thể hiện được câu đơn lẻ - tối đa IL."
     if words < 80 or duration < 45:

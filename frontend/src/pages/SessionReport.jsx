@@ -119,7 +119,7 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1.5 font-medium leading-relaxed">
-                Bạn đạt band <strong>{overall_level} ({overall_level === 'IM' ? 'Intermediate Mid' : overall_level === 'IL' ? 'Intermediate Low' : overall_level})</strong>, chưa đạt mức {targetLevel} đã chọn. Hãy theo dõi các lỗi sai và lộ trình 4 tuần bên dưới để ôn luyện thi lại.
+                Bạn đạt band <strong>{overall_level === 'below_IL' ? 'Dưới IL (Novice / Below Intermediate Low)' : `${overall_level} (${overall_level === 'IM' ? 'Intermediate Mid' : overall_level === 'IL' ? 'Intermediate Low' : overall_level})`}</strong>, chưa đạt mức {targetLevel} đã chọn. Hãy theo dõi các lỗi sai và lộ trình 4 tuần bên dưới để ôn luyện thi lại.
               </p>
             </div>
           </div>
@@ -172,10 +172,10 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
         <div className="flex flex-col items-center justify-center p-6 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-brand-500/30 shadow-lg dark:shadow-xl shrink-0 min-w-[180px]">
           <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Assessed Level</span>
           <div className={`text-4xl font-black ${isPassed ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-            {overall_level}
+            {overall_level === 'below_IL' ? 'Below IL' : overall_level}
           </div>
           <span className="text-xs text-slate-700 dark:text-slate-300 mt-1 font-semibold">
-            {overall_level === 'IH' ? 'Intermediate High' : overall_level === 'IM' ? 'Intermediate Mid' : overall_level === 'IL' ? 'Intermediate Low' : overall_level === 'AL' ? 'Advanced Low' : overall_level}
+            {overall_level === 'IH' ? 'Intermediate High' : overall_level === 'IM' ? 'Intermediate Mid' : overall_level === 'IL' ? 'Intermediate Low' : overall_level === 'AL' ? 'Advanced Low' : overall_level === 'below_IL' ? 'Dưới IL (Novice)' : overall_level}
           </span>
           <span className={`mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase border ${
             isPassed 
@@ -306,12 +306,14 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
                     {status === 'scored' ? (
                       <>
                         <td className="py-2 px-3">
-                          <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${
+                          <span className={`px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap ${
                             row.estimated_level === 'IH'
                               ? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30'
+                              : row.estimated_level === 'below_IL'
+                              ? 'bg-rose-50 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/30'
                               : 'bg-sky-50 dark:bg-sky-500/20 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-500/30'
                           }`}>
-                            {row.estimated_level}
+                            {row.estimated_level === 'below_IL' ? 'Dưới IL' : row.estimated_level}
                           </span>
                         </td>
                         <td className="hidden sm:table-cell py-2 px-3 text-center font-medium">{row.score_fluency}/5</td>

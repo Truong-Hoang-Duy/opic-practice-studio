@@ -16,6 +16,8 @@ _prefetch_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="eva_t
 
 def get_effective_tts_provider() -> str:
     """Returns the active TTS provider: 'edge' (default) or 'browser'."""
+    if settings.ENVIRONMENT == "production":
+        return "edge"
     configured = (settings.TTS_PROVIDER or "edge").lower().strip()
     return configured if configured in ("edge", "browser") else "edge"
 

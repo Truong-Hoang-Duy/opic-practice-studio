@@ -284,6 +284,8 @@ def test_level_is_capped_by_length_and_task():
     assert short["estimated_level"] == "IM" and short["ai_level"] == "IH" and short["level_cap_note_vi"]
     tiny = daily_service.build_feedback("past_experience", 15, {"total_words": 20}, llm)
     assert tiny["estimated_level"] == "IL"
+    fragment = daily_service.build_feedback("past_experience", 5, {"total_words": 6}, llm)
+    assert fragment["estimated_level"] == "below_IL"
     no_task = daily_service.build_feedback("role_play_ask", 75, long, {**llm, "task": {"met": False, "note_vi": "chỉ hỏi 1 câu"}})
     assert no_task["estimated_level"] == "IM" and no_task["task"]["met"] is False
     # Lower AI levels are never raised

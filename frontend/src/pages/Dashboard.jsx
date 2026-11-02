@@ -71,35 +71,35 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport, onDelete
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex flex-col gap-6 sm:gap-8">
       
       {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-3xl glass-panel bg-gradient-to-r from-sky-50/90 via-emerald-50/40 to-slate-100/90 dark:from-slate-900 dark:via-slate-900/95 dark:to-sky-950/40 p-5 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-2xl transition-colors">
+      <div className="relative overflow-hidden rounded-3xl glass-panel bg-gradient-to-r from-sky-50/90 via-emerald-50/40 to-slate-100/90 dark:from-slate-900 dark:via-slate-900/95 dark:to-sky-950/40 p-4 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-2xl transition-colors">
         <div className="relative z-10 max-w-3xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold mb-3">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-[11px] font-semibold mb-2">
             <Flame className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
             <span>Mô phỏng Thi Thử Chuẩn ACTFL OPIc</span>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
             Welcome, <span className="text-brand-600 dark:text-brand-400">{user?.full_name || 'Candidate'}</span>!
           </h1>
-          <p className="text-sm text-slate-600 dark:text-slate-300 mt-3 leading-relaxed font-medium">
-            Ready to simulate the official 15-question OPIc interview flow with AI Examiner Eva? Focus on paragraph-length storytelling, past tense consistency, and handling unexpected complications to reach your target level.
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1.5 leading-snug font-medium">
+            Luyện phản xạ 15 câu hỏi chuẩn ACTFL OPIc cùng giám khảo AI Eva.
           </p>
 
           {/* Quick Action Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
             <button
               onClick={() => handleStart('practice')}
               disabled={!!startingMode}
-              className={`group relative flex flex-col text-left p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-brand-600 via-sky-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-white shadow-xl shadow-sky-500/25 border border-sky-400/30 transition-all transform active:scale-[0.99] ${
+              className={`group relative flex flex-col text-left p-4 rounded-2xl bg-gradient-to-br from-brand-600 via-sky-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-white shadow-xl shadow-sky-500/25 border border-sky-400/30 transition-all transform active:scale-[0.99] ${
                 startingMode ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
               }`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-white/20 backdrop-blur-md">
-                    <Sparkles className="w-5 h-5 text-amber-300" />
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-xl bg-white/20 backdrop-blur-md">
+                    <Sparkles className="w-4 h-4 text-amber-300" />
                   </div>
-                  <span className="font-bold text-base text-white">
+                  <span className="font-bold text-sm sm:text-base text-white">
                     {startingMode === 'practice' ? 'Đang khởi tạo...' : 'Start Practice Mode'}
                   </span>
                 </div>
@@ -107,24 +107,24 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport, onDelete
                   Coached
                 </span>
               </div>
-              <p className="text-xs text-sky-100 leading-relaxed font-normal mt-1">
-                Luyện tập có hướng dẫn: Bỏ qua kiểm tra hệ thống & survey, vào thẳng chọn chủ đề, xem đề bài & gợi ý tiếng Việt, nhảy câu tự do và nhận phân tích sửa lỗi / bài mẫu AI ngay sau mỗi câu.
+              <p className="text-xs text-sky-100 leading-snug font-normal">
+                Chọn chủ đề, xem gợi ý tiếng Việt, chuyển câu tự do và nhận chấm chữa AI ngay sau mỗi câu.
               </p>
             </button>
 
             <button
               onClick={() => handleStart('exam')}
               disabled={!!startingMode}
-              className={`group relative flex flex-col text-left p-4 sm:p-5 rounded-2xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-800/90 dark:hover:bg-slate-800 text-white shadow-xl shadow-slate-900/20 border border-slate-700/80 transition-all transform active:scale-[0.99] ${
+              className={`group relative flex flex-col text-left p-4 rounded-2xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-800/90 dark:hover:bg-slate-800 text-white shadow-xl shadow-slate-900/20 border border-slate-700/80 transition-all transform active:scale-[0.99] ${
                 startingMode ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
               }`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30">
-                    <Play className="w-5 h-5 text-emerald-400" />
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30">
+                    <Play className="w-4 h-4 text-emerald-400" />
                   </div>
-                  <span className="font-bold text-base text-white">
+                  <span className="font-bold text-sm sm:text-base text-white">
                     {startingMode === 'exam' ? 'Đang khởi tạo...' : 'Take Full Exam Simulation'}
                   </span>
                 </div>
@@ -132,8 +132,8 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport, onDelete
                   Strict OPIc
                 </span>
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed font-normal mt-1">
-                Mô phỏng thi thật 100%: Đầy đủ 5 bước kiểm tra thiết bị, khảo sát cá nhân, quy chế thi nghiêm ngặt (ẩn câu hỏi, đếm ngược 5s để nghe lại), kết thúc bài thi mới nhận báo cáo tổng thể chuẩn ACTFL.
+              <p className="text-xs text-slate-300 leading-snug font-normal">
+                Thi thử như thật: Khảo sát, ẩn câu hỏi, giới hạn nghe lại 5s và nhận báo cáo tổng kết cuối bài.
               </p>
             </button>
           </div>
@@ -238,8 +238,12 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport, onDelete
                   {session.overall_level && (
                     <div className="mt-3 flex items-center gap-2">
                       <span className="text-xs text-slate-500 dark:text-slate-400">Awarded Level:</span>
-                      <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400 px-2.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30">
-                        {session.overall_level}
+                      <span className={`text-sm font-bold px-2.5 py-0.5 rounded border ${
+                        session.overall_level === 'below_IL'
+                          ? 'text-rose-700 dark:text-rose-400 bg-rose-500/15 border-rose-500/30'
+                          : 'text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 border-emerald-500/30'
+                      }`}>
+                        {session.overall_level === 'below_IL' ? 'Below IL (Novice)' : session.overall_level}
                       </span>
                     </div>
                   )}

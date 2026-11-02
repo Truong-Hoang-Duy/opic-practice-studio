@@ -88,14 +88,23 @@ def generate_session_pdf(
 
     # Overall Result Badge Table
     is_passed = overall_level in ["IH", "AL"]
-    level_color = colors.HexColor("#10b981") if overall_level in ["IH", "AL"] else colors.HexColor("#0284c7") if overall_level == "IM" else colors.HexColor("#f59e0b")
+    display_level = "Below IL (Novice)" if overall_level == "below_IL" else overall_level
+    level_color = (
+        colors.HexColor("#10b981")
+        if overall_level in ["IH", "AL"]
+        else colors.HexColor("#0284c7")
+        if overall_level == "IM"
+        else colors.HexColor("#ef4444")
+        if overall_level == "below_IL"
+        else colors.HexColor("#f59e0b")
+    )
     status_color = colors.HexColor("#10b981") if is_passed else colors.HexColor("#ef4444")
     status_text = "PASSED (ĐẬU) - Meets ACTFL IH Benchmark" if is_passed else "FAILED (CHƯA ĐẠT) - Below ACTFL IH Benchmark"
 
     result_data = [
         [
             Paragraph("<b>Estimated Proficiency Level:</b>", body_style),
-            Paragraph(f"<font color='{level_color.hexval()}'><b>{overall_level}</b></font>", ParagraphStyle('Lvl', parent=body_style, fontSize=16, leading=18))
+            Paragraph(f"<font color='{level_color.hexval()}'><b>{display_level}</b></font>", ParagraphStyle('Lvl', parent=body_style, fontSize=16, leading=18))
         ],
         [
             Paragraph("<b>Final Verdict (Kết quả):</b>", body_style),
@@ -131,7 +140,15 @@ def generate_session_pdf(
     sub_data = [["Criterion", "Score (1-5)", "Status"]]
     for key, name in criteria_names.items():
         score = radar_scores.get(key, 3.0)
-        status = "Mastered (IH)" if score >= 4.0 else "Developing (IM)" if score >= 3.0 else "Needs Work (IL)"
+        status = (
+            "Mastered (IH)"
+            if score >= 4.0
+            else "Developing (IM)"
+            if score >= 3.0
+            else "Basic (IL)"
+            if score >= 2.0
+            else "Below IL (Novice)"
+        )
         sub_data.append([name, f"{score:.1f} / 5.0", status])
 
     sub_table = Table(sub_data, colWidths=[270, 110, 140])

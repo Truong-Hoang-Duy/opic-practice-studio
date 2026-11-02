@@ -96,7 +96,7 @@ export const TopicSelection = ({ sessionId, initialTopics = null, onTopicsConfir
         </div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Select Exactly 3 Topics</h1>
         <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-xl mx-auto">
-          Choose exactly 3 of the 5 specific topics below. The test engine will combine your survey background and these 3 topics into your personalized 15-question OPIc exam.
+          Chọn đúng 3 chủ đề bên dưới để tạo bộ 15 câu hỏi cá nhân hóa.
         </p>
       </div>
 

@@ -44,3 +44,58 @@ def test_diff_chunks_calculation():
     types = [c.type for c in chunks]
     assert "delete" in types or "insert" in types
     assert "equal" in types
+
+
+def test_calibrate_evaluation_level_returns_below_il_when_subscores_or_speech_fail_il():
+    from app.services.evaluation_service import calibrate_evaluation_level, normalize_level_code
+
+    # 1. LLM labels like "BELOW_IL", "Novice High", "NH" normalize to "below_IL"
+    assert normalize_level_code("BELOW_IL") == "below_IL"
+    assert normalize_level_code("Novice High") == "below_IL"
+    assert normalize_level_code("NH") == "below_IL"
+
+    # 2. Average sub-score below 2.0 downgrades an overly generous "IL" to "below_IL"
+    low_avg = calibrate_evaluation_level(
+        {
+            "estimated_level": "IL",
+            "score_fluency": 1,
+            "score_tenses": 2,
+            "score_organization": 1,
+            "score_vocabulary": 2,
+            "score_grammar": 2,
+            "score_task_completion": 2,
+        },
+        transcript="I live in a house with my family and it has two floors.",
+    )
+    assert low_avg["estimated_level"] == "below_IL"
+
+    # 3. Off-topic / failed task completion (score_task_completion = 1) returns "below_IL"
+    off_topic = calibrate_evaluation_level(
+        {
+            "estimated_level": "IL",
+            "score_fluency": 2,
+            "score_tenses": 2,
+            "score_organization": 2,
+            "score_vocabulary": 2,
+            "score_grammar": 2,
+            "score_task_completion": 1,
+        },
+        transcript="I like playing computer games every day with my friends.",
+    )
+    assert off_topic["estimated_level"] == "below_IL"
+
+    # 4. Fragmented / isolated words (< 5 meaningful words) returns "below_IL"
+    fragment = calibrate_evaluation_level(
+        {
+            "estimated_level": "IL",
+            "score_fluency": 2,
+            "score_tenses": 2,
+            "score_organization": 2,
+            "score_vocabulary": 2,
+            "score_grammar": 2,
+            "score_task_completion": 2,
+        },
+        transcript="Uh, my house... big.",
+    )
+    assert fragment["estimated_level"] == "below_IL"
+    assert fragment["score_fluency"] == 1
