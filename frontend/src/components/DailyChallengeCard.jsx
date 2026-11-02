@@ -14,23 +14,39 @@ export const formatCountdown = (ms) => {
 export const useResetCountdown = (resetsAt, serverNow, onExpire) => {
   const [left, setLeft] = useState(null);
   const expiredRef = useRef(false);
+  const lastExpireCallRef = useRef(0);
+  const onExpireRef = useRef(onExpire);
+  onExpireRef.current = onExpire;
+
   useEffect(() => {
     if (!resetsAt) return undefined;
-    expiredRef.current = false;
     const skew = serverNow ? new Date(serverNow).getTime() - Date.now() : 0;
     const target = new Date(resetsAt).getTime();
+
+    const calculateMs = () => target - (Date.now() + skew);
+    const initialMs = calculateMs();
+
+    // Only reset the expired flag if target is genuinely in the future
+    if (initialMs > 0) {
+      expiredRef.current = false;
+    }
+
     const tick = () => {
-      const ms = target - (Date.now() + skew);
-      setLeft(ms);
+      const ms = calculateMs();
+      setLeft(Math.max(0, ms));
       if (ms <= 0 && !expiredRef.current) {
         expiredRef.current = true;
-        if (onExpire) onExpire();
+        const now = Date.now();
+        // Throttle expiry calls to at most once every 60 seconds to prevent rapid request floods
+        if (now - lastExpireCallRef.current > 60000) {
+          lastExpireCallRef.current = now;
+          if (onExpireRef.current) onExpireRef.current();
+        }
       }
     };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetsAt, serverNow]);
   return left;
 };

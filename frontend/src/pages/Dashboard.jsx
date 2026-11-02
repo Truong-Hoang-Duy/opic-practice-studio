@@ -13,6 +13,17 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport, onDelete
   const [loading, setLoading] = useState(true);
   const [sessionToDelete, setSessionToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [startingMode, setStartingMode] = useState(null);
+
+  const handleStart = async (mode) => {
+    if (startingMode) return;
+    setStartingMode(mode);
+    try {
+      await onStartTest(mode);
+    } finally {
+      setStartingMode(null);
+    }
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -77,15 +88,20 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport, onDelete
           {/* Quick Action Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-6">
             <button
-              onClick={() => onStartTest('practice')}
-              className="group relative flex flex-col text-left p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-brand-600 via-sky-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-white shadow-xl shadow-sky-500/25 border border-sky-400/30 transition-all transform active:scale-[0.99] cursor-pointer"
+              onClick={() => handleStart('practice')}
+              disabled={!!startingMode}
+              className={`group relative flex flex-col text-left p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-brand-600 via-sky-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-white shadow-xl shadow-sky-500/25 border border-sky-400/30 transition-all transform active:scale-[0.99] ${
+                startingMode ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
+              }`}
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 rounded-xl bg-white/20 backdrop-blur-md">
                     <Sparkles className="w-5 h-5 text-amber-300" />
                   </div>
-                  <span className="font-bold text-base text-white">Start Practice Mode</span>
+                  <span className="font-bold text-base text-white">
+                    {startingMode === 'practice' ? 'Đang khởi tạo...' : 'Start Practice Mode'}
+                  </span>
                 </div>
                 <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-white/20 text-white border border-white/30 backdrop-blur-md">
                   Coached
@@ -97,15 +113,20 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport, onDelete
             </button>
 
             <button
-              onClick={() => onStartTest('exam')}
-              className="group relative flex flex-col text-left p-4 sm:p-5 rounded-2xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-800/90 dark:hover:bg-slate-800 text-white shadow-xl shadow-slate-900/20 border border-slate-700/80 transition-all transform active:scale-[0.99] cursor-pointer"
+              onClick={() => handleStart('exam')}
+              disabled={!!startingMode}
+              className={`group relative flex flex-col text-left p-4 sm:p-5 rounded-2xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-800/90 dark:hover:bg-slate-800 text-white shadow-xl shadow-slate-900/20 border border-slate-700/80 transition-all transform active:scale-[0.99] ${
+                startingMode ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
+              }`}
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30">
                     <Play className="w-5 h-5 text-emerald-400" />
                   </div>
-                  <span className="font-bold text-base text-white">Take Full Exam Simulation</span>
+                  <span className="font-bold text-base text-white">
+                    {startingMode === 'exam' ? 'Đang khởi tạo...' : 'Take Full Exam Simulation'}
+                  </span>
                 </div>
                 <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   Strict OPIc

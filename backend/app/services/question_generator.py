@@ -290,7 +290,7 @@ def generate_personalised_guides(
     guides: Dict[int, Dict[str, Any]] = {}
     p_total = c_total = 0
     cost_total = 0.0
-    with ThreadPoolExecutor(max_workers=len(batches) or 1) as pool:
+    with ThreadPoolExecutor(max_workers=min(len(batches), 2) or 1) as pool:
         for result in pool.map(lambda b: generate_guides_llm(b, self_assessment_level, base_diff), batches):
             if not result:
                 continue

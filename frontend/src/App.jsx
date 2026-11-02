@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
@@ -18,7 +18,7 @@ import { QuestionLibrary } from './pages/QuestionLibrary';
 import { VocabularyNotebook } from './pages/VocabularyNotebook';
 import { DailyWorkout } from './pages/DailyWorkout';
 
-import { sessionApi } from './api/client';
+import { sessionApi, formatApiError } from './api/client';
 
 const TEST_FLOW_TABS = ['system_check', 'survey', 'topic_selection', 'self_assessment', 'pre_test', 'test'];
 
@@ -65,9 +65,12 @@ export const App = () => {
     sessionStorage.setItem('opic_active_tab', currentTab);
   }, [currentTab]);
 
+  const isCreatingSessionRef = useRef(false);
+
   // Safety guard: If inside test flow without an active session, auto-initialize
   useEffect(() => {
-    if (user && TEST_FLOW_TABS.includes(currentTab) && !activeSessionId) {
+    if (user && TEST_FLOW_TABS.includes(currentTab) && !activeSessionId && !isCreatingSessionRef.current) {
+      isCreatingSessionRef.current = true;
       sessionApi.create({ mode: activeSessionMode || 'practice' })
         .then((res) => {
           setActiveSessionId(res.data.id);
@@ -75,6 +78,9 @@ export const App = () => {
         .catch((err) => {
           console.error("Auto session initialization failed:", err);
           setCurrentTab('dashboard');
+        })
+        .finally(() => {
+          isCreatingSessionRef.current = false;
         });
     }
   }, [user, currentTab, activeSessionId, activeSessionMode]);
@@ -99,6 +105,8 @@ export const App = () => {
 
   // Start new test flow
   const handleStartNewTest = async (mode) => {
+    if (isCreatingSessionRef.current) return;
+    isCreatingSessionRef.current = true;
     setActiveSessionMode(mode);
     try {
       const res = await sessionApi.create({ mode });
@@ -127,6 +135,9 @@ export const App = () => {
       }
     } catch (err) {
       console.error("Failed to initialize test session", err);
+      alert(formatApiError(err, 'Không thể khởi tạo bài thi. Vui lòng thử lại.'));
+    } finally {
+      isCreatingSessionRef.current = false;
     }
   };
 

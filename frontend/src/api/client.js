@@ -18,6 +18,20 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Auto-retry transient rate-limited requests (HTTP 429) once after a short delay
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const config = error.config;
+    if (error.response?.status === 429 && config && !config._retry429) {
+      config._retry429 = true;
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      return api(config);
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const authApi = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
@@ -112,10 +126,17 @@ export const formatApiError = (err, fallback = 'Đã có lỗi xảy ra. Vui lò
   if (!err?.response) {
     return 'Không kết nối được máy chủ (backend có thể đang khởi động lại). Vui lòng thử lại sau vài giây.';
   }
+  if (err.response.status === 429) {
+    const raw = err.response.data?.error?.message || err.response.data?.message || err.response.data?.detail;
+    if (typeof raw === 'string') return `Hệ thống tạm thời bận: ${raw}`;
+    return 'Hệ thống đang tiếp nhận nhiều yêu cầu (HTTP 429). Vui lòng đợi vài giây rồi thử lại.';
+  }
   const detail = err.response.data?.detail;
   if (typeof detail === 'string') return detail;
   if (Array.isArray(detail)) return detail.map(d => d.msg || JSON.stringify(d)).join('; ');
   if (detail?.message) return detail.message;
+  const errorMsg = err.response.data?.error?.message || err.response.data?.message;
+  if (typeof errorMsg === 'string') return errorMsg;
   return `${fallback} (HTTP ${err.response.status})`;
 };
 
