@@ -17,10 +17,12 @@ import {
 } from 'lucide-react';
 import { DiffViewer } from '../components/DiffViewer';
 import { ShadowingPlayer } from '../components/ShadowingPlayer';
+import { SpeakButton } from '../components/SpeakButton';
+import { scrollPageToTop } from '../components/ScrollToTopButton';
 import { SpeechFlowPanel } from '../components/coaching/SpeechFlowPanel';
 import { TenseTimeline } from '../components/coaching/TenseTimeline';
 import { VocabUpgrades } from '../components/coaching/VocabUpgrades';
-import { speakPhrase, stopSpeaking } from '../utils/speakPhrase';
+import { stopSpeaking } from '../utils/speakPhrase';
 
 // Deduplicates grammar feedback items against Vietlish warnings so the learner never sees the same mistake twice
 const buildUnifiedCorrections = (vietlishWarnings = [], feedbackItems = []) => {
@@ -90,6 +92,7 @@ export const AnswerCoaching = ({
   assessmentLevel = 4,
   nextLabel = 'Sang câu tiếp theo',
   answer = null,
+  onTranscriptEdited = null,
 }) => {
   const isUnscored = question?.question_type === 'self_intro';
   const noAnswer = !answerId;
@@ -127,16 +130,19 @@ export const AnswerCoaching = ({
   const [loadingModels, setLoadingModels] = useState(false);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    scrollPageToTop('instant');
     stopSpeaking();
     setActiveTranscript(answer?.transcript_edited || answer?.transcript_raw || '');
     setWordTokens(answer?.word_confidences || []);
+    setEvaluation(null);
     setRewriteData(null);
     setRewriteError('');
+    setModelAnswers([]);
+    setIsEditingTranscript(false);
     setActiveTab(hideScoring ? 'models' : 'evaluation');
     loadAnswerData();
     return () => stopSpeaking();
-  }, [answerId]);
+  }, [answerId, question?.id]);
 
   useEffect(() => {
     setSelectedModelLevel(defaultModelLevel);
@@ -189,6 +195,9 @@ export const AnswerCoaching = ({
       setActiveTranscript(editedText);
       setIsEditingTranscript(false);
       setRewriteData(null); // Reset cached rewrite since transcript changed
+      if (onTranscriptEdited) {
+        onTranscriptEdited(editedText);
+      }
 
       if (hideScoring) return;
 
@@ -238,17 +247,26 @@ export const AnswerCoaching = ({
     fetchRewriteIfNeeded(false);
   };
 
-  const loadModelAnswers = async () => {
+  const loadModelAnswers = async (regenerate = false) => {
     if (!question?.id || loadingModels) return;
     setLoadingModels(true);
     try {
-      const res = await questionApi.getModelAnswers(question.id);
+      const res = await questionApi.getModelAnswers(question.id, null, regenerate);
       setModelAnswers(res.data);
     } catch (err) {
       console.error('Failed to load models:', err);
     } finally {
       setLoadingModels(false);
     }
+  };
+
+  const handleConfirmRegenerateModels = () => {
+    if (loadingModels) return;
+    const confirmed = window.confirm(
+      'Bạn có muốn tạo lại bộ bài mẫu mới không?\n\n• Bấm Hủy (Không): Giữ lại bài mẫu đầu tiên do AI tạo để học cố định theo một dàn ý.\n• Bấm OK (Có): AI sẽ sinh bộ bài mẫu mới thay thế bài mẫu hiện tại.'
+    );
+    if (!confirmed) return;
+    loadModelAnswers(true);
   };
 
   useEffect(() => {
@@ -285,7 +303,18 @@ export const AnswerCoaching = ({
           </h2>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {question?.question_text && (
+            <SpeakButton
+              variant="question"
+              text={question.question_text}
+              audioUrl={question.audio_path}
+              id={`coach-question-${question.id || question.order_index}`}
+              label="Nghe lại câu hỏi"
+              playingLabel="Đang đọc câu hỏi"
+            />
+          )}
+
           <button
             type="button"
             onClick={onRetryQuestion}
@@ -654,15 +683,13 @@ export const AnswerCoaching = ({
                             {item.badge}
                           </span>
 
-                          <button
-                            type="button"
-                            onClick={() => speakPhrase(item.correction)}
+                          <SpeakButton
+                            text={item.correction}
+                            id={`correction-${idx}`}
+                            label="Nghe câu đúng"
+                            playingLabel="Đang phát"
                             title="Nghe cách nói đúng"
-                            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white dark:bg-slate-900 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-slate-200 dark:border-slate-800 text-[11px] font-semibold transition-colors cursor-pointer shrink-0"
-                          >
-                            <Volume2 className="w-3.5 h-3.5" />
-                            <span>Nghe câu đúng</span>
-                          </button>
+                          />
                         </div>
 
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-0.5">
@@ -794,18 +821,16 @@ export const AnswerCoaching = ({
                       🇻🇳 {step.hint_vi}
                     </p>
                     {step.example_phrases?.length > 0 && (
-                      <div className="mt-auto pt-1.5 flex flex-wrap gap-1">
+                      <div className="mt-auto pt-1.5 flex flex-wrap gap-1.5">
                         {step.example_phrases.map((phrase, i) => (
-                          <button
+                          <SpeakButton
                             key={i}
-                            type="button"
-                            onClick={() => speakPhrase(phrase)}
+                            variant="chip"
+                            text={phrase}
+                            id={`outline-phrase-${step.step_number}-${i}`}
+                            label={`"${phrase}"`}
                             title="Bấm để nghe phát âm"
-                            className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-brand-400 italic cursor-pointer"
-                          >
-                            <Volume2 className="w-3 h-3 text-brand-500 shrink-0" />
-                            <span>"{phrase}"</span>
-                          </button>
+                          />
                         ))}
                       </div>
                     )}
@@ -817,6 +842,24 @@ export const AnswerCoaching = ({
 
           {/* 2. Standard Model Answers (IL, IM, IH) with Sentence Shadowing */}
           <div className="flex flex-col gap-3">
+            {/* Persistent First-Model Notice & Optional Regenerate Prompt */}
+            {!loadingModels && modelAnswers.length > 0 && (
+              <div className="rounded-xl px-3.5 py-2.5 bg-emerald-50/80 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/25 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-emerald-900 dark:text-emerald-200 leading-relaxed">
+                  📌 <strong>Đang giữ bài mẫu đầu tiên do AI tạo</strong> để bạn học cố định theo một dàn ý và nhớ ý lâu hơn.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleConfirmRegenerateModels}
+                  disabled={loadingModels}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 hover:bg-amber-50 dark:hover:bg-amber-500/15 text-slate-700 dark:text-slate-200 hover:text-amber-700 dark:hover:text-amber-300 border border-slate-300 dark:border-slate-700 text-xs font-semibold transition-colors cursor-pointer shrink-0"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Tạo lại bài mẫu mới?</span>
+                </button>
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                 Bài mẫu chuẩn theo từng cấp độ:

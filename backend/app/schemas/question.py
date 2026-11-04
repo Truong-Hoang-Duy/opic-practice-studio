@@ -2,6 +2,7 @@ from typing import List, Optional, Dict, Any, Literal
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 from app.core.question_meta import question_timing, CATEGORY_LABELS
+from app.schemas.answer import AnswerResponse
 
 # Q1 (self-introduction) is fixed and never scored
 UNSCORED_QUESTION_TYPES = {"self_intro"}
@@ -27,6 +28,7 @@ class QuestionResponse(BaseModel):
     audio_path: Optional[str] = None
     vietnamese_guide: Optional[Dict[str, Any]] = None
     category: Optional[str] = None
+    existing_answer: Optional[AnswerResponse] = None
 
     @computed_field
     @property

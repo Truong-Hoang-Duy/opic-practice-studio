@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Volume2, Loader2 } from 'lucide-react';
+import { Play, Volume2, Loader2, Square } from 'lucide-react';
 import { resolveMediaUrl } from '../api/client';
 import { speakPhrase, stopSpeaking } from '../utils/speakPhrase';
+import { SoundWaveMini } from './SpeakButton';
 
 export const ShadowingPlayer = ({
   modelAnswer,
@@ -161,16 +162,26 @@ export const ShadowingPlayer = ({
             type="button"
             onClick={togglePlayAll}
             disabled={loadingAudio}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer disabled:opacity-60"
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold text-xs transition-all shadow-sm cursor-pointer disabled:opacity-60 ${
+              isPlayingAll
+                ? 'bg-emerald-600 hover:bg-emerald-500 text-white ring-2 ring-emerald-500/30'
+                : 'bg-sky-600 hover:bg-sky-500 text-white'
+            }`}
           >
             {loadingAudio ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : isPlayingAll ? (
-              <Pause className="w-3.5 h-3.5 fill-current" />
+              <>
+                <SoundWaveMini light />
+                <span>Đang đọc · Dừng</span>
+                <Square className="w-2.5 h-2.5 fill-current opacity-80" />
+              </>
             ) : (
-              <Play className="w-3.5 h-3.5 fill-current" />
+              <>
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>Nghe cả bài</span>
+              </>
             )}
-            <span>{isPlayingAll ? 'Dừng' : 'Nghe cả bài'}</span>
           </button>
         </div>
       </div>
@@ -212,14 +223,24 @@ export const ShadowingPlayer = ({
                   e.stopPropagation();
                   playSingleSentence(idx);
                 }}
-                title="Nghe câu này"
-                className={`p-2 rounded-lg border transition-colors shrink-0 ${
+                title={isSpeakingThis ? 'Đang phát - bấm để dừng' : 'Nghe câu này'}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-all shrink-0 cursor-pointer ${
                   isSpeakingThis
-                    ? 'bg-brand-500 text-white border-brand-500'
+                    ? 'bg-brand-500 text-white border-brand-500 shadow-xs ring-2 ring-brand-500/30'
                     : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 border-slate-200 dark:border-slate-800'
                 }`}
               >
-                <Volume2 className={`w-4 h-4 ${isSpeakingThis ? 'animate-pulse' : ''}`} />
+                {isSpeakingThis ? (
+                  <>
+                    <SoundWaveMini light />
+                    <span>Đang phát</span>
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="w-3.5 h-3.5" />
+                    <span>Nghe</span>
+                  </>
+                )}
               </button>
             </div>
           );

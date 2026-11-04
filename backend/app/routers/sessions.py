@@ -343,6 +343,19 @@ def get_session_status(
 
     total_questions = db.query(Question).filter(Question.session_id == session.id).count()
     answered_count = db.query(Answer).filter(Answer.session_id == session.id).count()
+    answered_orders = sorted([
+        order_idx
+        for (order_idx, audio_path, tr_raw, tr_edit) in db.query(
+            Question.order_index,
+            Answer.audio_path,
+            Answer.transcript_raw,
+            Answer.transcript_edited,
+        )
+        .join(Answer, Answer.question_id == Question.id)
+        .filter(Answer.session_id == session.id)
+        .all()
+        if audio_path or (tr_raw or "").strip() or (tr_edit or "").strip()
+    ])
 
     return {
         "id": session.id,
@@ -351,6 +364,7 @@ def get_session_status(
         "status": session.status,
         "total_questions": total_questions,
         "answered_count": answered_count,
+        "answered_orders": answered_orders,
         "self_assessment_level": session.self_assessment_level,
         "topics": session.topics,
         "has_survey": bool(session.survey_data),
@@ -358,6 +372,13 @@ def get_session_status(
         "started_at": session.started_at,
         "completed_at": session.completed_at
     }
+
+def _attach_existing_answer(q: Question, session_id: int, db: Session) -> None:
+    ans = db.query(Answer).filter(Answer.session_id == session_id, Answer.question_id == q.id).first()
+    if ans and (ans.audio_path or (ans.transcript_raw or "").strip() or (ans.transcript_edited or "").strip()):
+        q.existing_answer = ans
+    else:
+        q.existing_answer = None
 
 @router.get("/{session_id}/next-question", response_model=QuestionResponse)
 def get_next_question(
@@ -398,6 +419,7 @@ def get_next_question(
 
     # Synthesize audio if not already done
     refresh_question_audio(next_q, db)
+    _attach_existing_answer(next_q, session.id, db)
 
     return next_q
 
@@ -415,6 +437,7 @@ def get_session_questions(
     for q in questions:
         if not q.audio_path:
             q.audio_path = cached_speech_url(q.question_text)
+        _attach_existing_answer(q, session.id, db)
     return questions
 
 @router.get("/{session_id}/questions/{order_index}", response_model=QuestionResponse)
@@ -433,6 +456,7 @@ def get_session_question_by_index(
         raise HTTPException(status_code=404, detail=f"Question {order_index} not found.")
 
     refresh_question_audio(q, db)
+    _attach_existing_answer(q, session.id, db)
 
     return q
 

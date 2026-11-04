@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BookMarked, Volume2, CheckCircle2, RotateCcw, Trash2, Search, Loader2, Sparkles } from 'lucide-react';
+import { BookMarked, CheckCircle2, RotateCcw, Trash2, Search, Loader2, Sparkles } from 'lucide-react';
 import { vocabularyApi } from '../api/client';
-import { speakPhrase } from '../utils/speakPhrase';
+import { SpeakButton } from '../components/SpeakButton';
 import { KIND_LABELS, KIND_STYLES, HighlightedExample } from '../components/coaching/VocabUpgrades';
 
 const STATUS_FILTERS = [
@@ -173,17 +173,16 @@ export const VocabularyNotebook = ({ onGoPractice }) => {
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">thay cho <span className="line-through">{item.original_phrase}</span></p>
                     )}
                   </div>
-                  <button
-                    onClick={() => speakPhrase(item.upgraded_phrase)}
-                    title="Nghe phát âm"
-                    aria-label={`Nghe phát âm ${item.upgraded_phrase}`}
-                    className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shrink-0"
-                  >
-                    <Volume2 className="w-4 h-4" />
-                  </button>
+                  <SpeakButton
+                    text={item.upgraded_phrase}
+                    id={`nb-word-${item.id}`}
+                    label="Nghe"
+                    playingLabel="Đang phát"
+                    title={`Nghe phát âm ${item.upgraded_phrase}`}
+                  />
                 </div>
 
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${KIND_STYLES[item.kind] || KIND_STYLES.collocation}`}>
                     {KIND_LABELS[item.kind] || item.kind}
                   </span>
@@ -198,13 +197,19 @@ export const VocabularyNotebook = ({ onGoPractice }) => {
                 </div>
 
                 {item.example_sentence && (
-                  <button
-                    onClick={() => speakPhrase(item.example_sentence)}
-                    title="Nghe câu ví dụ"
-                    className="text-left italic text-slate-700 dark:text-slate-300 leading-relaxed hover:text-slate-900 dark:hover:text-white cursor-pointer"
-                  >
-                    <HighlightedExample sentence={item.example_sentence} phrase={item.upgraded_phrase} />
-                  </button>
+                  <div className="flex flex-col gap-1.5">
+                    <p className="italic text-slate-700 dark:text-slate-300 leading-relaxed">
+                      <HighlightedExample sentence={item.example_sentence} phrase={item.upgraded_phrase} />
+                    </p>
+                    <SpeakButton
+                      variant="chip"
+                      text={item.example_sentence}
+                      id={`nb-ex-${item.id}`}
+                      label="Nghe câu ví dụ"
+                      title="Nghe câu ví dụ"
+                      className="self-start"
+                    />
+                  </div>
                 )}
                 {item.note_vi && <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">🇻🇳 {item.note_vi}</p>}
 

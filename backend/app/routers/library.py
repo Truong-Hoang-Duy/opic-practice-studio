@@ -13,6 +13,7 @@ from app.services.playlist_service import request_playlist
 from app.services.tts_service import cached_speech_url
 from app.core.question_meta import CATEGORY_LABELS, derive_category, question_timing
 from app.schemas.question import UNSCORED_QUESTION_TYPES
+from app.schemas.answer import AnswerResponse
 
 router = APIRouter(prefix="/library", tags=["Question Library"])
 
@@ -61,8 +62,37 @@ def get_library(
 
     models_by_q: dict = {}
     if all_q_ids:
-        for m in db.query(ModelAnswer).filter(ModelAnswer.question_id.in_(all_q_ids)).all():
+        for m in db.query(ModelAnswer).filter(ModelAnswer.question_id.in_(all_q_ids)).order_by(ModelAnswer.id.asc()).all():
             models_by_q.setdefault(m.question_id, []).append(m)
+
+    # Map each normalized question_text to its earliest generated ModelAnswer set so later tests inherit it
+    first_models_by_text: dict = {}
+    for q in sorted(all_questions, key=lambda x: x.id):
+        q_models = models_by_q.get(q.id)
+        norm_text = (q.question_text or "").strip()
+        if q_models and norm_text and norm_text not in first_models_by_text:
+            first_models_by_text[norm_text] = q_models
+
+    cloned_any = False
+    for q in sorted(all_questions, key=lambda x: x.id):
+        norm_text = (q.question_text or "").strip()
+        if not models_by_q.get(q.id) and norm_text in first_models_by_text:
+            cloned_list = []
+            for dm in first_models_by_text[norm_text]:
+                obj = ModelAnswer(
+                    question_id=q.id,
+                    level=dm.level,
+                    text=dm.text,
+                    rationale=dm.rationale,
+                    audio_path=cached_speech_url(dm.text) or dm.audio_path,
+                    sentences=dm.sentences or [dm.text],
+                )
+                db.add(obj)
+                cloned_list.append(obj)
+            models_by_q[q.id] = cloned_list
+            cloned_any = True
+    if cloned_any:
+        db.commit()
 
     answers_by_q: dict = {}
     if all_q_ids:
@@ -85,8 +115,12 @@ def get_library(
                     latest_eval = v.evaluations[0]
                     break
             category = q.category or derive_category(q.order_index, q.question_type, q.topic, s.topics)
+            has_answer_content = bool(
+                answer and (answer.audio_path or (answer.transcript_raw or "").strip() or (answer.transcript_edited or "").strip())
+            )
             items.append({
                 "id": q.id,
+                "session_id": s.id,
                 "order_index": q.order_index,
                 "topic": q.topic,
                 "category": category,
@@ -95,15 +129,25 @@ def get_library(
                 "timing": question_timing(q.question_type, q.difficulty),
                 "question_type": q.question_type,
                 "question_text": q.question_text,
+                "vietnamese_guide": q.vietnamese_guide,
                 "audio_path": cached_speech_url(q.question_text) or q.audio_path,
                 "model_answers": [
-                    {"level": m.level, "text": m.text, "rationale": m.rationale, "audio_path": cached_speech_url(m.text)}
+                    {
+                        "id": m.id,
+                        "question_id": q.id,
+                        "level": m.level,
+                        "text": m.text,
+                        "rationale": m.rationale,
+                        "sentences": m.sentences or [m.text],
+                        "audio_path": cached_speech_url(m.text),
+                    }
                     for m in sorted(models_by_q.get(q.id, []), key=lambda m: MODEL_LEVELS.index(m.level) if m.level in MODEL_LEVELS else 9)
                 ],
                 "practice_count": len(versions),
                 "last_audio_path": next((v.audio_path for v in reversed(answer.versions) if v.audio_path), answer.audio_path) if answer else None,
                 "last_transcript": (versions[-1].transcript if versions else None),
-                "answer_id": answer.id if answer else None,
+                "answer_id": answer.id if has_answer_content else None,
+                "existing_answer": AnswerResponse.model_validate(answer).model_dump(mode="json") if has_answer_content else None,
                 "last_level": latest_eval.estimated_level if latest_eval else None,
             })
 

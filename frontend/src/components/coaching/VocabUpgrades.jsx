@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { TrendingUp, ArrowRight, Volume2, Star, Loader2 } from 'lucide-react';
+import { TrendingUp, ArrowRight, Star, Loader2 } from 'lucide-react';
 import { vocabularyApi } from '../../api/client';
-import { speakPhrase } from '../../utils/speakPhrase';
+import { SpeakButton } from '../SpeakButton';
 
 export const KIND_LABELS = {
   collocation: 'Collocation',
@@ -84,14 +84,13 @@ export const VocabUpgrades = ({ upgrades = [], questionId }) => {
                   <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{u.upgraded_phrase}</span>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    onClick={() => speakPhrase(u.upgraded_phrase)}
-                    title="Nghe phát âm"
-                    aria-label={`Nghe phát âm ${u.upgraded_phrase}`}
-                    className="p-2 rounded-lg text-slate-500 hover:text-brand-600 dark:text-slate-400 dark:hover:text-brand-400 hover:bg-slate-200/70 dark:hover:bg-slate-800 cursor-pointer"
-                  >
-                    <Volume2 className="w-4 h-4" />
-                  </button>
+                  <SpeakButton
+                    text={u.upgraded_phrase}
+                    id={`vocab-up-${key}`}
+                    label="Nghe"
+                    playingLabel="Đang phát"
+                    title={`Nghe phát âm ${u.upgraded_phrase}`}
+                  />
                   <button
                     onClick={() => toggleSave(u)}
                     disabled={busy[key]}
@@ -105,9 +104,20 @@ export const VocabUpgrades = ({ upgrades = [], questionId }) => {
                   </button>
                 </div>
               </div>
-              <span className={`self-start text-[10px] font-semibold px-1.5 py-0.5 rounded border ${KIND_STYLES[u.kind] || KIND_STYLES.collocation}`}>
-                {KIND_LABELS[u.kind] || u.kind}
-              </span>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${KIND_STYLES[u.kind] || KIND_STYLES.collocation}`}>
+                  {KIND_LABELS[u.kind] || u.kind}
+                </span>
+                {u.example_sentence && (
+                  <SpeakButton
+                    variant="chip"
+                    text={u.example_sentence}
+                    id={`vocab-ex-${key}`}
+                    label="Nghe câu ví dụ"
+                    title="Nghe cả câu ví dụ"
+                  />
+                )}
+              </div>
               {u.example_sentence && (
                 <p className="italic text-slate-700 dark:text-slate-300 leading-relaxed">
                   <HighlightedExample sentence={u.example_sentence} phrase={u.upgraded_phrase} />

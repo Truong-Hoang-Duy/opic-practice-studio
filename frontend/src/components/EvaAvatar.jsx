@@ -51,14 +51,14 @@ export const EvaAvatar = ({
   const handlePlaybackEnded = () => {
     setIsPlaying(false);
     const wasReplay = isReplayingRef.current;
-    // Like the real OPIc: a beep marks the end of the question
-    if (!isMuted) playBeep();
     if (replayWindowSec && !wasReplay && replayCount < maxReplays) {
       setReplayWindowLeft(replayWindowSec);
     }
     isReplayingRef.current = false;
     if (onAudioEnded) onAudioEnded({ isReplay: wasReplay });
+    // Only play the beep signal after the 2nd reading (replay) right before transitioning into recording mode
     if (wasReplay && onSecondReadEnded) {
+      if (!isMuted) playBeep();
       clearTimeout(autoRecordTimerRef.current);
       // Wait 500ms so the 0.45s OPIc beep finishes before switching the mic audio session on
       autoRecordTimerRef.current = setTimeout(() => {

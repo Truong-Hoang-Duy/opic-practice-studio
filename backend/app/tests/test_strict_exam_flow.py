@@ -57,6 +57,32 @@ def test_practice_mode_skip_keeps_question_open(client):
     assert nxt["order_index"] == 3
     q2 = client.get(f"/api/sessions/{session_id}/questions/2", headers=headers)
     assert q2.status_code == 200
+    assert q2.json()["existing_answer"] is None
+
+    # Answer Q2, advance to Q3, then jump back to Q2: Q2 must return its existing_answer & versions
+    q2_data = q2.json()
+    ans1 = client.post("/api/answers", data={
+        "question_id": q2_data["id"], "session_id": session_id, "duration_seconds": 65,
+        "transcript_raw": "I live in a cozy apartment on the eighth floor."
+    }, headers=headers)
+    assert ans1.status_code == 200
+
+    q2_revisited = client.get(f"/api/sessions/{session_id}/questions/2", headers=headers).json()
+    assert q2_revisited["existing_answer"] is not None
+    assert q2_revisited["existing_answer"]["id"] == ans1.json()["id"]
+    assert len(q2_revisited["existing_answer"]["versions"]) == 1
+
+    status = client.get(f"/api/sessions/{session_id}/status", headers=headers).json()
+    assert status["answered_orders"] == [2]
+
+    # Re-record Q2: appends version 2 without deleting version 1
+    ans2 = client.post("/api/answers", data={
+        "question_id": q2_data["id"], "session_id": session_id, "duration_seconds": 80,
+        "transcript_raw": "I live in a modern apartment on the eighth floor with a balcony."
+    }, headers=headers)
+    assert ans2.status_code == 200
+    q2_after_retry = client.get(f"/api/sessions/{session_id}/questions/2", headers=headers).json()
+    assert len(q2_after_retry["existing_answer"]["versions"]) == 2
 
 
 def test_levels_1_and_2_are_no_longer_accepted(client):

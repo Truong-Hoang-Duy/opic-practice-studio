@@ -51,8 +51,7 @@ const LOADING_STEPS = [
 export const SelfAssessment = ({ sessionId, sessionMode = 'practice', defaultStrict = false, initialLevel = null, onAssessmentCompleted }) => {
   // Levels 1-2 are no longer offered; older sessions with those levels fall back to the default
   const [selectedLevel, setSelectedLevel] = useState(initialLevel >= 3 ? initialLevel : 4);
-  const isPractice = sessionMode === 'practice';
-  const [strictMode, setStrictMode] = useState(isPractice ? false : (defaultStrict ?? true));
+  const [strictMode, setStrictMode] = useState(sessionMode === 'practice' ? false : (defaultStrict ?? true));
   const [submitting, setSubmitting] = useState(false);
   const [submittingStep, setSubmittingStep] = useState(0);
   const [error, setError] = useState('');
@@ -81,10 +80,10 @@ export const SelfAssessment = ({ sessionId, sessionMode = 'practice', defaultStr
     setSubmitting(true);
     setError('');
     try {
-      const payload = { level: selectedLevel, strict_mode: isPractice ? false : strictMode };
+      const payload = { level: selectedLevel, strict_mode: strictMode };
       if (!useAi) payload.use_ai = false;
       const res = await sessionApi.submitSelfAssessment(sessionId, payload);
-      onAssessmentCompleted(res.data?.mode || (isPractice ? 'practice' : (strictMode ? 'exam' : 'practice')));
+      onAssessmentCompleted(res.data?.mode || (strictMode ? 'exam' : 'practice'));
     } catch (err) {
       console.error("Self-assessment submission failed:", err);
       setError(formatApiError(err, 'Không tạo được bộ đề.'));
@@ -164,38 +163,52 @@ export const SelfAssessment = ({ sessionId, sessionMode = 'practice', defaultStr
           })}
         </div>
 
-        {/* Mode indicator */}
-        {isPractice ? (
-          <div className="flex items-start gap-3 p-3.5 rounded-2xl border border-sky-200 dark:border-sky-800/80 bg-sky-50/80 dark:bg-sky-950/30">
+        {/* Mode selector: user can switch between Coached Practice and Strict Exam */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setStrictMode(false)}
+            className={`flex items-start gap-3 p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+              !strictMode
+                ? 'border-brand-500 bg-sky-50/90 dark:bg-sky-950/40 ring-1 ring-brand-500 shadow-sm'
+                : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 opacity-75 hover:opacity-100'
+            }`}
+          >
             <div className="p-1.5 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex-shrink-0">
               <Sparkles className="w-4 h-4 text-amber-500" />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Chế độ Luyện tập (Coached)</p>
-              </div>
+              <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                Chế độ Luyện tập (Practice Mode)
+              </p>
               <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-snug">
-                Xem đề bài, gợi ý tiếng Việt, chuyển câu tự do và nhận chấm chữa AI ngay sau mỗi câu.
+                Bật/ẩn đề bài, gợi ý tiếng Việt, chuyển lùi/tiến 15 câu tự do và chấm chữa AI ngay sau mỗi câu.
               </p>
             </div>
-          </div>
-        ) : (
-          <div className="flex items-start justify-between gap-3 p-3.5 rounded-2xl border bg-rose-50/70 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40">
-            <div className="flex items-start gap-3 min-w-0">
-              <div className="p-1.5 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex-shrink-0">
-                <Play className="w-4 h-4 text-rose-500" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Chế độ Thi Thử (Strict Exam)</p>
-                </div>
-                <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-snug">
-                  Ẩn câu hỏi, giới hạn 5s nghe lại 1 lần, không lùi câu và chấm tổng kết cuối bài.
-                </p>
-              </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStrictMode(true)}
+            className={`flex items-start gap-3 p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+              strictMode
+                ? 'border-rose-500 bg-rose-50/80 dark:bg-rose-950/30 ring-1 ring-rose-500 shadow-sm'
+                : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 opacity-75 hover:opacity-100'
+            }`}
+          >
+            <div className="p-1.5 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex-shrink-0">
+              <Play className="w-4 h-4 text-rose-500" />
             </div>
-          </div>
-        )}
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                Chế độ Thi Thử (Strict Exam)
+              </p>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-snug">
+                Ẩn câu hỏi, giới hạn 5s nghe lại 1 lần, khóa không lùi câu và chấm tổng kết cuối bài.
+              </p>
+            </div>
+          </button>
+        </div>
 
         {/* Loading Progress State */}
         {submitting && (

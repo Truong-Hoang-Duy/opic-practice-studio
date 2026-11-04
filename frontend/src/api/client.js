@@ -68,7 +68,13 @@ export const sessionApi = {
 export const questionApi = {
   get: (id) => api.get(`/questions/${id}`),
   getAudio: (id) => api.get(`/questions/${id}/audio`),
-  getModelAnswers: (id, level) => api.get(`/questions/${id}/model-answers${level ? `?level=${level}` : ''}`),
+  getModelAnswers: (id, level, regenerate = false) =>
+    api.get(`/questions/${id}/model-answers`, {
+      params: {
+        ...(level ? { level } : {}),
+        ...(regenerate ? { regenerate: true } : {}),
+      },
+    }),
 };
 
 export const answerApi = {

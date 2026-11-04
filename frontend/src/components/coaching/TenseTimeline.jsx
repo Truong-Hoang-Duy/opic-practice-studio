@@ -1,5 +1,6 @@
 import React from 'react';
 import { History, CheckCircle2, XCircle, AlertTriangle, ChevronDown } from 'lucide-react';
+import { SpeakButton } from '../SpeakButton';
 
 // Past -> blue, present -> green, future/hypothetical -> purple
 const TENSES = {
@@ -19,12 +20,23 @@ const SentenceRow = ({ t, isLast }) => {
       {!isLast && <span className="absolute left-[5px] top-4 bottom-0 w-px bg-slate-200 dark:bg-slate-700" aria-hidden="true" />}
       <span className={`relative mt-1.5 w-[11px] h-[11px] rounded-full shrink-0 ${style.dot} ring-2 ring-white dark:ring-slate-900`} />
       <div className="min-w-0 flex-1 flex flex-col gap-1">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${style.chip} ${style.text}`}>{style.label}</span>
-          {wrong ? (
-            <span className="flex items-center gap-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400"><XCircle className="w-3.5 h-3.5" />Sai thì</span>
-          ) : (
-            <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" />Đúng</span>
+        <div className="flex flex-wrap items-center justify-between gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${style.chip} ${style.text}`}>{style.label}</span>
+            {wrong ? (
+              <span className="flex items-center gap-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400"><XCircle className="w-3.5 h-3.5" />Sai thì</span>
+            ) : (
+              <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" />Đúng</span>
+            )}
+          </div>
+          {t.sentence && (
+            <SpeakButton
+              text={t.sentence}
+              id={`tense-sent-${t.sentence}`}
+              label="Nghe câu"
+              playingLabel="Đang phát"
+              title="Nghe phát âm câu này"
+            />
           )}
         </div>
         <p className={`text-xs leading-relaxed ${wrong ? 'text-rose-800 dark:text-rose-200 font-medium' : 'text-slate-800 dark:text-slate-200'}`}>"{t.sentence}"</p>

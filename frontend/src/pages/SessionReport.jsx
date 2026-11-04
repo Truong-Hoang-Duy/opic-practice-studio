@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { RadarChart } from '../components/RadarChart';
 import { ViTooltip } from '../components/Tooltip';
+import { SpeakButton } from '../components/SpeakButton';
 
 export const SessionReport = ({ sessionId, onReturnHome }) => {
   const [report, setReport] = useState(null);
@@ -281,7 +282,17 @@ export const SessionReport = ({ sessionId, onReturnHome }) => {
                   <tr key={idx} className="align-top hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                     <td className="py-2 px-3 font-mono font-bold text-brand-600 dark:text-brand-400">Q{row.question_num}</td>
                     <td className="py-2 px-3">
-                      <div className="font-semibold text-slate-900 dark:text-white">{row.topic}</div>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="font-semibold text-slate-900 dark:text-white">{row.topic}</div>
+                        {row.question_text && (
+                          <SpeakButton
+                            text={row.question_text}
+                            id={`report-q-${row.question_num}`}
+                            label="Nghe câu hỏi"
+                            playingLabel="Đang đọc"
+                          />
+                        )}
+                      </div>
                       {row.question_text && (
                         <p className="mt-0.5 text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">"{row.question_text}"</p>
                       )}

@@ -67,3 +67,40 @@ def test_playlist_builder_concatenates_segments(tmp_path, monkeypatch):
     data, sr = sf.read(os.path.join(str(tmp_path), "playlists", f"playlist_{key}.mp3"))
     expected = 2 + playlist_service.GAP_AFTER_QUESTION_SEC + playlist_service.GAP_BETWEEN_ITEMS_SEC
     assert abs(len(data) / sr - expected) < 0.3
+
+
+def test_library_returns_existing_answer_and_reuses_first_model_answers(client):
+    sid1, headers = _session_with_questions(client, "library_reuse@example.com")
+    lib1 = client.get("/api/library", headers=headers).json()
+    q2_s1 = lib1[0]["questions"][1]
+
+    # Submit an answer for Q2 in Session 1
+    ans_res = client.post("/api/answers", data={
+        "question_id": q2_s1["id"],
+        "session_id": sid1,
+        "duration_seconds": 65,
+        "transcript_raw": "I live in a bright apartment with my parents.",
+    }, headers=headers)
+    assert ans_res.status_code == 200
+
+    # Generate model answers for Q2 in Session 1
+    models_s1 = client.get(f"/api/questions/{q2_s1['id']}/model-answers", headers=headers).json()
+    assert len(models_s1) == 3
+
+    # Create a second session for the same user (shares Q1 self-intro and any matching questions)
+    sid2 = client.post("/api/sessions", json={"mode": "practice"}, headers=headers).json()["id"]
+    client.post(f"/api/sessions/{sid2}/survey", json={
+        "occupation": "Working professional", "student_status": "Graduated", "living_situation": "Apartment alone",
+        "leisure_activities": ["Going to cafes"], "hobbies": ["Cooking"], "sports": ["Jogging"], "travel": ["Domestic trips"]
+    }, headers=headers)
+    client.post(f"/api/sessions/{sid2}/topics", json={"topics": ["environment", "global_workplace", "communication_media"]}, headers=headers)
+    client.post(f"/api/sessions/{sid2}/self-assessment", json={"level": 5, "strict_mode": False, "use_ai": False}, headers=headers)
+
+    lib2 = client.get("/api/library", headers=headers).json()
+    s1_in_lib = next(s for s in lib2 if s["session_id"] == sid1)
+    assert s1_in_lib["questions"][1]["existing_answer"] is not None
+    assert s1_in_lib["questions"][1]["existing_answer"]["id"] == ans_res.json()["id"]
+
+    # Calling get_model_answers with regenerate=true replaces the model answers
+    regenerated = client.get(f"/api/questions/{q2_s1['id']}/model-answers?regenerate=true", headers=headers).json()
+    assert len(regenerated) == 3

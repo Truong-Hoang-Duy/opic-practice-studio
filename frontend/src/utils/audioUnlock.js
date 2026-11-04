@@ -100,7 +100,8 @@ export const endRecordingAudioSession = () => {
 
 const getBeepAudio = () => {
   if (!beepAudio && typeof Audio !== 'undefined') {
-    beepAudio = new Audio(BEEP_WAV);
+    // Prime with silence first so gesture unlocking can never accidentally emit a audible tone
+    beepAudio = new Audio(SILENT_WAV);
     beepAudio.preload = 'auto';
     beepAudio.playsInline = true;
   }
@@ -137,12 +138,15 @@ const playOscillatorBeep = () => {
   else start();
 };
 
-// Short 1 kHz tone on the Media channel (audible even when iPhone Silent switch is on)
+// Short 1 kHz tone on the Media channel, used ONLY right after the 2nd question reading before recording starts
 export const playBeep = () => {
   if (!isRecordingSession) setAudioSessionType('playback');
   const audio = getBeepAudio();
   if (audio) {
     try {
+      if (audio.src !== BEEP_WAV) {
+        audio.src = BEEP_WAV;
+      }
       audio.muted = false;
       audio.volume = 1;
       audio.currentTime = 0;
@@ -211,20 +215,17 @@ const unlockOnGesture = (event) => {
       });
   }
 
-  // Unlock the HTML5 beep element so the 1kHz signal plays on the iOS Media channel in silent mode
+  // Unlock the HTML5 beep element using SILENT_WAV so it never makes noise on random taps
   const bAudio = getBeepAudio();
   if (!beepUnlocked && bAudio && bAudio.paused) {
-    bAudio.muted = true;
+    bAudio.src = SILENT_WAV;
     bAudio.play()
       .then(() => {
         bAudio.pause();
         bAudio.currentTime = 0;
-        bAudio.muted = false;
         beepUnlocked = true;
       })
-      .catch(() => {
-        bAudio.muted = false;
-      });
+      .catch(() => {});
   }
 
   const ctx = getBeepContext();

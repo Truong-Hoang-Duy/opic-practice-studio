@@ -37,10 +37,12 @@ export const TestSession = ({
   const [replayUsed, setReplayUsed] = useState(false);
   const [autoStartRecord, setAutoStartRecord] = useState(false);
   const [sessionInfo, setSessionInfo] = useState(null);
+  const [devModeOverride, setDevModeOverride] = useState(null); // allows toggling Practice <-> Exam inside a DEV session
+  const [answeredOrders, setAnsweredOrders] = useState([]);
   const [coachingSkipped, setCoachingSkipped] = useState(false); // practice: coaching opened via "Next" without an answer
 
-  // The session's stored mode wins (e.g. when resuming); "exam" = strict exam mode
-  const effectiveMode = sessionInfo?.mode || sessionMode;
+  // The session's stored mode wins (e.g. when resuming); in DEV sessions the user can toggle mode on the fly
+  const effectiveMode = devModeOverride || sessionInfo?.mode || sessionMode;
   const isStrictExam = effectiveMode === 'exam';
 
   // Trap browser Back navigation in Exam Mode
@@ -68,6 +70,11 @@ export const TestSession = ({
     }
   }, [isStrictExam]);
 
+  const markOrderAnswered = (orderIdx) => {
+    if (!orderIdx) return;
+    setAnsweredOrders((prev) => (prev.includes(orderIdx) ? prev : [...prev, orderIdx].sort((a, b) => a - b)));
+  };
+
   // Jump to specific question in Practice Mode
   const handleJumpToQuestion = async (targetIndex) => {
     if (isStrictExam) return;
@@ -75,14 +82,22 @@ export const TestSession = ({
     setLoadingQuestion(true);
     setShowQuestionText(false);
     setShowGuide(false);
-    setLatestAnswer(null);
-    setIsAnswerCoachingOpen(false);
+    setCoachingSkipped(false);
     setReplayUsed(false);
     setAutoStartRecord(false);
 
     try {
       const res = await sessionApi.getQuestionByIndex(sessionId, targetIndex);
-      setCurrentQuestion(res.data);
+      const qData = res.data;
+      setCurrentQuestion(qData);
+      if (qData?.existing_answer) {
+        setLatestAnswer(qData.existing_answer);
+        setIsAnswerCoachingOpen(true);
+        markOrderAnswered(qData.order_index);
+      } else {
+        setLatestAnswer(null);
+        setIsAnswerCoachingOpen(false);
+      }
     } catch (err) {
       console.error("Failed to load question", err);
     } finally {
@@ -93,7 +108,12 @@ export const TestSession = ({
   useEffect(() => {
     if (sessionId) {
       sessionApi.getStatus(sessionId)
-        .then(res => setSessionInfo(res.data))
+        .then(res => {
+          setSessionInfo(res.data);
+          if (Array.isArray(res.data?.answered_orders)) {
+            setAnsweredOrders(res.data.answered_orders);
+          }
+        })
         .catch(err => console.warn("Failed to fetch session status", err));
     }
   }, [sessionId]);
@@ -104,13 +124,20 @@ export const TestSession = ({
     setShowQuestionText(false);
     setShowGuide(false);
     setLatestAnswer(null);
+    setCoachingSkipped(false);
     setIsAnswerCoachingOpen(false);
     setReplayUsed(false);
     setAutoStartRecord(false);
 
     try {
       const res = await sessionApi.getNextQuestion(sessionId, afterOrder);
-      setCurrentQuestion(res.data);
+      const qData = res.data;
+      setCurrentQuestion(qData);
+      if (!isStrictExam && qData?.existing_answer) {
+        setLatestAnswer(qData.existing_answer);
+        setIsAnswerCoachingOpen(true);
+        markOrderAnswered(qData.order_index);
+      }
     } catch (err) {
       if (err.response?.status === 409) {
         // Session setup was never completed (no questions generated)
@@ -149,6 +176,7 @@ export const TestSession = ({
       const res = await answerApi.submit(formData);
       setLatestAnswer(res.data);
       setCoachingSkipped(false);
+      markOrderAnswered(currentQuestion.order_index);
 
       if (!isStrictExam) {
         // In practice mode, open coaching review immediately
@@ -205,166 +233,217 @@ export const TestSession = ({
     );
   }
 
-  // If in practice mode and coaching screen is active
-  if (isAnswerCoachingOpen && currentQuestion && (latestAnswer || coachingSkipped)) {
-    return (
-      <AnswerCoaching
-        answerId={latestAnswer?.id || null}
-        answer={latestAnswer}
-        question={currentQuestion}
-        assessmentLevel={sessionInfo?.self_assessment_level || 4}
-        onNextQuestion={() => {
-          if (currentQuestion.order_index >= 15) {
-            sessionApi.finishSession(sessionId).then(onTestComplete);
-          } else {
-            fetchNext(currentQuestion.order_index);
-          }
-        }}
-        onRetryQuestion={() => {
-          setIsAnswerCoachingOpen(false);
-          setLatestAnswer(null);
-          setCoachingSkipped(false);
-          setAutoStartRecord(false);
-        }}
-      />
-    );
-  }
-
   const qIndex = currentQuestion?.order_index || 1;
-
-  return (
-    <div className="w-full max-w-6xl px-4 sm:px-6 py-4 flex flex-col gap-4 my-auto">
-      
-      {/* Top Progress & Mode Header */}
-      <div className="glass-panel bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 sm:p-4 border border-slate-200 dark:border-slate-800 flex flex-wrap lg:flex-nowrap items-center justify-between gap-x-3 gap-y-3 shadow-sm">
-        <div className="basis-full sm:basis-auto flex items-center gap-3 min-w-0">
-          <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center font-bold text-sm text-brand-600 dark:text-brand-400">
-            {qIndex}
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-sm font-bold text-slate-900 dark:text-white whitespace-nowrap">Question {qIndex} of 15</span>
-              <span className="truncate text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
-                {currentQuestion?.topic}
+  const topProgressHeader = (
+    <div className="glass-panel bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 sm:p-4 border border-slate-200 dark:border-slate-800 flex flex-wrap lg:flex-nowrap items-center justify-between gap-x-3 gap-y-3 shadow-sm">
+      <div className="basis-full sm:basis-auto flex items-center gap-3 min-w-0">
+        <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center font-bold text-sm text-brand-600 dark:text-brand-400">
+          {qIndex}
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-sm font-bold text-slate-900 dark:text-white whitespace-nowrap">Question {qIndex} of 15</span>
+            <span className="truncate text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+              {currentQuestion?.topic}
+            </span>
+            {!isStrictExam && answeredOrders.includes(qIndex) && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                <CheckCircle className="w-3 h-3" />
+                Đã hoàn thành
               </span>
-            </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 capitalize">Type: {currentQuestion?.question_type?.replace(/_/g, ' ')}</p>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 capitalize">Type: {currentQuestion?.question_type?.replace(/_/g, ' ')}</p>
+        </div>
+      </div>
+
+      {/* Center: Navigation Controls (Locked in Exam, Free in Practice) */}
+      {!isStrictExam ? (
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+          {/* Arrow Navigation buttons */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/90 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700">
+            <button
+              onClick={() => handleJumpToQuestion(qIndex - 1)}
+              disabled={qIndex <= 1}
+              className={`px-2.5 py-1 rounded-lg flex items-center gap-1 text-xs font-semibold transition-all ${
+                qIndex > 1
+                  ? 'text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 cursor-pointer shadow-xs'
+                  : 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
+              }`}
+              title="Lùi về câu trước"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span className="text-[11px]">Câu trước</span>
+            </button>
+
+            <div className="w-[1px] h-3.5 bg-slate-300 dark:bg-slate-700" />
+
+            <button
+              onClick={() => handleJumpToQuestion(qIndex + 1)}
+              disabled={qIndex >= 15}
+              className={`px-2.5 py-1 rounded-lg flex items-center gap-1 text-xs font-semibold transition-all ${
+                qIndex < 15
+                  ? 'text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 cursor-pointer shadow-xs'
+                  : 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
+              }`}
+              title="Tiến tới câu sau"
+            >
+              <span className="text-[11px]">Câu sau</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Clickable Progress Dots in Practice Mode */}
+          <div className="flex items-center gap-1.5">
+            {[...Array(15)].map((_, i) => {
+              const dotIdx = i + 1;
+              const isDone = answeredOrders.includes(dotIdx);
+              return (
+                <button
+                  key={i}
+                  onClick={() => handleJumpToQuestion(dotIdx)}
+                  title={`Câu ${dotIdx}${isDone ? ' (Đã hoàn thành — bấm để xem lại)' : ''}`}
+                  className={`w-2.5 h-2.5 rounded-full transition-all cursor-pointer hover:scale-135 ${
+                    dotIdx === qIndex
+                      ? 'bg-brand-500 ring-2 ring-brand-500/30 scale-125'
+                      : isDone
+                      ? 'bg-emerald-500 dark:bg-emerald-400'
+                      : 'bg-slate-200 dark:bg-slate-800'
+                  }`}
+                />
+              );
+            })}
           </div>
         </div>
-
-        {/* Center: Navigation Controls (Locked in Exam, Free in Practice) */}
-        {!isStrictExam ? (
-          <div className="flex items-center gap-3">
-            {/* Arrow Navigation buttons */}
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/90 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700">
-              <button
-                onClick={() => handleJumpToQuestion(qIndex - 1)}
-                disabled={qIndex <= 1}
-                className={`px-2.5 py-1 rounded-lg flex items-center gap-1 text-xs font-semibold transition-all ${
-                  qIndex > 1
-                    ? 'text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 cursor-pointer shadow-xs'
-                    : 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
-                }`}
-                title="Lùi về câu trước"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-                <span className="hidden md:inline text-[11px]">Câu trước</span>
-              </button>
-
-              <div className="w-[1px] h-3.5 bg-slate-300 dark:bg-slate-700" />
-
-              <button
-                onClick={() => handleJumpToQuestion(qIndex + 1)}
-                disabled={qIndex >= 15}
-                className={`px-2.5 py-1 rounded-lg flex items-center gap-1 text-xs font-semibold transition-all ${
-                  qIndex < 15
-                    ? 'text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 cursor-pointer shadow-xs'
-                    : 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
-                }`}
-                title="Tiến tới câu sau"
-              >
-                <span className="hidden md:inline text-[11px]">Câu sau</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {/* Clickable Progress Dots in Practice Mode */}
-            <div className="hidden sm:flex items-center gap-1.5">
-              {[...Array(15)].map((_, i) => {
-                const dotIdx = i + 1;
-                return (
-                  <button
-                    key={i}
-                    onClick={() => handleJumpToQuestion(dotIdx)}
-                    title={`Chuyển tới Câu ${dotIdx}`}
-                    className={`w-2.5 h-2.5 rounded-full transition-all cursor-pointer hover:scale-135 ${
-                      dotIdx < qIndex
-                        ? 'bg-emerald-500 dark:bg-emerald-400'
-                        : dotIdx === qIndex
-                        ? 'bg-brand-500 ring-2 ring-brand-500/30 scale-125'
-                        : 'bg-slate-200 dark:bg-slate-800'
-                    }`}
-                  />
-                );
-              })}
-            </div>
+      ) : (
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-semibold px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20" title="Quy chế thi OPIc: Không được lùi lại câu hỏi trước">
+            <Lock className="w-3 h-3" />
+            <span className="hidden md:inline">Không lùi câu</span>
           </div>
+
+          {/* Read-only Progress Dots in Exam Mode */}
+          <div className="hidden sm:flex items-center gap-1.5">
+            {[...Array(15)].map((_, i) => {
+              const dotIdx = i + 1;
+              return (
+                <div
+                  key={i}
+                  title={`Câu ${dotIdx} / 15`}
+                  className={`w-2.5 h-2.5 rounded-full transition-all ${
+                    dotIdx < qIndex
+                      ? 'bg-emerald-500 dark:bg-emerald-400'
+                      : dotIdx === qIndex
+                      ? 'bg-brand-500 ring-2 ring-brand-500/30 scale-125'
+                      : 'bg-slate-200 dark:bg-slate-800'
+                  }`}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Mode Tag */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {sessionInfo?.dev_mock ? (
+          <button
+            type="button"
+            onClick={() => setDevModeOverride(isStrictExam ? 'practice' : 'exam')}
+            title="Phiên DEV: Bấm để chuyển đổi nhanh giữa Practice Mode (bật/chuyển câu tự do) và Strict Exam (khóa lùi câu)"
+            className={`text-xs font-semibold px-2.5 py-1 rounded-lg border whitespace-nowrap cursor-pointer transition-all ${
+              isStrictExam
+                ? 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/20'
+                : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+            }`}
+          >
+            {isStrictExam ? 'Strict Exam · DEV (Bấm đổi sang Practice)' : 'Practice Mode · DEV'}
+          </button>
         ) : (
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-semibold px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20" title="Quy chế thi OPIc: Không được lùi lại câu hỏi trước">
-              <Lock className="w-3 h-3" />
-              <span className="hidden md:inline">Không lùi câu</span>
-            </div>
-
-            {/* Read-only Progress Dots in Exam Mode */}
-            <div className="hidden sm:flex items-center gap-1.5">
-              {[...Array(15)].map((_, i) => {
-                const dotIdx = i + 1;
-                return (
-                  <div
-                    key={i}
-                    title={`Câu ${dotIdx} / 15`}
-                    className={`w-2.5 h-2.5 rounded-full transition-all ${
-                      dotIdx < qIndex
-                        ? 'bg-emerald-500 dark:bg-emerald-400'
-                        : dotIdx === qIndex
-                        ? 'bg-brand-500 ring-2 ring-brand-500/30 scale-125'
-                        : 'bg-slate-200 dark:bg-slate-800'
-                    }`}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Mode Tag */}
-        <div className="flex items-center gap-2 flex-shrink-0">
           <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg border capitalize whitespace-nowrap ${
             isStrictExam
               ? 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20'
               : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
           }`}>
-            {isStrictExam ? 'Strict Exam' : 'Practice Mode'}{sessionInfo?.dev_mock ? ' · DEV' : ''}
+            {isStrictExam ? 'Strict Exam' : 'Practice Mode'}
           </span>
-          {onExit && (
-            <button
-              onClick={() => {
-                const message = isStrictExam
-                  ? "Tạm dừng bài thi? Các câu đã làm được lưu lại, bạn có thể tiếp tục từ câu hiện tại trong Dashboard / History."
-                  : "Bạn có chắc chắn muốn tạm dừng bài thi và quay lại Dashboard?";
-                if (window.confirm(message)) {
-                  onExit();
-                }
-              }}
-              className="text-xs font-medium px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
-              title="Quay lại Dashboard"
-            >
-              Thoát
-            </button>
-          )}
-        </div>
+        )}
+        {onExit && (
+          <button
+            onClick={() => {
+              const message = isStrictExam
+                ? "Tạm dừng bài thi? Các câu đã làm được lưu lại, bạn có thể tiếp tục từ câu hiện tại trong Dashboard / History."
+                : "Bạn có chắc chắn muốn tạm dừng bài thi và quay lại Dashboard?";
+              if (window.confirm(message)) {
+                onExit();
+              }
+            }}
+            className="text-xs font-medium px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+            title="Quay lại Dashboard"
+          >
+            Thoát
+          </button>
+        )}
       </div>
+    </div>
+  );
+
+  // If in practice mode and coaching screen is active
+  if (isAnswerCoachingOpen && currentQuestion && (latestAnswer || coachingSkipped)) {
+    return (
+      <div className="w-full max-w-6xl px-4 sm:px-6 py-4 flex flex-col gap-2 my-auto">
+        {topProgressHeader}
+        <AnswerCoaching
+          answerId={latestAnswer?.id || null}
+          answer={latestAnswer}
+          question={currentQuestion}
+          assessmentLevel={sessionInfo?.self_assessment_level || 4}
+          nextLabel={currentQuestion.order_index >= 15 ? 'Hoàn thành bài luyện tập' : 'Sang câu tiếp theo'}
+          onTranscriptEdited={(newText) =>
+            setLatestAnswer((prev) => (prev ? { ...prev, transcript_edited: newText } : prev))
+          }
+          onNextQuestion={() => {
+            if (currentQuestion.order_index >= 15) {
+              sessionApi.finishSession(sessionId).then(onTestComplete);
+            } else {
+              handleJumpToQuestion(currentQuestion.order_index + 1);
+            }
+          }}
+          onRetryQuestion={() => {
+            setIsAnswerCoachingOpen(false);
+            setCoachingSkipped(false);
+            setReplayUsed(false);
+            setAutoStartRecord(false);
+          }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full max-w-6xl px-4 sm:px-6 py-4 flex flex-col gap-4 my-auto">
+      
+      {/* Top Progress & Mode Header */}
+      {topProgressHeader}
+
+      {/* Banner when re-recording a previously answered question */}
+      {!isStrictExam && latestAnswer && (
+        <div className="rounded-xl px-4 py-2.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-200">
+            <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>
+              Bạn đang ở chế độ <strong>Ghi âm lại</strong> cho Câu {qIndex}. Bản ghi và điểm chấm trước đó vẫn được giữ nguyên cho đến khi bạn lưu lần thu mới.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsAnswerCoachingOpen(true)}
+            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors cursor-pointer shrink-0"
+          >
+            Xem lại kết quả đã làm →
+          </button>
+        </div>
+      )}
 
       {/* Main Grid: 2 Equal-Height Columns (5 : 7 split on md+) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 items-stretch">

@@ -2,6 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
+from app.models.session import TestSession
 from app.models.question import Question, ModelAnswer
 from app.schemas.question import QuestionResponse, ModelAnswerResponse
 from app.core.security import get_current_user
@@ -32,17 +33,74 @@ def get_question_audio(question_id: int, db: Session = Depends(get_db)):
 
     return {"audio_url": q.audio_path}
 
+def inherit_first_model_answers(db: Session, q: Question) -> List[ModelAnswer]:
+    """
+    If an earlier question with the same text already has AI-generated model answers,
+    clone that first set onto `q` so the learner studies one consistent model outline across tests.
+    """
+    norm_text = (q.question_text or "").strip()
+    if not norm_text:
+        return []
+
+    donor_query = (
+        db.query(Question)
+        .join(ModelAnswer, ModelAnswer.question_id == Question.id)
+        .filter(Question.question_text == norm_text, Question.id != q.id)
+    )
+    if q.session and q.session.user_id:
+        donor_query = donor_query.join(TestSession, Question.session_id == TestSession.id).filter(
+            TestSession.user_id == q.session.user_id
+        )
+    donor_q = donor_query.order_by(Question.id.asc()).first()
+    if not donor_q:
+        return []
+
+    donor_models = (
+        db.query(ModelAnswer)
+        .filter(ModelAnswer.question_id == donor_q.id)
+        .order_by(ModelAnswer.id.asc())
+        .all()
+    )
+    if not donor_models:
+        return []
+
+    cloned: List[ModelAnswer] = []
+    for dm in donor_models:
+        audio_url = cached_speech_url(dm.text) or dm.audio_path
+        obj = ModelAnswer(
+            question_id=q.id,
+            level=dm.level,
+            text=dm.text,
+            rationale=dm.rationale,
+            audio_path=audio_url,
+            sentences=dm.sentences or [dm.text],
+        )
+        db.add(obj)
+        cloned.append(obj)
+    db.commit()
+    return db.query(ModelAnswer).filter(ModelAnswer.question_id == q.id).all()
+
+
 @router.get("/{question_id}/model-answers", response_model=List[ModelAnswerResponse])
 def get_model_answers(
     question_id: int,
     level: Optional[str] = Query(None, description="Optional filter by level (IL, IM, IH)"),
+    regenerate: bool = Query(False, description="When True, replaces existing model answers with a newly generated AI set"),
     db: Session = Depends(get_db)
 ):
     q = db.query(Question).filter(Question.id == question_id).first()
     if not q:
         raise HTTPException(status_code=404, detail="Question not found.")
 
-    existing_models = db.query(ModelAnswer).filter(ModelAnswer.question_id == q.id).all()
+    if regenerate:
+        db.query(ModelAnswer).filter(ModelAnswer.question_id == q.id).delete()
+        db.commit()
+        existing_models = []
+    else:
+        existing_models = db.query(ModelAnswer).filter(ModelAnswer.question_id == q.id).all()
+        if not existing_models:
+            existing_models = inherit_first_model_answers(db, q)
+
     if not existing_models:
         # Generate 3 model answers via LLM
         data, _, _, _ = generate_model_answers_llm(

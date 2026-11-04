@@ -5,6 +5,7 @@ import {
 import { dailyApi, formatApiError, recordingFileName } from '../api/client';
 import { EvaAvatar } from '../components/EvaAvatar';
 import { AudioRecorder } from '../components/AudioRecorder';
+import { SpeakButton } from '../components/SpeakButton';
 import { useResetCountdown, formatCountdown, WeekDots } from '../components/DailyChallengeCard';
 
 const SHOW_MOCK_OPTION = import.meta.env.DEV;
@@ -109,9 +110,18 @@ export const QuickFeedback = ({ workout, onRegrade, regrading }) => {
             </ul>
           )}
           {tense.example_fix && (
-            <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 rounded-lg p-2 leading-relaxed">
-              ✓ {tense.example_fix}
-            </p>
+            <div className="flex flex-col gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 rounded-lg p-2.5 leading-relaxed">
+              <div className="flex items-center justify-between gap-2">
+                <span>✓ Câu mẫu đúng thì:</span>
+                <SpeakButton
+                  text={tense.example_fix}
+                  id="daily-tense-fix"
+                  label="Nghe câu đúng"
+                  playingLabel="Đang phát"
+                />
+              </div>
+              <p>"{tense.example_fix}"</p>
+            </div>
           )}
         </Pillar>
 
@@ -141,9 +151,16 @@ export const QuickFeedback = ({ workout, onRegrade, regrading }) => {
             <span>{tip.tip_vi}</span>
           </p>
           {tip.example && (
-            <p className="text-xs italic text-slate-700 dark:text-slate-300 bg-white/70 dark:bg-slate-950/50 rounded-lg p-2 leading-relaxed border border-amber-200/70 dark:border-amber-500/20">
-              "{tip.example}"
-            </p>
+            <div className="flex flex-col gap-1.5 text-xs italic text-slate-700 dark:text-slate-300 bg-white/70 dark:bg-slate-950/50 rounded-lg p-2.5 leading-relaxed border border-amber-200/70 dark:border-amber-500/20">
+              <p>"{tip.example}"</p>
+              <SpeakButton
+                variant="chip"
+                text={tip.example}
+                id="daily-tip-example"
+                label="Nghe câu mẫu"
+                className="self-start not-italic"
+              />
+            </div>
           )}
         </Pillar>
       </div>
@@ -243,12 +260,9 @@ export const DailyWorkout = ({ onBack }) => {
     return () => clearTimeout(t);
   }, [phase, prepLeft, evaSpeaking]);
 
-  // First reading finished -> preparation; second reading (replay) finished -> auto-start recording immediately
+  // First reading finished -> preparation; second reading (replay) finished -> handled by onSecondReadEnded
   const handleEvaEnded = ({ isReplay } = {}) => {
-    if (isReplay) {
-      setPhase('recording');
-      return;
-    }
+    if (isReplay) return;
     if (phaseRef.current === 'listening' || phaseRef.current === 'prep') {
       setPrepLeft(prepSeconds);
       setPhase('prep');
@@ -350,12 +364,32 @@ export const DailyWorkout = ({ onBack }) => {
           </div>
 
           {(phase === 'listening' || phase === 'prep') && (
-            <EvaAvatar key={`${workout.id}-${attemptKey}`} audioUrl={workout.audio_path} text={workout.question_text} autoPlay maxReplays={1} onAudioEnded={handleEvaEnded} onPlayingChange={setEvaSpeaking} />
+            <EvaAvatar
+              key={`${workout.id}-${attemptKey}`}
+              audioUrl={workout.audio_path}
+              text={workout.question_text}
+              autoPlay
+              maxReplays={1}
+              onAudioEnded={handleEvaEnded}
+              onSecondReadEnded={() => setPhase('recording')}
+              onPlayingChange={setEvaSpeaking}
+            />
           )}
 
           {phase === 'result' ? (
             <>
-              <p className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white leading-relaxed">"{workout.question_text}"</p>
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5">
+                <p className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white leading-relaxed flex-1">"{workout.question_text}"</p>
+                <SpeakButton
+                  variant="question"
+                  text={workout.question_text}
+                  audioUrl={workout.audio_path}
+                  id={`daily-question-${workout.id}`}
+                  label="Nghe lại câu hỏi"
+                  playingLabel="Đang đọc câu hỏi"
+                  className="self-start shrink-0"
+                />
+              </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-400">Thì trọng tâm: <span className="font-semibold">{workout.focus_label_vi}</span></p>
             </>
           ) : (

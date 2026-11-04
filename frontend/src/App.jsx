@@ -3,6 +3,7 @@ import { useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { RubricGuideModal } from './components/RubricGuideModal';
+import { ScrollToTopButton, scrollPageToTop } from './components/ScrollToTopButton';
 
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
@@ -63,6 +64,7 @@ export const App = () => {
 
   useEffect(() => {
     sessionStorage.setItem('opic_active_tab', currentTab);
+    scrollPageToTop('instant');
   }, [currentTab]);
 
   const isCreatingSessionRef = useRef(false);
@@ -300,6 +302,9 @@ export const App = () => {
 
       {/* Footer with ACTFL/LTI non-affiliation disclaimer (Hidden in Test Mode) */}
       {!isExamScreen && <Footer />}
+
+      {/* Floating Scroll-to-Top button when scrolling long pages */}
+      <ScrollToTopButton hasBottomNav={!isExamScreen} />
 
       {/* Rubric Guide Modal */}
       <RubricGuideModal
