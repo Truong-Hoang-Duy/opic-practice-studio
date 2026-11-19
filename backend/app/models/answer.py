@@ -39,6 +39,8 @@ class AnswerVersion(Base):
     duration_seconds = Column(Float, nullable=True)
     # Speech flow analysis of this take's audio (WPM, pauses, fillers); None for typed/rewritten text
     speech_metrics = Column(JSON, nullable=True)
+    # Cached AI rewrite payload so revisiting Tab 2 does not regenerate unless requested
+    rewrite_result = Column(JSON, nullable=True)
 
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 

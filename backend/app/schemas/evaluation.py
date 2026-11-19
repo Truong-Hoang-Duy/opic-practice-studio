@@ -59,6 +59,7 @@ class EvaluationResponse(BaseModel):
 class RewriteRequest(BaseModel):
     answer_version_id: Optional[int] = None
     target_level: Optional[str] = None
+    regenerate: bool = False
 
 class DiffChunk(BaseModel):
     type: str # "equal", "delete", "insert"

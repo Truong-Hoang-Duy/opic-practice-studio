@@ -269,6 +269,16 @@ def rewrite_answer(
     if not ver:
         raise HTTPException(status_code=404, detail="Target answer version not found.")
 
+    # Return saved rewrite from DB unless the user explicitly requested regeneration
+    if ver.rewrite_result and not req.regenerate:
+        saved = dict(ver.rewrite_result)
+        saved_improved = saved.get("improved_text", "")
+        audio_url = cached_speech_url(saved_improved)
+        if not audio_url and saved_improved:
+            prefetch_speech([saved_improved])
+        saved["audio_path"] = audio_url
+        return RewriteResponse(**saved)
+
     # Determine current level from evaluation if exists
     current_lvl = "IM"
     if ver.evaluations:
@@ -294,6 +304,20 @@ def rewrite_answer(
     if not audio_url and improved_text:
         prefetch_speech([improved_text])
 
+    payload = {
+        "original_text": ver.transcript,
+        "improved_text": improved_text,
+        "current_level": current_lvl,
+        "target_level": target_lvl,
+        "changes_explanation": data.get("changes_explanation", ""),
+        "vietnamese_coaching_notes": data.get("vietnamese_coaching_notes", ""),
+        "diff_chunks": [c.model_dump() for c in diff_chunks],
+        "key_expressions_added": data.get("key_expressions_added", []),
+        "audio_path": audio_url,
+        "sentences": sentences,
+    }
+    ver.rewrite_result = payload
+
     # Log LLM
     llm_log = LLMUsageLog(
         session_id=answer.session_id,
@@ -307,18 +331,7 @@ def rewrite_answer(
     db.add(llm_log)
     db.commit()
 
-    return RewriteResponse(
-        original_text=ver.transcript,
-        improved_text=improved_text,
-        current_level=current_lvl,
-        target_level=target_lvl,
-        changes_explanation=data.get("changes_explanation", ""),
-        vietnamese_coaching_notes=data.get("vietnamese_coaching_notes", ""),
-        diff_chunks=diff_chunks,
-        key_expressions_added=data.get("key_expressions_added", []),
-        audio_path=audio_url,
-        sentences=sentences
-    )
+    return RewriteResponse(**payload)
 
 @router.post("/{answer_id}/accept-rewrite", response_model=AnswerVersionResponse)
 def accept_rewrite(

@@ -212,7 +212,7 @@ export const AnswerCoaching = ({
     }
   };
 
-  const fetchRewriteIfNeeded = async (force = false) => {
+  const fetchRewriteIfNeeded = async (force = false, regenerate = false) => {
     if (hideScoring || !activeTranscript.trim()) return;
     if (rewriteData && !force) return;
     if (rewriting) return;
@@ -230,6 +230,7 @@ export const AnswerCoaching = ({
       const res = await answerApi.rewrite(answerId, {
         answer_version_id: versionId,
         target_level: targetUpgrade,
+        regenerate,
       });
       setRewriteData(res.data);
     } catch (err) {
@@ -238,6 +239,15 @@ export const AnswerCoaching = ({
     } finally {
       setRewriting(false);
     }
+  };
+
+  const handleRegenerateRewrite = () => {
+    if (rewriting) return;
+    const confirmed = window.confirm(
+      'Bản nâng cấp này đã được lưu trong hệ thống.\n\nBạn có muốn AI tạo lại bản nâng cấp mới không?\n• Bấm Hủy: Giữ lại bản hiện tại.\n• Bấm OK: Tạo một bản nâng cấp mới.'
+    );
+    if (!confirmed) return;
+    fetchRewriteIfNeeded(true, true);
   };
 
   const handleSelectRewriteTab = () => {
@@ -661,9 +671,9 @@ export const AnswerCoaching = ({
                         key={idx}
                         className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800/80 flex flex-col gap-1.5 text-xs"
                       >
-                        <div className="flex items-start justify-between gap-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                           <span
-                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                            className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border leading-snug max-w-full ${
                               item.type === 'vietlish'
                                 ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/30'
                                 : 'bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-500/30'
@@ -678,6 +688,7 @@ export const AnswerCoaching = ({
                             label="Nghe câu đúng"
                             playingLabel="Đang phát"
                             title="Nghe cách nói đúng"
+                            className="shrink-0 ml-auto"
                           />
                         </div>
 
@@ -771,6 +782,8 @@ export const AnswerCoaching = ({
             <DiffViewer
               rewriteData={rewriteData}
               onPracticeAgain={onRetryQuestion}
+              onRegenerate={handleRegenerateRewrite}
+              regenerating={rewriting}
             />
           ) : null}
         </div>

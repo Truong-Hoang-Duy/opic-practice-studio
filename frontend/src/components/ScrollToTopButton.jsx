@@ -38,14 +38,10 @@ export const ScrollToTopButton = ({ hasBottomNav = true }) => {
       onClick={() => scrollPageToTop('smooth')}
       title="Lên đầu trang"
       aria-label="Lên đầu trang"
-      className={`fixed left-4 sm:left-6 z-40 flex items-center gap-1.5 px-3 py-2.5 sm:p-3 rounded-full bg-brand-600/95 hover:bg-brand-500 text-white shadow-lg shadow-brand-600/30 border border-white/20 backdrop-blur-md transition-all transform active:scale-95 cursor-pointer ${
-        hasBottomNav
-          ? 'bottom-[calc(4.75rem+env(safe-area-inset-bottom))] md:bottom-6'
-          : 'bottom-[calc(1.25rem+env(safe-area-inset-bottom))] md:bottom-6'
-      }`}
+      className="fixed top-[4.5rem] right-3 md:top-auto md:right-auto md:left-6 md:bottom-6 z-40 flex items-center gap-1 px-2.5 py-1.5 md:p-3 rounded-full bg-brand-600/95 hover:bg-brand-500 text-white shadow-lg shadow-brand-600/30 border border-white/20 backdrop-blur-md transition-all transform active:scale-95 cursor-pointer"
     >
-      <ArrowUp className="w-4 h-4 stroke-[2.5]" />
-      <span className="text-xs font-bold sm:hidden">Lên đầu</span>
+      <ArrowUp className="w-3.5 h-3.5 md:w-4 md:h-4 stroke-[2.5]" />
+      <span className="text-[11px] font-bold md:hidden">Lên đầu</span>
     </button>
   );
 };

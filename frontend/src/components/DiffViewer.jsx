@@ -36,6 +36,8 @@ const HighlightedSentence = ({ text, expressions = [] }) => {
 export const DiffViewer = ({
   rewriteData,
   onPracticeAgain,
+  onRegenerate,
+  regenerating = false,
 }) => {
   if (!rewriteData) return null;
 
@@ -118,8 +120,20 @@ export const DiffViewer = ({
           </p>
         </div>
 
-        {/* Audio Player & Speed */}
-        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+        {/* Audio Player, Speed & Regenerate */}
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
+          {onRegenerate && (
+            <button
+              type="button"
+              onClick={onRegenerate}
+              disabled={regenerating}
+              title="Tạo lại bản nâng cấp mới"
+              className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-white dark:bg-slate-900 hover:bg-amber-50 dark:hover:bg-amber-500/15 text-slate-700 dark:text-slate-200 hover:text-amber-700 border border-slate-300 dark:border-slate-700 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <RotateCcw className={`w-3.5 h-3.5 ${regenerating ? 'animate-spin' : ''}`} />
+              <span>Tạo lại</span>
+            </button>
+          )}
           <div className="flex items-center bg-slate-100 dark:bg-slate-950 rounded-lg p-0.5 border border-slate-200 dark:border-slate-800 text-xs">
             {[0.85, 1.0].map((s) => (
               <button
