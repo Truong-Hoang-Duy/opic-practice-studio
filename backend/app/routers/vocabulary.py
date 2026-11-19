@@ -9,8 +9,16 @@ from app.models.user import User
 from app.models.vocabulary import UserVocabulary
 from app.core.security import get_current_user
 from app.core.vocab_meta import VOCAB_TOPICS, VOCAB_KINDS, VOCAB_STATUSES, normalize_kind, normalize_topic
-from app.schemas.vocabulary import VocabularyCreate, VocabularyUpdate, VocabularyResponse, SpeakRequest
+from app.schemas.vocabulary import (
+    VocabularyCreate,
+    VocabularyUpdate,
+    VocabularyResponse,
+    SpeakRequest,
+    TranslateRequest,
+    TranslateResponse,
+)
 from app.services.tts_service import synthesize_speech
+from app.services.llm_service import translate_text_llm
 
 router = APIRouter(prefix="/vocabulary", tags=["Vocabulary Notebook"])
 
@@ -118,3 +126,14 @@ async def speak_phrase(req: SpeakRequest, current_user: User = Depends(get_curre
     """Eva's pronunciation of a phrase/example (cached). url is null when server audio is off -> browser speech."""
     url = await run_in_threadpool(synthesize_speech, req.text.strip())
     return {"url": url}
+
+
+@router.post("/translate", response_model=TranslateResponse)
+async def translate_phrase(req: TranslateRequest, current_user: User = Depends(get_current_user)):
+    """Instant English-to-Vietnamese word/phrase or sentence translation with contextual note."""
+    return await run_in_threadpool(
+        translate_text_llm,
+        req.text.strip(),
+        req.context_sentence or "",
+        req.mode,
+    )

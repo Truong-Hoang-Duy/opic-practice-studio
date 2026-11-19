@@ -6,6 +6,7 @@ import { dailyApi, formatApiError, recordingFileName } from '../api/client';
 import { EvaAvatar } from '../components/EvaAvatar';
 import { AudioRecorder } from '../components/AudioRecorder';
 import { SpeakButton } from '../components/SpeakButton';
+import { TranslatableText } from '../components/TranslatableText';
 import { useResetCountdown, formatCountdown, WeekDots } from '../components/DailyChallengeCard';
 
 const SHOW_MOCK_OPTION = import.meta.env.DEV;
@@ -379,7 +380,13 @@ export const DailyWorkout = ({ onBack }) => {
           {phase === 'result' ? (
             <>
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5">
-                <p className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white leading-relaxed flex-1">"{workout.question_text}"</p>
+                <div className="flex-1 min-w-0">
+                  <TranslatableText
+                    text={workout.question_text}
+                    className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white leading-relaxed"
+                    controlsAlign="start"
+                  />
+                </div>
                 <SpeakButton
                   variant="question"
                   text={workout.question_text}

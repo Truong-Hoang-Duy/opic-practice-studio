@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Volume2, Loader2, Square } from 'lucide-react';
-import { speakPhrase, useSpeakingState } from '../utils/speakPhrase';
+import { speakPhrase, prefetchPhrase, useSpeakingState } from '../utils/speakPhrase';
 
 // Animated 4-bar equalizer sound wave matching Eva's speaking state
 export const SoundWaveMini = ({ light = false }) => (
@@ -45,6 +45,12 @@ export const SpeakButton = ({
     ((id && speaking.id === id) || (!id && speaking.id === targetId));
   const isLoading = isThisActive && speaking.status === 'loading';
   const isPlaying = isThisActive && speaking.status === 'playing';
+
+  useEffect(() => {
+    if (!audioUrl && cleanText && cleanText.length <= 300) {
+      prefetchPhrase(cleanText);
+    }
+  }, [audioUrl, cleanText]);
 
   const handleClick = (e) => {
     if (onClick) onClick(e);

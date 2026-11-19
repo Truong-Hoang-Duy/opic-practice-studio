@@ -36,3 +36,19 @@ class VocabularyResponse(BaseModel):
 
 class SpeakRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2500)
+
+
+class TranslateRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=2500)
+    context_sentence: Optional[str] = Field(None, max_length=2500)
+    mode: str = Field("word", pattern="^(word|sentence)$")
+
+
+class TranslateResponse(BaseModel):
+    text: str
+    mode: str
+    translation_vi: str
+    ipa: str = ""
+    part_of_speech: str = ""
+    context_note_vi: str = ""
+    other_meanings_vi: str = ""

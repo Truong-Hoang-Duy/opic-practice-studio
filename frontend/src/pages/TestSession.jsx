@@ -19,6 +19,7 @@ import {
 import { EvaAvatar } from '../components/EvaAvatar';
 import { AudioRecorder } from '../components/AudioRecorder';
 import { ViTooltip } from '../components/Tooltip';
+import { TranslatableText } from '../components/TranslatableText';
 import { AnswerCoaching } from './AnswerCoaching';
 
 export const TestSession = ({
@@ -503,11 +504,17 @@ export const TestSession = ({
               </div>
 
               {/* Pre-allocated fixed height box: strictly locked at 115px with flex-shrink-0 */}
-              <div className="w-full h-[115px] min-h-[115px] max-h-[115px] flex-shrink-0 p-3 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800/80 flex items-center justify-center overflow-y-auto">
+              <div className="w-full min-h-[115px] max-h-[210px] flex-shrink-0 p-3 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800/80 flex items-center justify-center overflow-y-auto">
                 {showQuestionText ? (
-                  <p className="text-xs sm:text-[13px] text-slate-800 dark:text-slate-200 leading-relaxed font-medium text-center w-full my-auto">
-                    "{currentQuestion?.question_text}"
-                  </p>
+                  <div className="w-full my-auto">
+                    <TranslatableText
+                      text={currentQuestion?.question_text}
+                      className="text-xs sm:text-[13px] text-slate-800 dark:text-slate-200 leading-relaxed font-medium text-center"
+                      topic={currentQuestion?.category || 'general'}
+                      sourceQuestionId={currentQuestion?.id}
+                      showControls={!isStrictExam}
+                    />
+                  </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center gap-1.5 text-slate-400 dark:text-slate-500 text-center py-1 select-none">
                     <EyeOff className="w-4 h-4 opacity-70" />

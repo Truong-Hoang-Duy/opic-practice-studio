@@ -153,3 +153,12 @@ def get_generate_guides_prompt(questions_json: str, level: int, base_difficulty:
         LEVEL=level,
         BASE_DIFFICULTY=base_difficulty
     )
+
+
+def get_translate_prompt(text: str, context_sentence: str = "", mode: str = "word") -> str:
+    template = load_template("translate.txt")
+    return template.format(
+        MODE=mode,
+        TEXT=text.strip(),
+        CONTEXT_SENTENCE=(context_sentence or "").strip() or "(none)"
+    )

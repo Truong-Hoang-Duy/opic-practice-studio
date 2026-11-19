@@ -5,6 +5,59 @@ import { getSharedAudio, getVoices, endRecordingAudioSession } from './audioUnlo
 let currentEndCleanup = null;
 let activePlayId = 0;
 
+// Client-side cache of synthesized phrase URLs + bounded background prefetch queue
+const phraseUrlCache = new Map();
+const inflightSpeak = new Map();
+const prefetchQueue = [];
+let activePrefetches = 0;
+const MAX_CONCURRENT_PREFETCH = 2;
+
+const fetchSpeakUrl = async (cleanText) => {
+  const key = cleanText.slice(0, 2400);
+  if (phraseUrlCache.has(key)) return phraseUrlCache.get(key);
+  if (inflightSpeak.has(key)) return inflightSpeak.get(key);
+
+  const req = vocabularyApi
+    .speak(key)
+    .then(({ data }) => {
+      const url = data?.url ? resolveMediaUrl(data.url) : null;
+      if (url) {
+        phraseUrlCache.set(key, url);
+        // Warm browser HTTP cache so clicking "Nghe" plays immediately
+        fetch(url).catch(() => {});
+      }
+      return url;
+    })
+    .finally(() => {
+      inflightSpeak.delete(key);
+    });
+
+  inflightSpeak.set(key, req);
+  return req;
+};
+
+const drainPrefetchQueue = () => {
+  while (activePrefetches < MAX_CONCURRENT_PREFETCH && prefetchQueue.length > 0) {
+    const text = prefetchQueue.shift();
+    activePrefetches += 1;
+    fetchSpeakUrl(text)
+      .catch(() => {})
+      .finally(() => {
+        activePrefetches -= 1;
+        drainPrefetchQueue();
+      });
+  }
+};
+
+export const prefetchPhrase = (text) => {
+  const cleanText = (text || '').trim();
+  if (!cleanText || cleanText.length > 300) return;
+  const key = cleanText.slice(0, 2400);
+  if (phraseUrlCache.has(key) || inflightSpeak.has(key) || prefetchQueue.includes(key)) return;
+  prefetchQueue.push(key);
+  drainPrefetchQueue();
+};
+
 // Global reactive state so every listen button across the app knows when it is loading or playing
 let speakingState = {
   id: null,
@@ -88,11 +141,8 @@ export const speakPhrase = async (text, options = {}) => {
   try {
     let mediaUrl = audioUrl ? resolveMediaUrl(audioUrl) : null;
     if (!mediaUrl && cleanText) {
-      const { data } = await vocabularyApi.speak(cleanText.slice(0, 2400));
+      mediaUrl = await fetchSpeakUrl(cleanText);
       if (myPlayId !== activePlayId) return;
-      if (data?.url) {
-        mediaUrl = resolveMediaUrl(data.url);
-      }
     }
 
     const audio = getSharedAudio();

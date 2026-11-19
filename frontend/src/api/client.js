@@ -18,16 +18,31 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Auto-retry transient rate-limited requests (HTTP 429) once after a short delay
+// Auto-retry transient rate-limited requests (HTTP 429) and network/gateway hiccups (!response, 502-504)
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const config = error.config;
-    if (error.response?.status === 429 && config && !config._retry429) {
+    if (!config) return Promise.reject(error);
+
+    const status = error.response?.status;
+    if (status === 429 && !config._retry429) {
       config._retry429 = true;
       await new Promise((resolve) => setTimeout(resolve, 2000));
       return api(config);
     }
+
+    const isTransient = !error.response || status === 502 || status === 503 || status === 504;
+    const isSafeToRetry =
+      (config.method || '').toLowerCase() === 'get' ||
+      /\/(answers|daily|vocabulary\/speak|evaluate|rewrite)/.test(config.url || '');
+    const retryCount = config._retryTransient || 0;
+    if (isTransient && isSafeToRetry && retryCount < 2) {
+      config._retryTransient = retryCount + 1;
+      await new Promise((resolve) => setTimeout(resolve, retryCount === 0 ? 1200 : 2500));
+      return api(config);
+    }
+
     return Promise.reject(error);
   }
 );
@@ -107,6 +122,7 @@ export const vocabularyApi = {
   update: (id, data) => api.patch(`/vocabulary/${id}`, data),
   remove: (id) => api.delete(`/vocabulary/${id}`),
   speak: (text) => api.post('/vocabulary/speak', { text }),
+  translate: (data) => api.post('/vocabulary/translate', data),
 };
 
 export const dailyApi = {

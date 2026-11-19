@@ -3,6 +3,7 @@ import { Play, Volume2, Loader2, Square } from 'lucide-react';
 import { resolveMediaUrl } from '../api/client';
 import { speakPhrase, stopSpeaking } from '../utils/speakPhrase';
 import { SoundWaveMini } from './SpeakButton';
+import { TranslatableText } from './TranslatableText';
 
 export const ShadowingPlayer = ({
   modelAnswer,
@@ -214,7 +215,13 @@ export const ShadowingPlayer = ({
                 }`}>
                   #{idx + 1}
                 </span>
-                <p className="text-sm leading-relaxed">{sent}</p>
+                <div className="flex-1 min-w-0">
+                  <TranslatableText
+                    text={sent}
+                    className="text-sm leading-relaxed"
+                    controlsAlign="start"
+                  />
+                </div>
               </div>
 
               <button

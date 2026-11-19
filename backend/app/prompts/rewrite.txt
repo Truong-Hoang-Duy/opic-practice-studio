@@ -12,12 +12,13 @@ Original Candidate Transcript:
 """
 
 === REWRITE INSTRUCTIONS ===
-1. Upgrade the candidate's response to the TARGET LEVEL ({TARGET_LEVEL}).
-2. CRITICAL: Preserve the candidate's original ideas, personal facts, opinions, and core vocabulary wherever possible. Do NOT completely replace their story with a generic template.
-3. Enhance the discourse structure:
-   - If upgrading to IM: Connect simple sentences with conjunctions (and, but, because, so, when), add proper past tense if describing an event.
-   - If upgrading to IH: Expand into rich paragraph discourse, add vivid sensory details, ensure seamless tense control (past narration with present reflection), and introduce a subtle complication or memorable highlight with resolution.
-4. Provide a clear breakdown of changes and Vietnamese coaching explanations explaining why these changes help achieve the target level ({TARGET_LEVEL}).
+1. Write an ideal, natural spoken response at the TARGET LEVEL ({TARGET_LEVEL}) for this OPIc question.
+2. You may keep the candidate's ideas if they work well, OR feel free to adapt, replace, or invent a more natural, realistic storyline that answers the question well at {TARGET_LEVEL}. Do NOT feel restricted to the candidate's original story if it is too short, off-track, or hard to expand.
+3. Match the discourse structure to {TARGET_LEVEL}:
+   - If target is IL: Clear, simple, natural sentences with basic connectors (and, but, because).
+   - If target is IM: Connect sentences smoothly with conjunctions (and, but, because, so, when), use clear past/present/future where appropriate, and keep vocabulary natural and accessible.
+   - If target is IH: Expand into rich paragraph discourse, add vivid sensory details, ensure seamless tense control (past narration with present reflection), and introduce a subtle complication or memorable highlight with resolution.
+4. Provide a clear breakdown of changes and Vietnamese coaching explanations explaining why this response achieves {TARGET_LEVEL}.
 
 === JSON OUTPUT SCHEMA ===
 Return ONLY a valid JSON object matching this schema:

@@ -12,6 +12,7 @@ from app.prompts.templates import (
     get_session_report_prompt,
     get_generate_questions_prompt,
     get_generate_guides_prompt,
+    get_translate_prompt,
 )
 
 logger = logging.getLogger("opic_llm")
@@ -198,8 +199,61 @@ def generate_session_report_llm(
     )
     return call_openai_json(prompt, temperature=0.3, mock=mock)
 
+def translate_text_llm(
+    text: str,
+    context_sentence: str = "",
+    mode: str = "word",
+    mock: bool = False
+) -> Dict[str, Any]:
+    """Translates a word/phrase or sentence into Vietnamese with an in-memory LRU-like cache."""
+    clean_text = (text or "").strip()
+    clean_ctx = (context_sentence or "").strip()
+    norm_mode = "sentence" if mode == "sentence" else "word"
+
+    import hashlib
+    cache_key = hashlib.md5(f"{norm_mode}|{clean_text.lower()}|{clean_ctx.lower()}".encode("utf-8")).hexdigest()
+    cached = _translate_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    prompt = get_translate_prompt(text=clean_text, context_sentence=clean_ctx, mode=norm_mode)
+    parsed, _, _, _ = call_openai_json(prompt, temperature=0.1, mock=mock)
+    result = {
+        "text": clean_text,
+        "mode": norm_mode,
+        "translation_vi": str(parsed.get("translation_vi") or "").strip(),
+        "ipa": str(parsed.get("ipa") or "").strip(),
+        "part_of_speech": str(parsed.get("part_of_speech") or "").strip(),
+        "context_note_vi": str(parsed.get("context_note_vi") or "").strip(),
+        "other_meanings_vi": str(parsed.get("other_meanings_vi") or "").strip(),
+    }
+    if len(_translate_cache) >= 500:
+        _translate_cache.clear()
+    _translate_cache[cache_key] = result
+    return result
+
+
+_translate_cache: Dict[str, Dict[str, Any]] = {}
+
+
 def get_mock_json_response(prompt: str) -> Dict[str, Any]:
     """Generates realistic structured responses for local development / test without API key."""
+    if "English-Vietnamese dictionary and OPIc speaking tutor" in prompt:
+        if "MODE: sentence" in prompt:
+            return {
+                "translation_vi": "Bản dịch tiếng Việt mẫu cho câu này (chế độ giả lập).",
+                "ipa": "",
+                "part_of_speech": "sentence",
+                "context_note_vi": "",
+                "other_meanings_vi": "",
+            }
+        return {
+            "translation_vi": "nghĩa tiếng Việt theo ngữ cảnh (mẫu)",
+            "ipa": "/ˈsæm.pəl/",
+            "part_of_speech": "phrase",
+            "context_note_vi": "Cụm từ tự nhiên hay dùng khi trả lời OPIc.",
+            "other_meanings_vi": "ví dụ, mẫu thử",
+        }
     if "DAILY 5-MINUTE WORKOUT" in prompt:
         return {
             "estimated_level": "IM",

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowRight, Sparkles, Volume2, Play, RotateCcw, Eye, GitCompare, Loader2, Square } from 'lucide-react';
 import { speakPhrase, stopSpeaking } from '../utils/speakPhrase';
 import { SpeakButton, SoundWaveMini } from './SpeakButton';
+import { TranslatableText } from './TranslatableText';
 
 // Highlights key expressions inside a clean sentence for easy reading & shadowing
 const HighlightedSentence = ({ text, expressions = [] }) => {
@@ -113,7 +114,7 @@ export const DiffViewer = ({
             </span>
           </div>
           <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-            Giữ nguyên ý tưởng cá nhân của bạn, sửa lại ngữ pháp và nâng cấp cấu trúc câu chuẩn Mức {target_level}.
+            Viết lại mượt mà, tự nhiên và tối ưu cấu trúc câu chuẩn Mức {target_level} (có thể điều chỉnh ý để phù hợp mục tiêu).
           </p>
         </div>
 
@@ -222,9 +223,13 @@ export const DiffViewer = ({
                   }`}>
                     #{idx + 1}
                   </span>
-                  <p className="text-sm leading-relaxed">
-                    <HighlightedSentence text={sent} expressions={key_expressions_added} />
-                  </p>
+                  <div className="flex-1 min-w-0">
+                    <TranslatableText
+                      text={sent}
+                      className="text-sm leading-relaxed"
+                      controlsAlign="start"
+                    />
+                  </div>
                 </div>
                 <button
                   type="button"

@@ -18,6 +18,7 @@ import {
 import { DiffViewer } from '../components/DiffViewer';
 import { ShadowingPlayer } from '../components/ShadowingPlayer';
 import { SpeakButton } from '../components/SpeakButton';
+import { TranslatableText } from '../components/TranslatableText';
 import { scrollPageToTop } from '../components/ScrollToTopButton';
 import { SpeechFlowPanel } from '../components/coaching/SpeechFlowPanel';
 import { TenseTimeline } from '../components/coaching/TenseTimeline';
@@ -220,14 +221,11 @@ export const AnswerCoaching = ({
     setRewriteError('');
     try {
       const versionId = evaluation?.answer_version_id || null;
-      const progression = { below_IL: 'IL', Novice: 'IL', IL: 'IM', IM: 'IH', IH: 'IH', AL: 'IH' };
-      const currentEst = evaluation?.estimated_level || 'IL';
-      const targetUpgrade =
-        currentEst === chosenLevelCode
-          ? progression[chosenLevelCode] || 'IH'
-          : ['IL', 'IM', 'IH'].includes(chosenLevelCode)
-          ? chosenLevelCode
-          : 'IH';
+      const targetUpgrade = ['IL', 'IM', 'IH'].includes(chosenLevelCode)
+        ? chosenLevelCode
+        : chosenLevelCode === 'AL'
+        ? 'IH'
+        : 'IM';
 
       const res = await answerApi.rewrite(answerId, {
         answer_version_id: versionId,
@@ -298,9 +296,13 @@ export const AnswerCoaching = ({
               Mục tiêu: Level {assessmentLevel} ({chosenLevelCode})
             </span>
           </div>
-          <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-snug">
-            "{question?.question_text}"
-          </h2>
+          <TranslatableText
+            text={question?.question_text}
+            className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-snug"
+            topic={question?.category || 'general'}
+            sourceQuestionId={question?.id}
+            controlsAlign="start"
+          />
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -482,7 +484,7 @@ export const AnswerCoaching = ({
         <div className="flex items-start gap-2 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-xs text-amber-800 dark:text-amber-300">
           <HelpCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>
-            <strong>Bạn chưa ghi âm câu này.</strong> Hãy tham khảo khung dàn ý và bài mẫu bên dưới, sau đó bấm "Trả lời câu này" để luyện nói.
+            <strong>Bạn chưa ghi âm câu này.</strong> Hãy bấm "Trả lời câu này" để luyện nói và nhận bản nâng cấp theo mục tiêu của bạn.
           </span>
         </div>
       )}
@@ -491,14 +493,14 @@ export const AnswerCoaching = ({
         <div className="flex items-start gap-2 p-3.5 rounded-xl bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 text-xs text-sky-800 dark:text-sky-300">
           <HelpCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>
-            <strong>Câu 1 (Giới thiệu bản thân) chỉ để khởi động và không tính điểm</strong> giống kỳ thi OPIc thật. Bạn có thể xem dàn ý & bài mẫu bên dưới rồi sang câu tiếp theo.
+            <strong>Câu 1 (Giới thiệu bản thân) chỉ để khởi động và không tính điểm</strong> giống kỳ thi OPIc thật. Bạn có thể bấm sang câu tiếp theo.
           </span>
         </div>
       )}
 
-      {/* 3-Step Learning Tabs */}
+      {/* 2-Step Learning Tabs */}
       {!hideScoring && (
-        <div className="grid grid-cols-3 gap-1.5 sm:gap-2 p-1 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+        <div className="grid grid-cols-2 gap-1.5 sm:gap-2 p-1 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <button
             type="button"
             onClick={() => setActiveTab('evaluation')}
@@ -529,19 +531,6 @@ export const AnswerCoaching = ({
           >
             <Sparkles className="w-4 h-4 shrink-0" />
             <span className="truncate">2. Nâng cấp bài nói</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('models')}
-            className={`flex items-center justify-center gap-1.5 px-2.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'models'
-                ? 'bg-brand-500 text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <Layers className="w-4 h-4 shrink-0" />
-            <span className="truncate">3. Bài mẫu & Dàn ý</span>
           </button>
         </div>
       )}

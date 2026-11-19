@@ -10,8 +10,18 @@ from app.config import settings
 
 logger = logging.getLogger("opic_tts")
 
-_synth_lock = threading.Lock()
+_synth_locks_guard = threading.Lock()
+_synth_locks: dict = {}
 _prefetch_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="eva_tts")
+
+
+def _lock_for(filepath: str) -> threading.Lock:
+    with _synth_locks_guard:
+        lock = _synth_locks.get(filepath)
+        if lock is None:
+            lock = threading.Lock()
+            _synth_locks[filepath] = lock
+        return lock
 
 
 def get_effective_tts_provider() -> str:
@@ -101,7 +111,7 @@ def synthesize_speech(text: str) -> Optional[str]:
 
     filepath, url = _cache_paths(text)
     try:
-        with _synth_lock:
+        with _lock_for(filepath):
             if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
                 return url
             ok = _synthesize_edge(text, filepath)
