@@ -78,9 +78,7 @@ export const questionApi = {
 };
 
 export const answerApi = {
-  submit: (formData) => api.post('/answers', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }),
+  submit: (formData) => api.post('/answers', formData),
   editTranscript: (id, data) => api.patch(`/answers/${id}/transcript`, data),
   evaluate: (id, versionId) => api.post(`/answers/${id}/evaluate${versionId ? `?version_id=${versionId}` : ''}`),
   rewrite: (id, data) => api.post(`/answers/${id}/rewrite`, data),
@@ -115,9 +113,7 @@ export const dailyApi = {
   today: () => api.get('/daily/today'),
   history: () => api.get('/daily/history'),
   get: (id) => api.get(`/daily/${id}`),
-  submit: (id, formData) => api.post(`/daily/${id}/submit`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }),
+  submit: (id, formData) => api.post(`/daily/${id}/submit`, formData),
   regrade: (id, formData) => api.post(`/daily/${id}/regrade`, formData),
 };
 

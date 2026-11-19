@@ -126,7 +126,13 @@ export const AudioRecorder = ({
 
       // 2. Record only. The finished file is uploaded and transcribed on the server (no real-time streaming).
       const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find(t => MediaRecorder.isTypeSupported(t)) || '';
-      const mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      let mediaRecorder;
+      try {
+        const opts = mimeType ? { mimeType, audioBitsPerSecond: 32000 } : { audioBitsPerSecond: 32000 };
+        mediaRecorder = new MediaRecorder(stream, opts);
+      } catch {
+        mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      }
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (event) => {

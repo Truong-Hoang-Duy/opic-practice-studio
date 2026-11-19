@@ -40,6 +40,8 @@ export const TestSession = ({
   const [devModeOverride, setDevModeOverride] = useState(null); // allows toggling Practice <-> Exam inside a DEV session
   const [answeredOrders, setAnsweredOrders] = useState([]);
   const [coachingSkipped, setCoachingSkipped] = useState(false); // practice: coaching opened via "Next" without an answer
+  const [pendingUpload, setPendingUpload] = useState(null); // keeps failed recording so user can retry without re-recording
+  const [uploadError, setUploadError] = useState(null);
 
   // The session's stored mode wins (e.g. when resuming); in DEV sessions the user can toggle mode on the fly
   const effectiveMode = devModeOverride || sessionInfo?.mode || sessionMode;
@@ -85,6 +87,8 @@ export const TestSession = ({
     setCoachingSkipped(false);
     setReplayUsed(false);
     setAutoStartRecord(false);
+    setPendingUpload(null);
+    setUploadError(null);
 
     try {
       const res = await sessionApi.getQuestionByIndex(sessionId, targetIndex);
@@ -128,6 +132,8 @@ export const TestSession = ({
     setIsAnswerCoachingOpen(false);
     setReplayUsed(false);
     setAutoStartRecord(false);
+    setPendingUpload(null);
+    setUploadError(null);
 
     try {
       const res = await sessionApi.getNextQuestion(sessionId, afterOrder);
@@ -162,6 +168,7 @@ export const TestSession = ({
   const handleRecordingComplete = async ({ audioBlob, durationSeconds }) => {
     if (!currentQuestion) return;
     setSubmittingAnswer(true);
+    setUploadError(null);
 
     try {
       const formData = new FormData();
@@ -174,6 +181,8 @@ export const TestSession = ({
       }
 
       const res = await answerApi.submit(formData);
+      setPendingUpload(null);
+      setUploadError(null);
       setLatestAnswer(res.data);
       setCoachingSkipped(false);
       markOrderAnswered(currentQuestion.order_index);
@@ -192,7 +201,11 @@ export const TestSession = ({
       }
     } catch (err) {
       console.error("Failed to submit answer:", err);
-      alert(formatApiError(err, 'Không lưu được câu trả lời. Vui lòng ghi âm lại.'));
+      const msg = formatApiError(err, 'Không lưu được câu trả lời. Vui lòng thử lại.');
+      if (audioBlob) {
+        setPendingUpload({ audioBlob, durationSeconds });
+      }
+      setUploadError(msg);
     } finally {
       setSubmittingAnswer(false);
     }
@@ -539,6 +552,21 @@ export const TestSession = ({
             <div className="absolute inset-0 z-20 rounded-2xl bg-slate-950/80 backdrop-blur-xs flex flex-col items-center justify-center gap-3 text-sky-400 animate-in fade-in">
               <div className="w-8 h-8 border-3 border-sky-500 border-t-transparent rounded-full animate-spin" />
               <span className="text-sm font-semibold">Đang nhận dạng giọng nói & lưu câu trả lời...</span>
+            </div>
+          )}
+
+          {uploadError && !submittingAnswer && (
+            <div className="mt-3 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <p className="text-xs text-rose-600 dark:text-rose-300 font-medium">{uploadError}</p>
+              {pendingUpload && (
+                <button
+                  type="button"
+                  onClick={() => handleRecordingComplete(pendingUpload)}
+                  className="shrink-0 px-4 py-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold cursor-pointer transition-colors"
+                >
+                  Gửi lại bản ghi ({pendingUpload.durationSeconds}s)
+                </button>
+              )}
             </div>
           )}
         </div>

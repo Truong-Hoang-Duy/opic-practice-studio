@@ -150,16 +150,18 @@ def transcribe_with_faster_whisper(file_bytes: bytes, filename: str = "audio.web
         model = _get_whisper_model()
         try:
             def _run(audio_source):
-                segments_gen, _info = model.transcribe(
-                    audio_source,
+                kwargs = dict(
                     language="en",
-                    beam_size=2 if low_mem else 5,
+                    beam_size=1 if low_mem else 5,
                     word_timestamps=True,
-                    vad_filter=True,
-                    vad_parameters=dict(min_silence_duration_ms=500),
                     condition_on_previous_text=False,
                     initial_prompt=WHISPER_INITIAL_PROMPT,
                 )
+                # Skip Silero VAD (onnxruntime, ~100MB RAM) on 512MB Render Free tier to prevent OOM crashes
+                if not low_mem:
+                    kwargs["vad_filter"] = True
+                    kwargs["vad_parameters"] = dict(min_silence_duration_ms=500)
+                segments_gen, _info = model.transcribe(audio_source, **kwargs)
                 return list(segments_gen)
 
             try:
@@ -265,7 +267,8 @@ def transcribe_with_groq(
         "timestamp_granularities[]": ["word", "segment"],
         "prompt": WHISPER_INITIAL_PROMPT,
     }
-    files = {"file": (filename or "audio.webm", file_bytes, content_type or "audio/webm")}
+    clean_ct = (content_type or "audio/webm").split(";")[0].strip() or "audio/webm"
+    files = {"file": (filename or "audio.webm", file_bytes, clean_ct)}
     try:
         with httpx.Client(timeout=timeout_sec) as client:
             resp = client.post(GROQ_API_URL, headers=headers, data=data, files=files)
@@ -304,7 +307,16 @@ def transcribe_audio_file(file_bytes: bytes, filename: str, content_type: Option
         try:
             return transcribe_with_groq(file_bytes, filename, content_type, timeout_sec)
         except TranscriptionError as e:
-            logger.warning(f"Groq STT failed ({e}), falling back to local faster-whisper...")
+            if is_low_memory_env():
+                # Retry Groq once before risking local Whisper on 512MB Render Free
+                logger.warning(f"Groq STT failed ({e}), retrying Groq once...")
+                try:
+                    time.sleep(1.0)
+                    return transcribe_with_groq(file_bytes, filename, content_type, timeout_sec)
+                except TranscriptionError as e2:
+                    logger.warning(f"Groq STT retry failed ({e2}), falling back to local faster-whisper...")
+            else:
+                logger.warning(f"Groq STT failed ({e}), falling back to local faster-whisper...")
             return transcribe_with_faster_whisper(file_bytes, filename)
 
     return transcribe_with_faster_whisper(file_bytes, filename)
