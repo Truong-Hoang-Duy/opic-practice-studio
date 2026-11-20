@@ -60,6 +60,7 @@ class RewriteRequest(BaseModel):
     answer_version_id: Optional[int] = None
     target_level: Optional[str] = None
     regenerate: bool = False
+    custom_instruction: Optional[str] = Field(None, max_length=1500)
 
 class DiffChunk(BaseModel):
     type: str # "equal", "delete", "insert"

@@ -28,6 +28,8 @@ class QuestionResponse(BaseModel):
     audio_path: Optional[str] = None
     vietnamese_guide: Optional[Dict[str, Any]] = None
     category: Optional[str] = None
+    study_status: Optional[str] = "unlearned"
+    question_translation_vi: Optional[str] = None
     existing_answer: Optional[AnswerResponse] = None
 
     @computed_field
@@ -51,8 +53,14 @@ class ModelAnswerResponse(BaseModel):
     rationale: str
     audio_path: Optional[str] = None
     sentences: Optional[List[str]] = None
+    sentences_vi: Optional[List[str]] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class RegenerateModelRequest(BaseModel):
+    level: Literal["IL", "IM", "IH"] = "IM"
+    custom_instruction: Optional[str] = Field(None, max_length=1500)
 
 
 class GeneratedQuestion(BaseModel):

@@ -1,7 +1,8 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.models.session import TestSession
@@ -11,6 +12,14 @@ from app.core.security import get_current_user
 from app.services.evaluation_service import exam_level_for
 from app.services.playlist_service import request_playlist
 from app.services.tts_service import cached_speech_url
+from app.services.study_pack_service import (
+    DEFAULT_TOPICS,
+    LEVEL_TO_ASSESSMENT,
+    build_50_study_questions,
+    create_exam_from_study_pack,
+    get_study_pack_progress,
+    start_study_pack_generation,
+)
 from app.core.question_meta import CATEGORY_LABELS, derive_category, question_timing
 from app.schemas.question import UNSCORED_QUESTION_TYPES
 from app.schemas.answer import AnswerResponse
@@ -86,6 +95,7 @@ def get_library(
                     rationale=dm.rationale,
                     audio_path=cached_speech_url(dm.text) or dm.audio_path,
                     sentences=dm.sentences or [dm.text],
+                    sentences_vi=dm.sentences_vi,
                 )
                 db.add(obj)
                 cloned_list.append(obj)
@@ -129,6 +139,8 @@ def get_library(
                 "timing": question_timing(q.question_type, q.difficulty),
                 "question_type": q.question_type,
                 "question_text": q.question_text,
+                "question_translation_vi": q.question_translation_vi,
+                "study_status": q.study_status or "unlearned",
                 "vietnamese_guide": q.vietnamese_guide,
                 "audio_path": cached_speech_url(q.question_text) or q.audio_path,
                 "model_answers": [
@@ -139,6 +151,7 @@ def get_library(
                         "text": m.text,
                         "rationale": m.rationale,
                         "sentences": m.sentences or [m.text],
+                        "sentences_vi": m.sentences_vi or [],
                         "audio_path": cached_speech_url(m.text),
                     }
                     for m in sorted(models_by_q.get(q.id, []), key=lambda m: MODEL_LEVELS.index(m.level) if m.level in MODEL_LEVELS else 9)
@@ -151,10 +164,13 @@ def get_library(
                 "last_level": latest_eval.estimated_level if latest_eval else None,
             })
 
+        study_progress = get_study_pack_progress(db, s.id, default_model_level(s)) if s.mode == "study" else None
         result.append({
             "session_id": s.id,
             "session_number": session_num_by_id.get(s.id, s.id),
             "mode": s.mode,
+            "is_study_pack": s.mode == "study",
+            "study_progress": study_progress,
             "status": s.status,
             "dev_mock": bool(getattr(s, "dev_mock", False)),
             "started_at": s.started_at,
@@ -221,3 +237,140 @@ def build_playlist(
         return request_playlist(segments)
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+
+class StudyPackCreateRequest(BaseModel):
+    target_level: Literal["IL", "IM", "IH"] = "IM"
+    topics: Optional[List[str]] = None
+    survey_data: Optional[Dict[str, Any]] = None
+    personal_profile: Optional[str] = Field(None, max_length=1000)
+    dev_mock: bool = False
+
+
+class StudyStatusUpdateRequest(BaseModel):
+    study_status: Literal["unlearned", "learning", "mastered"]
+
+
+class StartPackExamRequest(BaseModel):
+    mode: Literal["exam", "practice"] = "exam"
+
+
+@router.post("/study-pack")
+def create_study_pack(
+    req: StudyPackCreateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Creates a 50-question study pack (default IM, no self-intro) and starts background model-answer generation."""
+    # Inherit latest session's 3 chosen topics & survey data if not explicitly passed
+    latest = (
+        db.query(TestSession)
+        .filter(TestSession.user_id == current_user.id)
+        .order_by(TestSession.started_at.desc(), TestSession.id.desc())
+        .first()
+    )
+    chosen_topics = req.topics if (req.topics and len(req.topics) == 3) else (
+        latest.topics if (latest and latest.topics and len(latest.topics) == 3) else DEFAULT_TOPICS
+    )
+    survey = dict(req.survey_data or (latest.survey_data if latest and latest.survey_data else {}))
+    profile = (req.personal_profile or "").strip()
+    if profile:
+        survey["personal_profile"] = profile
+
+    use_mock = bool(req.dev_mock) and settings.ENVIRONMENT != "production"
+    pack = TestSession(
+        user_id=current_user.id,
+        survey_data=survey,
+        self_assessment_level=LEVEL_TO_ASSESSMENT.get(req.target_level, 4),
+        topics=chosen_topics,
+        mode="study",
+        dev_mock=use_mock,
+        status="in_progress",
+    )
+    db.add(pack)
+    db.commit()
+    db.refresh(pack)
+
+    q_specs = build_50_study_questions(
+        chosen_topics=chosen_topics,
+        survey_data=survey,
+        target_level=req.target_level,
+    )
+    for spec in q_specs:
+        db.add(Question(
+            session_id=pack.id,
+            order_index=spec["order_index"],
+            question_text=spec["question_text"],
+            question_type=spec["question_type"],
+            topic=spec["topic"],
+            category=spec["category"],
+            difficulty=spec["difficulty"],
+            study_status="unlearned",
+            vietnamese_guide=spec["vietnamese_guide"],
+        ))
+    db.commit()
+
+    start_study_pack_generation(pack.id, target_level=req.target_level, personal_profile=profile)
+    return get_study_pack_progress(db, pack.id, req.target_level)
+
+
+@router.post("/study-pack/{session_id}/resume")
+def resume_study_pack(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    pack = db.query(TestSession).filter(TestSession.id == session_id, TestSession.user_id == current_user.id).first()
+    if not pack:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bộ ôn tập.")
+    lvl = default_model_level(pack)
+    profile = (pack.survey_data or {}).get("personal_profile", "")
+    start_study_pack_generation(pack.id, target_level=lvl, personal_profile=profile)
+    return get_study_pack_progress(db, pack.id, lvl)
+
+
+@router.get("/study-pack/{session_id}/progress")
+def study_pack_progress(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    pack = db.query(TestSession).filter(TestSession.id == session_id, TestSession.user_id == current_user.id).first()
+    if not pack:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bộ ôn tập.")
+    return get_study_pack_progress(db, pack.id, default_model_level(pack))
+
+
+@router.patch("/questions/{question_id}/study-status")
+def update_question_study_status(
+    question_id: int,
+    req: StudyStatusUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    q = (
+        db.query(Question)
+        .join(TestSession, Question.session_id == TestSession.id)
+        .filter(Question.id == question_id, TestSession.user_id == current_user.id)
+        .first()
+    )
+    if not q:
+        raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi.")
+    q.study_status = req.study_status
+    db.commit()
+    return {"question_id": q.id, "study_status": q.study_status}
+
+
+@router.post("/study-pack/{session_id}/start-exam")
+def start_exam_from_pack(
+    session_id: int,
+    req: StartPackExamRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Samples 15 OPIc-structured questions from the 50-question study pack to run a mock exam."""
+    pack = db.query(TestSession).filter(TestSession.id == session_id, TestSession.user_id == current_user.id).first()
+    if not pack:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bộ ôn tập.")
+    exam = create_exam_from_study_pack(db, current_user.id, pack, mode=req.mode)
+    return {"session_id": exam.id, "mode": exam.mode}

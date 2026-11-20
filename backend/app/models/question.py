@@ -16,6 +16,8 @@ class Question(Base):
     category = Column(String(50), nullable=True) # normalised learning topic (see core/question_meta.py)
     difficulty = Column(String(50), default="IM") # target difficulty based on self-assessment (IL, IM, IH)
     audio_path = Column(String(255), nullable=True) # Cached audio file for Eva TTS
+    study_status = Column(String(20), default="unlearned") # "unlearned", "learning", "mastered"
+    question_translation_vi = Column(Text, nullable=True) # Pre-saved Vietnamese translation of the question
 
     # Guide with steps, outline, and Vietnamese tips
     vietnamese_guide = Column(JSON, nullable=True)
@@ -37,6 +39,7 @@ class ModelAnswer(Base):
     rationale = Column(Text, nullable=False) # Why it belongs to that level
     audio_path = Column(String(255), nullable=True) # TTS synthesized audio
     sentences = Column(JSON, nullable=True) # List of sentence strings for shadowing mode
+    sentences_vi = Column(JSON, nullable=True) # Pre-saved Vietnamese translations aligned with sentences
 
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 

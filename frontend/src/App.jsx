@@ -225,6 +225,7 @@ export const App = () => {
             onViewReport={handleViewReport}
             onDeleteSession={handleDeleteSession}
             onOpenDaily={() => setCurrentTab('daily')}
+            onOpenLibrary={() => setCurrentTab('library')}
           />
         )}
 
@@ -288,7 +289,15 @@ export const App = () => {
           />
         )}
 
-        {currentTab === 'library' && <QuestionLibrary />}
+        {currentTab === 'library' && (
+          <QuestionLibrary
+            onStartPackExam={(examSessionId, mode) => {
+              setActiveSessionId(examSessionId);
+              setActiveSessionMode(mode || 'exam');
+              setCurrentTab('test');
+            }}
+          />
+        )}
 
         {currentTab === 'history' && (
           <HistoryPage

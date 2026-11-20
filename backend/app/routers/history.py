@@ -20,7 +20,7 @@ def get_user_history(
 ):
     sessions = (
         db.query(TestSession)
-        .filter(TestSession.user_id == current_user.id)
+        .filter(TestSession.user_id == current_user.id, TestSession.mode != "study")
         .order_by(TestSession.started_at.desc(), TestSession.id.desc())
         .all()
     )
@@ -80,7 +80,11 @@ def get_user_stats(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    sessions = db.query(TestSession).filter(TestSession.user_id == current_user.id).all()
+    sessions = (
+        db.query(TestSession)
+        .filter(TestSession.user_id == current_user.id, TestSession.mode != "study")
+        .all()
+    )
     session_ids = [s.id for s in sessions]
 
     total_sessions = len(sessions)

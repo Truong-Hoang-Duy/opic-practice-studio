@@ -209,7 +209,7 @@ export const DiffViewer = ({
         </div>
         <span className="text-[11px] text-slate-500 dark:text-slate-400">
           {viewMode === 'practice'
-            ? '💡 Chạm vào từng câu để nghe Eva đọc mẫu và nhại lại'
+            ? '💡 Bấm nút Nghe ở từng câu để nghe Eva đọc mẫu và nhại lại'
             : '💡 Chữ gạch đỏ là phần bỏ đi, chữ xanh là phần nâng cấp'}
         </span>
       </div>
@@ -222,54 +222,52 @@ export const DiffViewer = ({
             return (
               <div
                 key={idx}
-                onClick={() => handlePlaySentence(idx, sent)}
-                className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start justify-between gap-3 ${
+                className={`p-3.5 rounded-xl border transition-colors flex flex-col gap-2.5 ${
                   isSpeaking
                     ? 'bg-brand-50 dark:bg-brand-500/15 border-brand-300 dark:border-brand-500/40 text-slate-900 dark:text-white shadow-xs'
-                    : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800/80 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900/70'
+                    : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800/80 text-slate-800 dark:text-slate-200'
                 }`}
               >
-                <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                  <span className={`text-[11px] font-mono px-1.5 py-0.5 rounded mt-0.5 shrink-0 ${
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`text-[11px] font-mono px-2 py-0.5 rounded shrink-0 ${
                     isSpeaking
                       ? 'bg-brand-500 text-white font-bold'
                       : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-400 font-semibold'
                   }`}>
                     #{idx + 1}
                   </span>
-                  <div className="flex-1 min-w-0">
-                    <TranslatableText
-                      text={sent}
-                      className="text-sm leading-relaxed"
-                      controlsAlign="start"
-                    />
-                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handlePlaySentence(idx, sent)}
+                    title={isSpeaking ? 'Đang phát - bấm để dừng' : 'Nghe câu này'}
+                    className={`min-w-[96px] flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors shrink-0 cursor-pointer ${
+                      isSpeaking
+                        ? 'bg-brand-500 text-white border-brand-500 shadow-xs ring-2 ring-brand-500/30'
+                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 border-slate-200 dark:border-slate-800'
+                    }`}
+                  >
+                    {isSpeaking ? (
+                      <>
+                        <SoundWaveMini light />
+                        <span>Đang phát</span>
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 className="w-3.5 h-3.5" />
+                        <span>Nghe</span>
+                      </>
+                    )}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handlePlaySentence(idx, sent);
-                  }}
-                  title={isSpeaking ? 'Đang phát - bấm để dừng' : 'Nghe câu này'}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-all shrink-0 cursor-pointer ${
-                    isSpeaking
-                      ? 'bg-brand-500 text-white border-brand-500 shadow-xs ring-2 ring-brand-500/30'
-                      : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 border-slate-200 dark:border-slate-800'
-                  }`}
-                >
-                  {isSpeaking ? (
-                    <>
-                      <SoundWaveMini light />
-                      <span>Đang phát</span>
-                    </>
-                  ) : (
-                    <>
-                      <Volume2 className="w-3.5 h-3.5" />
-                      <span>Nghe</span>
-                    </>
-                  )}
-                </button>
+
+                <div className="w-full min-w-0">
+                  <TranslatableText
+                    text={sent}
+                    className="text-sm leading-relaxed"
+                    controlsAlign="start"
+                  />
+                </div>
               </div>
             );
           })}

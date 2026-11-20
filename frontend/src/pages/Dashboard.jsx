@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { historyApi, sessionApi } from '../api/client';
-import { Play, Sparkles, Clock, CheckCircle, BarChart3, ArrowRight, Flame, Trash2 } from 'lucide-react';
+import { Play, Sparkles, Clock, CheckCircle, BarChart3, ArrowRight, Flame, Trash2, BookOpen } from 'lucide-react';
 import { ViTooltip } from '../components/Tooltip';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 import { DailyChallengeCard } from '../components/DailyChallengeCard';
 
-export const Dashboard = ({ onStartTest, onResumeSession, onViewReport, onDeleteSession, onOpenDaily }) => {
+export const Dashboard = ({ onStartTest, onResumeSession, onViewReport, onDeleteSession, onOpenDaily, onOpenLibrary }) => {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [recentSessions, setRecentSessions] = useState([]);
@@ -86,7 +86,30 @@ export const Dashboard = ({ onStartTest, onResumeSession, onViewReport, onDelete
           </p>
 
           {/* Quick Action Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+            {onOpenLibrary && (
+              <button
+                onClick={onOpenLibrary}
+                className="group relative flex flex-col text-left p-4 rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-400 text-white shadow-xl shadow-emerald-500/20 border border-emerald-400/30 transition-all transform active:scale-[0.99] cursor-pointer"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-xl bg-white/20 backdrop-blur-md">
+                      <BookOpen className="w-4 h-4 text-amber-200" />
+                    </div>
+                    <span className="font-bold text-sm sm:text-base text-white">
+                      Bộ 50 câu ôn tập
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30">
+                    Rank IM
+                  </span>
+                </div>
+                <p className="text-xs text-emerald-50 leading-snug font-normal">
+                  Học thuộc trước 50 câu theo đúng Survey & 3 chủ đề đã tích, nghe từng câu, luyện nói chấm điểm rồi vào thi.
+                </p>
+              </button>
+            )}
             <button
               onClick={() => handleStart('practice')}
               disabled={!!startingMode}

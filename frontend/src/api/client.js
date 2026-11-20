@@ -90,6 +90,7 @@ export const questionApi = {
         ...(regenerate ? { regenerate: true } : {}),
       },
     }),
+  regenerateModel: (id, data) => api.post(`/questions/${id}/model-answers/regenerate`, data),
 };
 
 export const answerApi = {
@@ -113,6 +114,13 @@ export const historyApi = {
 export const libraryApi = {
   get: () => api.get('/library'),
   playlist: (data) => api.post('/library/playlist', data),
+  createStudyPack: (data) => api.post('/library/study-pack', data),
+  resumeStudyPack: (sessionId) => api.post(`/library/study-pack/${sessionId}/resume`),
+  studyPackProgress: (sessionId) => api.get(`/library/study-pack/${sessionId}/progress`),
+  updateStudyStatus: (questionId, study_status) =>
+    api.patch(`/library/questions/${questionId}/study-status`, { study_status }),
+  startExamFromPack: (sessionId, mode = 'exam') =>
+    api.post(`/library/study-pack/${sessionId}/start-exam`, { mode }),
 };
 
 export const vocabularyApi = {

@@ -81,7 +81,12 @@ engine = create_database_engine()
 # Columns added after the first release. create_all() never alters existing tables and the project has
 # no migration tool, so missing columns are added here (idempotent, works on SQLite and PostgreSQL).
 ADDED_COLUMNS = {
-    "questions": {"category": "VARCHAR(50)"},
+    "questions": {
+        "category": "VARCHAR(50)",
+        "study_status": "VARCHAR(20) DEFAULT 'unlearned'",
+        "question_translation_vi": "TEXT",
+    },
+    "model_answers": {"sentences_vi": "JSON"},
     "answer_versions": {"audio_path": "VARCHAR(255)", "duration_seconds": "FLOAT", "speech_metrics": "JSON", "rewrite_result": "JSON"},
     "evaluations": {"tense_timeline": "JSON", "tense_distribution": "JSON", "vietlish_warnings": "JSON", "vocab_upgrades": "JSON"},
     "test_sessions": {"dev_mock": "BOOLEAN DEFAULT FALSE"},

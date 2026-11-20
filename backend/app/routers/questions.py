@@ -4,10 +4,11 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.session import TestSession
 from app.models.question import Question, ModelAnswer
-from app.schemas.question import QuestionResponse, ModelAnswerResponse
+from app.schemas.question import QuestionResponse, ModelAnswerResponse, RegenerateModelRequest
 from app.core.security import get_current_user
 from app.services.tts_service import cached_speech_url, prefetch_speech, refresh_question_audio
 from app.services.llm_service import generate_model_answers_llm
+from app.services.study_pack_service import generate_and_save_single_model
 from app.routers.library import default_model_level
 from app.services.evaluation_service import is_mock_session
 
@@ -147,3 +148,31 @@ def get_model_answers(
         existing_models = [m for m in existing_models if m.level.upper() == level.upper()]
 
     return existing_models
+
+
+@router.post("/{question_id}/model-answers/regenerate", response_model=ModelAnswerResponse)
+def regenerate_single_model_answer(
+    question_id: int,
+    req: RegenerateModelRequest,
+    db: Session = Depends(get_db)
+):
+    """Regenerates a single model answer level (default IM), optionally guided by user's Vietnamese/English instructions."""
+    q = db.query(Question).filter(Question.id == question_id).first()
+    if not q:
+        raise HTTPException(status_code=404, detail="Question not found.")
+
+    prev = (
+        db.query(ModelAnswer)
+        .filter(ModelAnswer.question_id == q.id, ModelAnswer.level == req.level)
+        .first()
+    )
+    personal_profile = ((q.session.survey_data or {}).get("personal_profile", "") if q.session else "")
+    return generate_and_save_single_model(
+        db=db,
+        q=q,
+        target_level=req.level,
+        personal_profile=personal_profile,
+        custom_instruction=req.custom_instruction or "",
+        previous_text=prev.text if prev else "",
+        mock=is_mock_session(q.session),
+    )

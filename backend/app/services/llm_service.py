@@ -9,6 +9,7 @@ from app.prompts.templates import (
     get_daily_feedback_prompt,
     get_rewrite_prompt,
     get_model_answers_prompt,
+    get_single_model_answer_prompt,
     get_session_report_prompt,
     get_generate_questions_prompt,
     get_generate_guides_prompt,
@@ -151,13 +152,17 @@ def rewrite_answer_llm(
     current_level: str,
     target_level: str,
     transcript: str,
+    custom_instruction: str = "",
+    previous_text: str = "",
     mock: bool = False
 ) -> Tuple[Dict[str, Any], int, int, float]:
     prompt = get_rewrite_prompt(
         question_text=question_text,
         current_level=current_level,
         target_level=target_level,
-        transcript=transcript
+        transcript=transcript,
+        custom_instruction=custom_instruction,
+        previous_text=previous_text,
     )
     return call_openai_json(prompt, temperature=0.7, mock=mock)
 
@@ -171,6 +176,27 @@ def generate_model_answers_llm(
         question_text=question_text,
         topic=topic,
         question_type=question_type
+    )
+    return call_openai_json(prompt, temperature=0.7, mock=mock)
+
+def generate_single_model_answer_llm(
+    question_text: str,
+    topic: str,
+    question_type: str,
+    target_level: str = "IM",
+    personal_profile: str = "",
+    custom_instruction: str = "",
+    previous_text: str = "",
+    mock: bool = False
+) -> Tuple[Dict[str, Any], int, int, float]:
+    prompt = get_single_model_answer_prompt(
+        question_text=question_text,
+        topic=topic,
+        question_type=question_type,
+        target_level=target_level,
+        personal_profile=personal_profile,
+        custom_instruction=custom_instruction,
+        previous_text=previous_text,
     )
     return call_openai_json(prompt, temperature=0.7, mock=mock)
 
@@ -238,6 +264,23 @@ _translate_cache: Dict[str, Dict[str, Any]] = {}
 
 def get_mock_json_response(prompt: str) -> Dict[str, Any]:
     """Generates realistic structured responses for local development / test without API key."""
+    if "creating a natural, easy-to-memorize spoken model answer" in prompt:
+        return {
+            "level": "IM",
+            "question_translation_vi": "Hãy miêu tả và chia sẻ trải nghiệm của bạn về chủ đề này.",
+            "text": "I usually enjoy this activity on weekends with my family. It helps me relax after a busy week, and we always have a great time together. Last month, something funny happened when we tried something new, and it became a really nice memory for me.",
+            "rationale": "Câu văn liên kết tự nhiên bằng and/when, có thì hiện tại và quá khứ đơn đúng chuẩn IM, dễ học thuộc.",
+            "sentences": [
+                "I usually enjoy this activity on weekends with my family.",
+                "It helps me relax after a busy week, and we always have a great time together.",
+                "Last month, something funny happened when we tried something new, and it became a really nice memory for me."
+            ],
+            "sentences_vi": [
+                "Tôi thường thích hoạt động này vào cuối tuần cùng gia đình.",
+                "Nó giúp tôi thư giãn sau một tuần bận rộn, và chúng tôi luôn có khoảng thời gian rất vui bên nhau.",
+                "Tháng trước có một chuyện khá buồn cười xảy ra khi chúng tôi thử điều mới, và đó trở thành một kỷ niệm rất đẹp với tôi."
+            ]
+        }
     if "English-Vietnamese dictionary and OPIc speaking tutor" in prompt:
         if "MODE: sentence" in prompt:
             return {

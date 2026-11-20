@@ -62,16 +62,28 @@ def get_rewrite_prompt(
     question_text: str,
     current_level: str,
     target_level: str,
-    transcript: str
+    transcript: str,
+    custom_instruction: str = "",
+    previous_text: str = ""
 ) -> str:
     template = load_template("rewrite.txt")
     rubrics = get_rubric_prompt_text()
+    custom_block = (
+        f"\nLearner's Custom Story/Wording Request (Vietnamese or English — follow faithfully):\n\"\"\"\n{custom_instruction.strip()}\n\"\"\""
+        if (custom_instruction or "").strip() else ""
+    )
+    prev_block = (
+        f"\nPREVIOUS REWRITE (avoid repeating the exact same storyline if no custom request is given):\n\"\"\"\n{previous_text.strip()}\n\"\"\""
+        if (previous_text or "").strip() else ""
+    )
     return template.format(
         RUBRICS=rubrics,
         QUESTION_TEXT=question_text,
         CURRENT_LEVEL=current_level,
         TARGET_LEVEL=target_level,
-        TRANSCRIPT=transcript.strip()
+        TRANSCRIPT=transcript.strip(),
+        CUSTOM_INSTRUCTION_BLOCK=custom_block,
+        PREVIOUS_TEXT_BLOCK=prev_block,
     )
 
 def get_model_answers_prompt(
@@ -86,6 +98,40 @@ def get_model_answers_prompt(
         QUESTION_TEXT=question_text,
         TOPIC=topic,
         QUESTION_TYPE=question_type
+    )
+
+def get_single_model_answer_prompt(
+    question_text: str,
+    topic: str,
+    question_type: str,
+    target_level: str = "IM",
+    personal_profile: str = "",
+    custom_instruction: str = "",
+    previous_text: str = ""
+) -> str:
+    template = load_template("single_model_answer.txt")
+    rubrics = get_rubric_prompt_text()
+    profile_block = (
+        f"Learner Background Profile (keep details consistent with this):\n{personal_profile.strip()}"
+        if (personal_profile or "").strip() else ""
+    )
+    custom_block = (
+        f"Learner's Custom Story/Wording Request (Vietnamese or English — follow faithfully):\n\"\"\"\n{custom_instruction.strip()}\n\"\"\""
+        if (custom_instruction or "").strip() else ""
+    )
+    prev_block = (
+        f"PREVIOUS ANSWER (write a noticeably different story/example from this):\n\"\"\"\n{previous_text.strip()}\n\"\"\""
+        if (previous_text or "").strip() else ""
+    )
+    return template.format(
+        RUBRICS=rubrics,
+        QUESTION_TEXT=question_text,
+        TOPIC=topic,
+        QUESTION_TYPE=question_type,
+        TARGET_LEVEL=(target_level or "IM").upper(),
+        PERSONAL_PROFILE_BLOCK=profile_block,
+        CUSTOM_INSTRUCTION_BLOCK=custom_block,
+        PREVIOUS_TEXT_BLOCK=prev_block,
     )
 
 def get_session_report_prompt(

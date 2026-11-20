@@ -289,11 +289,14 @@ def rewrite_answer(
     target_lvl = req.target_level or level_progression.get(current_lvl, "IH")
 
     q = answer.question
+    prev_improved = (ver.rewrite_result or {}).get("improved_text", "") if isinstance(ver.rewrite_result, dict) else ""
     data, p_tok, c_tok, cost = rewrite_answer_llm(
         question_text=q.question_text if q else "General question",
         current_level=current_lvl,
         target_level=target_lvl,
         transcript=ver.transcript,
+        custom_instruction=req.custom_instruction or "",
+        previous_text=prev_improved if req.regenerate else "",
         mock=is_mock_session(answer.session)
     )
 

@@ -19,6 +19,7 @@ import { DiffViewer } from '../components/DiffViewer';
 import { ShadowingPlayer } from '../components/ShadowingPlayer';
 import { SpeakButton } from '../components/SpeakButton';
 import { TranslatableText } from '../components/TranslatableText';
+import { RegenerateModal } from '../components/RegenerateModal';
 import { scrollPageToTop } from '../components/ScrollToTopButton';
 import { SpeechFlowPanel } from '../components/coaching/SpeechFlowPanel';
 import { TenseTimeline } from '../components/coaching/TenseTimeline';
@@ -94,6 +95,8 @@ export const AnswerCoaching = ({
   nextLabel = 'Sang câu tiếp theo',
   answer = null,
   onTranscriptEdited = null,
+  studyStatus = null,
+  onUpdateStudyStatus = null,
 }) => {
   const isUnscored = question?.question_type === 'self_intro';
   const noAnswer = !answerId;
@@ -124,6 +127,7 @@ export const AnswerCoaching = ({
   const [rewriteData, setRewriteData] = useState(null);
   const [rewriting, setRewriting] = useState(false);
   const [rewriteError, setRewriteError] = useState('');
+  const [showRegenModal, setShowRegenModal] = useState(false);
 
   // Model answers state
   const [modelAnswers, setModelAnswers] = useState([]);
@@ -212,7 +216,7 @@ export const AnswerCoaching = ({
     }
   };
 
-  const fetchRewriteIfNeeded = async (force = false, regenerate = false) => {
+  const fetchRewriteIfNeeded = async (force = false, regenerate = false, customInstruction = '') => {
     if (hideScoring || !activeTranscript.trim()) return;
     if (rewriteData && !force) return;
     if (rewriting) return;
@@ -231,8 +235,10 @@ export const AnswerCoaching = ({
         answer_version_id: versionId,
         target_level: targetUpgrade,
         regenerate,
+        ...(customInstruction ? { custom_instruction: customInstruction } : {}),
       });
       setRewriteData(res.data);
+      setShowRegenModal(false);
     } catch (err) {
       console.error('Rewrite error:', err);
       setRewriteError('Không thể tạo bản nâng cấp lúc này. Vui lòng bấm thử lại.');
@@ -243,11 +249,7 @@ export const AnswerCoaching = ({
 
   const handleRegenerateRewrite = () => {
     if (rewriting) return;
-    const confirmed = window.confirm(
-      'Bản nâng cấp này đã được lưu trong hệ thống.\n\nBạn có muốn AI tạo lại bản nâng cấp mới không?\n• Bấm Hủy: Giữ lại bản hiện tại.\n• Bấm OK: Tạo một bản nâng cấp mới.'
-    );
-    if (!confirmed) return;
-    fetchRewriteIfNeeded(true, true);
+    setShowRegenModal(true);
   };
 
   const handleSelectRewriteTab = () => {
@@ -308,9 +310,8 @@ export const AnswerCoaching = ({
           </div>
           <TranslatableText
             text={question?.question_text}
+            preTranslatedVi={question?.question_translation_vi}
             className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-snug"
-            topic={question?.category || 'general'}
-            sourceQuestionId={question?.id}
             controlsAlign="start"
           />
         </div>
@@ -628,6 +629,38 @@ export const AnswerCoaching = ({
                   <CriteriaBar label="Hoàn thành yêu cầu" score={evaluation.score_task_completion} />
                 </div>
 
+                {/* Optional 1-tap Mark as Mastered when practicing from a Study Pack */}
+                {onUpdateStudyStatus && evaluation?.estimated_level && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-brand-50/70 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/30 text-xs">
+                    <span className="text-slate-700 dark:text-slate-200 font-medium">
+                      {studyStatus === 'mastered'
+                        ? '✅ Câu này đã được đánh dấu Đã thuộc.'
+                        : ['IM', 'IH', 'AL'].includes(evaluation.estimated_level)
+                        ? `🎉 Bạn đã nói đạt mức ${evaluation.estimated_level}! Đánh dấu đã thuộc câu này nhé?`
+                        : 'Cập nhật tiến độ học thuộc cho câu này:'}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {studyStatus !== 'mastered' ? (
+                        <button
+                          type="button"
+                          onClick={() => onUpdateStudyStatus('mastered')}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer"
+                        >
+                          Đánh dấu Đã thuộc
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onUpdateStudyStatus('learning')}
+                          className="px-3 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer"
+                        >
+                          Chuyển về Đang học
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* 3 Concrete Action Steps embedded right inside the scorecard */}
                 {evaluation.actionable_steps?.length > 0 && (
                   <div className="p-3.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/30 flex flex-col gap-2">
@@ -786,6 +819,15 @@ export const AnswerCoaching = ({
               regenerating={rewriting}
             />
           ) : null}
+
+          <RegenerateModal
+            isOpen={showRegenModal}
+            onClose={() => setShowRegenModal(false)}
+            onConfirm={(instruction) => fetchRewriteIfNeeded(true, true, instruction)}
+            loading={rewriting}
+            title="Tạo lại bản nâng cấp mới"
+            levelLabel={chosenLevelCode}
+          />
         </div>
       )}
 
