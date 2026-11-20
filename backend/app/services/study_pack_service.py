@@ -10,6 +10,7 @@ import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional, Tuple
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
@@ -180,6 +181,80 @@ SURVEY_LEISURE_BANK: Dict[str, Tuple[str, List[Dict[str, str]]]] = {
 }
 
 DEFAULT_LEISURE_KEYS = ["go to the movies", "go to parks", "listen to music", "cook", "walk"]
+
+# Complete 3-question combos for ALL 5 official topics (picking any 3 -> exact 9 questions)
+OFFICIAL_TOPIC_COMBOS: Dict[str, List[Dict[str, str]]] = {
+    "environment": [
+        {
+            "type": "description",
+            "text": "Environmental protection is an important issue today. What kinds of environmental problems is your city or country facing right now?",
+        },
+        {
+            "type": "past_experience",
+            "text": "Have you ever done something to protect the environment, such as recycling or reducing plastic waste? Tell me about a specific time and what you did.",
+        },
+        {
+            "type": "comparison",
+            "text": "How have people's attitudes toward protecting the environment changed compared to the past? Compare the past with today.",
+        },
+    ],
+    "human_rights": [
+        {
+            "type": "description",
+            "text": "Human rights and fairness are frequently discussed today. What does equal treatment mean to you in everyday life, work, or school?",
+        },
+        {
+            "type": "past_experience",
+            "text": "Tell me about a time at work, school, or in your community when fairness was important or someone was treated unfairly, and how it was handled.",
+        },
+        {
+            "type": "comparison",
+            "text": "How has awareness of equality and human rights changed in your country compared to twenty years ago?",
+        },
+    ],
+    "global_workplace": [
+        {
+            "type": "description",
+            "text": "Many people today work in international companies or collaborate online with people from other countries. Describe what a modern workplace looks like and what skills are helpful.",
+        },
+        {
+            "type": "past_experience",
+            "text": "Tell me about a memorable time you worked or cooperated with people who had different habits, opinions, or backgrounds. What happened?",
+        },
+        {
+            "type": "comparison",
+            "text": "How has the way people work changed compared to the past, especially with remote work and online tools?",
+        },
+    ],
+    "socio_cultural": [
+        {
+            "type": "description",
+            "text": "Tell me about some traditions, holidays, or social customs that are important in your country. How do families usually celebrate or practice them?",
+        },
+        {
+            "type": "past_experience",
+            "text": "Tell me about a memorable family gathering, holiday, or cultural event you attended. Who was there and what made it special?",
+        },
+        {
+            "type": "comparison",
+            "text": "There are noticeable differences between older and younger generations today. Compare how older people and young people spend their free time or view life.",
+        },
+    ],
+    "communication_media": [
+        {
+            "type": "description",
+            "text": "How do you use social media, messaging apps, or news platforms in your daily life? Which apps do you use the most and why?",
+        },
+        {
+            "type": "past_experience",
+            "text": "Tell me about a time when a message misunderstanding, phone issue, or internet outage caused a problem for you. What happened and how did you fix it?",
+        },
+        {
+            "type": "comparison",
+            "text": "How has the way people stay in touch with friends and family changed compared to the past? Compare the past with the present.",
+        },
+    ],
+}
 
 # 3 high-frequency Role-play combos (3 x 3 = 9 questions)
 ROLE_PLAY_COMBOS: List[Tuple[str, List[Dict[str, str]]]] = [
@@ -400,10 +475,10 @@ def build_50_study_questions(
         for q in qlist:
             items.append({**q, "category": "leisure", "difficulty": diff})
 
-    # 3. 3 Chosen Official Topics (9)
+    # 3. 3 Chosen Official Topics (exact 3 x 3 = 9 questions)
     for t_key in valid_topics:
-        bank_qs = TOPIC_QUESTIONS_BANK.get(t_key, [])[:3]
-        for bq in bank_qs:
+        topic_qs = OFFICIAL_TOPIC_COMBOS.get(t_key) or TOPIC_QUESTIONS_BANK.get(t_key, [])[:3]
+        for bq in topic_qs[:3]:
             items.append({
                 "question_type": bq["type"],
                 "topic": t_key.replace("_", " ").title(),
@@ -598,10 +673,10 @@ def get_study_pack_progress(db: Session, session_id: int, target_level: str = "I
     done = 0
     if q_ids:
         done = (
-            db.query(ModelAnswer.question_id)
+            db.query(func.count(func.distinct(ModelAnswer.question_id)))
             .filter(ModelAnswer.question_id.in_(q_ids), ModelAnswer.level == target_level)
-            .distinct()
-            .count()
+            .scalar()
+            or 0
         )
     mastered = sum(1 for _, st in questions if st == "mastered")
     learning = sum(1 for _, st in questions if st == "learning")
@@ -680,7 +755,9 @@ def create_exam_from_study_pack(
         picked.extend(remaining[: 15 - len(picked)])
     picked = picked[:15]
 
+    next_exam_id = int(db.query(func.max(TestSession.id)).scalar() or 0) + 1
     exam_session = TestSession(
+        id=next_exam_id,
         user_id=user_id,
         survey_data=pack_session.survey_data,
         self_assessment_level=pack_session.self_assessment_level or 4,

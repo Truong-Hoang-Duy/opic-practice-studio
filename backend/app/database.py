@@ -164,16 +164,18 @@ def wipe_all_question_set_data(db_engine=None):
 def ensure_schema(db_engine=None):
     from sqlalchemy import inspect
     db_engine = db_engine or engine
-    inspector = inspect(db_engine)
-    existing_tables = set(inspector.get_table_names())
     with db_engine.begin() as conn:
+        inspector = inspect(conn)
+        existing_tables = set(inspector.get_table_names())
+        is_pg = conn.dialect.name == "postgresql"
         for table, columns in ADDED_COLUMNS.items():
             if table not in existing_tables:
                 continue
             present = {c["name"] for c in inspector.get_columns(table)}
             for name, ddl in columns.items():
                 if name not in present:
-                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+                    if_not_exists = "IF NOT EXISTS " if is_pg else ""
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {if_not_exists}{name} {ddl}"))
                     logger.info(f"Added column {table}.{name}")
 
         # One-time migration: wipe legacy question set data while preserving users (login accounts)

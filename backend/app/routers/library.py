@@ -1,9 +1,10 @@
 from typing import Any, Dict, List, Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.config import settings
-from app.database import get_db
+from app.database import get_db, ensure_schema
 from app.models.user import User
 from app.models.session import TestSession
 from app.models.question import Question, ModelAnswer
@@ -278,7 +279,9 @@ def create_study_pack(
         survey["personal_profile"] = profile
 
     use_mock = bool(req.dev_mock) and settings.ENVIRONMENT != "production"
+    next_id = int(db.query(func.max(TestSession.id)).scalar() or 0) + 1
     pack = TestSession(
+        id=next_id,
         user_id=current_user.id,
         survey_data=survey,
         self_assessment_level=LEVEL_TO_ASSESSMENT.get(req.target_level, 4),
