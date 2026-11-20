@@ -1,3 +1,4 @@
+import datetime
 from typing import Any, Dict, List, Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -11,7 +12,12 @@ from app.models.question import Question, ModelAnswer
 from app.models.answer import Answer
 from app.core.security import get_current_user
 from app.services.evaluation_service import exam_level_for
-from app.services.playlist_service import request_playlist
+from app.services.playlist_service import (
+    request_playlist,
+    GAP_AFTER_QUESTION_SHADOW_SEC,
+    GAP_BETWEEN_SENTENCES_SHADOW_SEC,
+    GAP_BETWEEN_ITEMS_SEC,
+)
 from app.services.tts_service import cached_speech_url
 from app.services.study_pack_service import (
     DEFAULT_TOPICS,
@@ -110,6 +116,7 @@ def get_library(
         for a in db.query(Answer).filter(Answer.question_id.in_(all_q_ids)).all():
             answers_by_q[a.question_id] = a
 
+    now_utc = datetime.datetime.utcnow()
     result = []
     for s in sessions:
         questions = questions_by_session.get(s.id, [])
@@ -129,6 +136,7 @@ def get_library(
             has_answer_content = bool(
                 answer and (answer.audio_path or (answer.transcript_raw or "").strip() or (answer.transcript_edited or "").strip())
             )
+            is_due_today = bool(q.next_review_at and q.next_review_at <= now_utc)
             items.append({
                 "id": q.id,
                 "session_id": s.id,
@@ -142,6 +150,10 @@ def get_library(
                 "question_text": q.question_text,
                 "question_translation_vi": q.question_translation_vi,
                 "study_status": q.study_status or "unlearned",
+                "next_review_at": q.next_review_at,
+                "review_interval_days": q.review_interval_days or 0,
+                "review_count": q.review_count or 0,
+                "is_due_today": is_due_today,
                 "vietnamese_guide": q.vietnamese_guide,
                 "audio_path": cached_speech_url(q.question_text) or q.audio_path,
                 "model_answers": [
@@ -190,6 +202,7 @@ class PlaylistRequest(BaseModel):
     question_ids: List[int] = Field(min_length=1, max_length=60)
     level: Optional[str] = Field(None, description="IL | IM | IH; defaults to each session's chosen level")
     include_question: bool = True
+    shadowing_pause: bool = False
 
 
 @router.post("/playlist")
@@ -226,8 +239,20 @@ def build_playlist(
             missing.append(q.id)
             continue
         if req.include_question:
-            segments.append({"kind": "question", "text": q.question_text})
-        segments.append({"kind": "answer", "text": model.text})
+            q_seg = {"kind": "question", "text": q.question_text}
+            if req.shadowing_pause:
+                q_seg["gap_sec"] = GAP_AFTER_QUESTION_SHADOW_SEC
+            segments.append(q_seg)
+        if req.shadowing_pause and model.sentences and len(model.sentences) > 1:
+            sents = [st.strip() for st in model.sentences if str(st).strip()]
+            for s_idx, sent in enumerate(sents):
+                segments.append({
+                    "kind": "sentence",
+                    "text": sent,
+                    "gap_sec": GAP_BETWEEN_ITEMS_SEC if s_idx == len(sents) - 1 else GAP_BETWEEN_SENTENCES_SHADOW_SEC,
+                })
+        else:
+            segments.append({"kind": "answer", "text": model.text})
 
     if not segments and not missing:
         raise HTTPException(status_code=422, detail="Chọn ít nhất một câu (câu 1 không có trong bài nghe).")
@@ -250,6 +275,10 @@ class StudyPackCreateRequest(BaseModel):
 
 class StudyStatusUpdateRequest(BaseModel):
     study_status: Literal["unlearned", "learning", "mastered"]
+
+
+class ReviewRatingRequest(BaseModel):
+    rating: Literal["hard", "good", "easy"]
 
 
 class StartPackExamRequest(BaseModel):
@@ -362,6 +391,48 @@ def update_question_study_status(
     q.study_status = req.study_status
     db.commit()
     return {"question_id": q.id, "study_status": q.study_status}
+
+
+@router.post("/questions/{question_id}/review")
+def review_question_srs(
+    question_id: int,
+    req: ReviewRatingRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Spaced Repetition (SRS) scheduler: hard (1d), good (3d+), easy (7d -> 14d -> 30d)."""
+    q = (
+        db.query(Question)
+        .join(TestSession, Question.session_id == TestSession.id)
+        .filter(Question.id == question_id, TestSession.user_id == current_user.id)
+        .first()
+    )
+    if not q:
+        raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi.")
+
+    prev_days = int(q.review_interval_days or 0)
+    if req.rating == "hard":
+        next_days = 1
+        q.study_status = "learning"
+    elif req.rating == "good":
+        next_days = 3 if prev_days < 3 else min(14, max(3, int(round(prev_days * 1.8))))
+        q.study_status = "learning"
+    else:  # easy
+        next_days = 7 if prev_days < 7 else min(30, max(7, int(round(prev_days * 2.0))))
+        q.study_status = "mastered"
+
+    q.review_interval_days = next_days
+    q.review_count = int(q.review_count or 0) + 1
+    q.next_review_at = datetime.datetime.utcnow() + datetime.timedelta(days=next_days)
+    db.commit()
+    return {
+        "question_id": q.id,
+        "study_status": q.study_status,
+        "review_interval_days": q.review_interval_days,
+        "review_count": q.review_count,
+        "next_review_at": q.next_review_at,
+        "is_due_today": False,
+    }
 
 
 @router.post("/study-pack/{session_id}/start-exam")

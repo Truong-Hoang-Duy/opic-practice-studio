@@ -18,6 +18,10 @@ class Question(Base):
     audio_path = Column(String(255), nullable=True) # Cached audio file for Eva TTS
     study_status = Column(String(20), default="unlearned") # "unlearned", "learning", "mastered"
     question_translation_vi = Column(Text, nullable=True) # Pre-saved Vietnamese translation of the question
+    # Spaced Repetition (SRS) scheduling fields
+    next_review_at = Column(DateTime, nullable=True)
+    review_interval_days = Column(Integer, default=0)
+    review_count = Column(Integer, default=0)
 
     # Guide with steps, outline, and Vietnamese tips
     vietnamese_guide = Column(JSON, nullable=True)

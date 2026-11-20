@@ -97,6 +97,7 @@ export const AnswerCoaching = ({
   onTranscriptEdited = null,
   studyStatus = null,
   onUpdateStudyStatus = null,
+  onReviewRating = null,
 }) => {
   const isUnscored = question?.question_type === 'self_intro';
   const noAnswer = !answerId;
@@ -128,6 +129,7 @@ export const AnswerCoaching = ({
   const [rewriting, setRewriting] = useState(false);
   const [rewriteError, setRewriteError] = useState('');
   const [showRegenModal, setShowRegenModal] = useState(false);
+  const [ratedLabel, setRatedLabel] = useState('');
 
   // Model answers state
   const [modelAnswers, setModelAnswers] = useState([]);
@@ -629,35 +631,45 @@ export const AnswerCoaching = ({
                   <CriteriaBar label="Hoàn thành yêu cầu" score={evaluation.score_task_completion} />
                 </div>
 
-                {/* Optional 1-tap Mark as Mastered when practicing from a Study Pack */}
-                {onUpdateStudyStatus && evaluation?.estimated_level && (
+                {/* Compact SRS rating strip when practicing from Study Pack (same height as previous bar) */}
+                {(onReviewRating || onUpdateStudyStatus) && evaluation?.estimated_level && (
                   <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-brand-50/70 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/30 text-xs">
                     <span className="text-slate-700 dark:text-slate-200 font-medium">
-                      {studyStatus === 'mastered'
-                        ? '✅ Câu này đã được đánh dấu Đã thuộc.'
+                      {ratedLabel
+                        ? `✅ Đã hẹn ôn lại (${ratedLabel})`
                         : ['IM', 'IH', 'AL'].includes(evaluation.estimated_level)
-                        ? `🎉 Bạn đã nói đạt mức ${evaluation.estimated_level}! Đánh dấu đã thuộc câu này nhé?`
-                        : 'Cập nhật tiến độ học thuộc cho câu này:'}
+                        ? `Đạt ${evaluation.estimated_level}! Lên lịch ôn lại:`
+                        : 'Lên lịch ôn lại câu này:'}
                     </span>
-                    <div className="flex items-center gap-1.5">
-                      {studyStatus !== 'mastered' ? (
-                        <button
-                          type="button"
-                          onClick={() => onUpdateStudyStatus('mastered')}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer"
-                        >
-                          Đánh dấu Đã thuộc
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => onUpdateStudyStatus('learning')}
-                          className="px-3 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer"
-                        >
-                          Chuyển về Đang học
-                        </button>
-                      )}
-                    </div>
+                    {onReviewRating ? (
+                      <div className="flex items-center gap-1.5">
+                        {[
+                          { key: 'hard', label: 'Quên · 1d', cls: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-500/40' },
+                          { key: 'good', label: 'Nhớ · 3d', cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-500/40' },
+                          { key: 'easy', label: 'Thuộc · 7d', cls: 'bg-emerald-600 text-white border-emerald-600' },
+                        ].map((btn) => (
+                          <button
+                            key={btn.key}
+                            type="button"
+                            onClick={async () => {
+                              await onReviewRating(btn.key);
+                              setRatedLabel(btn.label);
+                            }}
+                            className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-bold cursor-pointer ${btn.cls}`}
+                          >
+                            {btn.label}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onUpdateStudyStatus(studyStatus === 'mastered' ? 'learning' : 'mastered')}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer"
+                      >
+                        {studyStatus === 'mastered' ? 'Đã thuộc' : 'Đánh dấu Đã thuộc'}
+                      </button>
+                    )}
                   </div>
                 )}
 

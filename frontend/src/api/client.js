@@ -119,6 +119,8 @@ export const libraryApi = {
   studyPackProgress: (sessionId) => api.get(`/library/study-pack/${sessionId}/progress`),
   updateStudyStatus: (questionId, study_status) =>
     api.patch(`/library/questions/${questionId}/study-status`, { study_status }),
+  reviewQuestion: (questionId, rating) =>
+    api.post(`/library/questions/${questionId}/review`, { rating }),
   startExamFromPack: (sessionId, mode = 'exam') =>
     api.post(`/library/study-pack/${sessionId}/start-exam`, { mode }),
 };

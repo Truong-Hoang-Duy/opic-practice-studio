@@ -18,6 +18,8 @@ logger = logging.getLogger("opic_playlist")
 PLAYLIST_DIR_NAME = "playlists"
 SAMPLE_RATE = 24000
 GAP_AFTER_QUESTION_SEC = 1.2
+GAP_AFTER_QUESTION_SHADOW_SEC = 5.0
+GAP_BETWEEN_SENTENCES_SHADOW_SEC = 3.5
 GAP_BETWEEN_ITEMS_SEC = 2.5
 
 _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="eva_playlist")
@@ -70,7 +72,14 @@ def _build(key: str, segments: List[Dict[str, str]]):
             if not url:
                 raise RuntimeError("Server TTS unavailable")
             parts.append(_load_mono(_url_to_path(url)))
-            gap = GAP_AFTER_QUESTION_SEC if seg["kind"] == "question" else GAP_BETWEEN_ITEMS_SEC
+            if "gap_sec" in seg and seg["gap_sec"] is not None:
+                gap = float(seg["gap_sec"])
+            elif seg["kind"] == "question":
+                gap = GAP_AFTER_QUESTION_SEC
+            elif seg["kind"] == "sentence":
+                gap = GAP_BETWEEN_SENTENCES_SHADOW_SEC
+            else:
+                gap = GAP_BETWEEN_ITEMS_SEC
             parts.append(np.zeros(int(SAMPLE_RATE * gap), dtype="float32"))
         filepath, _ = _paths(key)
         tmp = filepath + ".tmp.mp3"
