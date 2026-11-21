@@ -178,14 +178,18 @@ def normalize_vocab_upgrades(items: Any, fallback_topic: str = "general") -> Lis
         if not original or not upgraded or upgraded.lower() in seen or upgraded.lower() == original.lower():
             continue
         seen.add(upgraded.lower())
-        upgrades.append({
+        entry = {
             "original_phrase": original,
             "upgraded_phrase": upgraded[:255],
             "kind": normalize_kind(item.get("kind")),
             "topic": normalize_topic(item.get("topic"), fallback_topic),
             "example_sentence": _clean_str(item.get("example_sentence")),
             "note_vi": _clean_str(item.get("note_vi")),
-        })
+        }
+        note_en = _clean_str(item.get("note_en"))
+        if note_en:
+            entry["note_en"] = note_en
+        upgrades.append(entry)
     return upgrades[:MAX_VOCAB_UPGRADES]
 
 
@@ -197,12 +201,16 @@ def normalize_speech_intelligence(data: Dict[str, Any]) -> Dict[str, Any]:
             continue
         tense = _clean_str(item.get("tense")).lower()
         status = _clean_str(item.get("status")).lower()
-        timeline.append({
+        entry = {
             "sentence": _clean_str(item.get("sentence")),
             "tense": tense if tense in TENSES else "mixed",
             "status": status if status in ("correct", "incorrect") else "correct",
             "note_vi": _clean_str(item.get("note_vi")),
-        })
+        }
+        note_en = _clean_str(item.get("note_en"))
+        if note_en:
+            entry["note_en"] = note_en
+        timeline.append(entry)
     timeline = timeline[:MAX_TIMELINE_ITEMS]
 
     warnings = []
@@ -212,12 +220,19 @@ def normalize_speech_intelligence(data: Dict[str, Any]) -> Dict[str, Any]:
         original, suggested = _clean_str(item.get("original_phrase")), _clean_str(item.get("suggested_phrase"))
         if not original or not suggested:
             continue
-        warnings.append({
+        entry = {
             "original_phrase": original,
             "issue_vi": _clean_str(item.get("issue_vi")),
             "suggested_phrase": suggested,
             "explanation_vi": _clean_str(item.get("explanation_vi")),
-        })
+        }
+        issue_en = _clean_str(item.get("issue_en"))
+        if issue_en:
+            entry["issue_en"] = issue_en
+        explanation_en = _clean_str(item.get("explanation_en"))
+        if explanation_en:
+            entry["explanation_en"] = explanation_en
+        warnings.append(entry)
 
     data["tense_timeline"] = timeline
     data["tense_distribution"] = _normalize_distribution(data.get("tense_distribution"), timeline) if timeline or data.get("tense_distribution") else None
@@ -281,6 +296,153 @@ def attach_speech_intelligence(eval_obj: Evaluation, version: Optional[AnswerVer
     return eval_obj
 
 
+def localize_evaluation_response(
+    db: Session,
+    eval_obj: Evaluation,
+    version: Optional[AnswerVersion],
+    question: Optional[Question],
+    lang: Optional[str] = None,
+    mock: bool = False,
+) -> Dict[str, Any]:
+    """
+    Returns an EvaluationResponse-compatible dict localized to 'vi' or 'en', while keeping
+    learner transcripts, mistake/correction pairs, original/suggested phrases, and example sentences in English.
+    Lazily translates & caches legacy evaluations in `eval_obj.i18n_cache`.
+    """
+    from app.services.llm_service import translate_structured_bundle_llm
+
+    attach_speech_intelligence(eval_obj, version, question)
+    target = "vi" if lang == "vi" else "en" if lang == "en" else None
+
+    cache = dict(eval_obj.i18n_cache or {})
+    tense_details = dict(eval_obj.tense_control_details or {})
+    timeline = [dict(item) for item in (eval_obj.tense_timeline or [])]
+    warnings = [dict(item) for item in (eval_obj.vietlish_warnings or [])]
+    upgrades = [dict(item) for item in (eval_obj.vocab_upgrades or [])]
+
+    summary_out = eval_obj.feedback_summary
+    tense_exp_out = tense_details.get("explanation", "")
+
+    if target == "vi":
+        vi_bundle = cache.get("vi")
+        if not vi_bundle and not mock:
+            # Handle built-in empty answer Vietnamese text without calling LLM
+            if "Không nhận dạng được" in (eval_obj.feedback_summary or ""):
+                vi_bundle = {
+                    "feedback_summary": eval_obj.feedback_summary,
+                    "tense_explanation": tense_exp_out,
+                }
+            else:
+                translated = translate_structured_bundle_llm(
+                    {
+                        "feedback_summary": eval_obj.feedback_summary,
+                        "tense_explanation": tense_exp_out,
+                    },
+                    target_lang="vi",
+                    mock=mock,
+                )
+                if translated:
+                    vi_bundle = {
+                        "feedback_summary": _clean_str(translated.get("feedback_summary")) or eval_obj.feedback_summary,
+                        "tense_explanation": _clean_str(translated.get("tense_explanation")) or tense_exp_out,
+                    }
+            if vi_bundle:
+                cache["vi"] = vi_bundle
+                eval_obj.i18n_cache = cache
+                db.commit()
+        if vi_bundle:
+            summary_out = vi_bundle.get("feedback_summary") or summary_out
+            tense_exp_out = vi_bundle.get("tense_explanation") or tense_exp_out
+    elif target == "en":
+        en_bundle = cache.get("en")
+        if not en_bundle and "Không nhận dạng được" in (eval_obj.feedback_summary or ""):
+            en_bundle = {
+                "feedback_summary": (
+                    "No speech was detected in the recording (silence, low volume, or recognition failure). "
+                    "Under OPIc standards, an empty answer receives the lowest band. You can replay the audio, "
+                    "edit the transcript to re-evaluate, or record again."
+                ),
+                "tense_explanation": "No spoken content was detected to evaluate tense control.",
+            }
+            cache["en"] = en_bundle
+            eval_obj.i18n_cache = cache
+            db.commit()
+        if en_bundle:
+            summary_out = en_bundle.get("feedback_summary") or summary_out
+            tense_exp_out = en_bundle.get("tense_explanation") or tense_exp_out
+
+        # Ensure timeline / warnings / upgrades have English commentary for legacy rows when viewing in EN
+        needs_en_items = (
+            any(item.get("note_vi") and not item.get("note_en") for item in timeline)
+            or any((item.get("issue_vi") or item.get("explanation_vi")) and not item.get("explanation_en") for item in warnings)
+            or any(item.get("note_vi") and not item.get("note_en") for item in upgrades)
+        )
+        en_items = cache.get("en_items")
+        if needs_en_items and not en_items and not mock:
+            translated_items = translate_structured_bundle_llm(
+                {
+                    "timeline_notes": [item.get("note_vi", "") for item in timeline],
+                    "warning_issues": [item.get("issue_vi", "") for item in warnings],
+                    "warning_explanations": [item.get("explanation_vi", "") for item in warnings],
+                    "upgrade_notes": [item.get("note_vi", "") for item in upgrades],
+                },
+                target_lang="en",
+                mock=mock,
+            )
+            if translated_items:
+                en_items = translated_items
+                cache["en_items"] = en_items
+                eval_obj.i18n_cache = cache
+                db.commit()
+        if isinstance(en_items, dict):
+            t_notes = en_items.get("timeline_notes") or []
+            for idx, item in enumerate(timeline):
+                if not item.get("note_en") and idx < len(t_notes) and t_notes[idx]:
+                    item["note_en"] = t_notes[idx]
+            w_issues = en_items.get("warning_issues") or []
+            w_exps = en_items.get("warning_explanations") or []
+            for idx, item in enumerate(warnings):
+                if not item.get("issue_en") and idx < len(w_issues) and w_issues[idx]:
+                    item["issue_en"] = w_issues[idx]
+                if not item.get("explanation_en") and idx < len(w_exps) and w_exps[idx]:
+                    item["explanation_en"] = w_exps[idx]
+            u_notes = en_items.get("upgrade_notes") or []
+            for idx, item in enumerate(upgrades):
+                if not item.get("note_en") and idx < len(u_notes) and u_notes[idx]:
+                    item["note_en"] = u_notes[idx]
+
+    if target != "en":
+        for item in upgrades:
+            item.pop("note_en", None)
+
+    tense_details["explanation"] = tense_exp_out
+
+    return {
+        "id": eval_obj.id,
+        "answer_version_id": eval_obj.answer_version_id,
+        "estimated_level": eval_obj.estimated_level,
+        "score_fluency": eval_obj.score_fluency,
+        "score_tenses": eval_obj.score_tenses,
+        "score_organization": eval_obj.score_organization,
+        "score_vocabulary": eval_obj.score_vocabulary,
+        "score_grammar": eval_obj.score_grammar,
+        "score_task_completion": eval_obj.score_task_completion,
+        "tense_control_details": tense_details,
+        "complication_present": eval_obj.complication_present,
+        "story_narrative_present": eval_obj.story_narrative_present,
+        "feedback_summary": summary_out,
+        "actionable_steps": eval_obj.actionable_steps or [],
+        "feedback_items": eval_obj.feedback_items or [],
+        "tense_timeline": timeline,
+        "tense_distribution": eval_obj.tense_distribution,
+        "vietlish_warnings": warnings,
+        "vocab_upgrades": upgrades,
+        "speech_metrics": eval_obj.speech_metrics,
+        "narrative_expected": eval_obj.narrative_expected,
+        "created_at": eval_obj.created_at,
+    }
+
+
 def save_evaluation(
     db: Session,
     session_id: int,
@@ -300,6 +462,24 @@ def save_evaluation(
         estimated_cost=cost
     ))
 
+    tense_details = dict(eval_data.get("tense_control_details") or {})
+    en_summary = _clean_str(eval_data.get("feedback_summary")) or "Evaluation complete."
+    vi_summary = _clean_str(eval_data.get("feedback_summary_vi"))
+    en_tense_exp = _clean_str(tense_details.get("explanation"))
+    vi_tense_exp = _clean_str(tense_details.get("explanation_vi"))
+
+    i18n_cache: Dict[str, Any] = {
+        "en": {
+            "feedback_summary": en_summary,
+            "tense_explanation": en_tense_exp,
+        }
+    }
+    if vi_summary or vi_tense_exp:
+        i18n_cache["vi"] = {
+            "feedback_summary": vi_summary or en_summary,
+            "tense_explanation": vi_tense_exp or en_tense_exp,
+        }
+
     eval_obj = Evaluation(
         answer_version_id=version.id,
         estimated_level=eval_data.get("estimated_level", "IM"),
@@ -309,15 +489,16 @@ def save_evaluation(
         score_vocabulary=eval_data.get("score_vocabulary", 3),
         score_grammar=eval_data.get("score_grammar", 3),
         score_task_completion=eval_data.get("score_task_completion", 3),
-        tense_control_details=eval_data.get("tense_control_details", {}),
+        tense_control_details=tense_details,
         complication_present=eval_data.get("complication_present", False),
         story_narrative_present=eval_data.get("story_narrative_present", False),
         tense_timeline=eval_data.get("tense_timeline") or [],
         tense_distribution=eval_data.get("tense_distribution"),
         vietlish_warnings=eval_data.get("vietlish_warnings") or [],
         vocab_upgrades=eval_data.get("vocab_upgrades") or [],
-        feedback_summary=eval_data.get("feedback_summary", "Evaluation complete."),
-        actionable_steps=eval_data.get("actionable_steps", [])
+        feedback_summary=en_summary,
+        actionable_steps=eval_data.get("actionable_steps", []),
+        i18n_cache=i18n_cache,
     )
     db.add(eval_obj)
     db.commit()

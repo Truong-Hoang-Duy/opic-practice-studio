@@ -25,7 +25,6 @@ export const ScrollToTopButton = ({ hasBottomNav = true }) => {
     };
 
     checkScroll();
-    // Capture phase catches scroll on both window and inner scrollable containers (<main> in TestSession/AnswerCoaching)
     window.addEventListener('scroll', checkScroll, { capture: true, passive: true });
     return () => window.removeEventListener('scroll', checkScroll, { capture: true });
   }, []);
@@ -38,11 +37,13 @@ export const ScrollToTopButton = ({ hasBottomNav = true }) => {
       onClick={() => scrollPageToTop('smooth')}
       title="Lên đầu trang"
       aria-label="Lên đầu trang"
-      className="fixed top-[4.5rem] right-3 md:top-auto md:right-auto md:left-6 md:bottom-6 z-40 flex items-center gap-1 px-2.5 py-1.5 md:p-3 rounded-full bg-brand-600/95 hover:bg-brand-500 text-white shadow-lg shadow-brand-600/30 border border-white/20 backdrop-blur-md transition-all transform active:scale-95 cursor-pointer"
+      className={`fixed right-4 z-40 flex items-center gap-1 p-2.5 lg:p-3 rounded-full btn-brand-gradient border border-white/25 backdrop-blur-md transition-all transform active:scale-95 cursor-pointer ${
+        hasBottomNav
+          ? 'bottom-[calc(4.75rem+env(safe-area-inset-bottom))] lg:bottom-6 lg:right-6'
+          : 'bottom-6 right-6'
+      }`}
     >
-      <ArrowUp className="w-3.5 h-3.5 md:w-4 md:h-4 stroke-[2.5]" />
-      <span className="text-[11px] font-bold md:hidden">Lên đầu</span>
+      <ArrowUp className="w-4 h-4 stroke-[2.5]" />
     </button>
   );
 };
-

@@ -59,11 +59,11 @@ def test_practice_mode_skip_keeps_question_open(client):
     assert q2.status_code == 200
     assert q2.json()["existing_answer"] is None
 
-    # Answer Q2, advance to Q3, then jump back to Q2: Q2 must return its existing_answer & versions
+    # Answer Q2 with a minimal first take, jump back to Q2: Q2 must return its existing_answer & versions
     q2_data = q2.json()
     ans1 = client.post("/api/answers", data={
-        "question_id": q2_data["id"], "session_id": session_id, "duration_seconds": 65,
-        "transcript_raw": "I live in a cozy apartment on the eighth floor."
+        "question_id": q2_data["id"], "session_id": session_id, "duration_seconds": 5,
+        "transcript_raw": "Yes."
     }, headers=headers)
     assert ans1.status_code == 200
 
@@ -75,14 +75,30 @@ def test_practice_mode_skip_keeps_question_open(client):
     status = client.get(f"/api/sessions/{session_id}/status", headers=headers).json()
     assert status["answered_orders"] == [2]
 
-    # Re-record Q2: appends version 2 without deleting version 1
+    # Evaluate minimal first take -> below_IL
+    ev1 = client.post(f"/api/answers/{ans1.json()['id']}/evaluate", headers=headers)
+    assert ev1.status_code == 200
+    assert ev1.json()["estimated_level"] == "below_IL"
+
+    # Re-record Q2 with a full answer: replaces previous take cleanly (keeps only latest take) and requires fresh re-evaluation
     ans2 = client.post("/api/answers", data={
         "question_id": q2_data["id"], "session_id": session_id, "duration_seconds": 80,
-        "transcript_raw": "I live in a modern apartment on the eighth floor with a balcony."
+        "transcript_raw": (
+            "I live in a modern apartment on the eighth floor with a sunny balcony overlooking a quiet park. "
+            "Usually I relax there every evening after work and cook dinner with my family. "
+            "Last month our air conditioner broke down during a heat wave, so we stayed on the balcony and ordered cold drinks until the technician fixed it."
+        ),
     }, headers=headers)
     assert ans2.status_code == 200
     q2_after_retry = client.get(f"/api/sessions/{session_id}/questions/2", headers=headers).json()
-    assert len(q2_after_retry["existing_answer"]["versions"]) == 2
+    assert len(q2_after_retry["existing_answer"]["versions"]) == 1
+    assert q2_after_retry["existing_answer"]["versions"][0]["version_number"] == 1
+    assert "balcony" in q2_after_retry["existing_answer"]["transcript_raw"]
+
+    # Re-evaluating after re-record runs a brand-new evaluation (old below_IL evaluation was purged)
+    ev2 = client.post(f"/api/answers/{ans2.json()['id']}/evaluate", headers=headers)
+    assert ev2.status_code == 200
+    assert ev2.json()["estimated_level"] != "below_IL"
 
 
 def test_levels_1_and_2_are_no_longer_accepted(client):

@@ -3,6 +3,7 @@ import { ArrowRight, Sparkles, Volume2, Play, RotateCcw, Eye, GitCompare, Loader
 import { speakPhrase, stopSpeaking } from '../utils/speakPhrase';
 import { SpeakButton, SoundWaveMini } from './SpeakButton';
 import { TranslatableText } from './TranslatableText';
+import { useLanguage } from '../context/LanguageContext';
 
 // Highlights key expressions inside a clean sentence for easy reading & shadowing
 const HighlightedSentence = ({ text, expressions = [] }) => {
@@ -39,6 +40,7 @@ export const DiffViewer = ({
   onRegenerate,
   regenerating = false,
 }) => {
+  const { isVi, pick } = useLanguage();
   if (!rewriteData) return null;
 
   const {
@@ -46,6 +48,7 @@ export const DiffViewer = ({
     improved_text,
     current_level,
     target_level,
+    changes_explanation,
     vietnamese_coaching_notes,
     diff_chunks,
     key_expressions_added,
@@ -109,14 +112,17 @@ export const DiffViewer = ({
           <div className="flex flex-wrap items-center gap-2">
             <Sparkles className="w-5 h-5 text-amber-500 dark:text-amber-400 shrink-0" />
             <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-              Bài nói của bạn được nâng cấp
+              {pick('Bài nói của bạn được nâng cấp', 'Upgraded Version of Your Response')}
             </h3>
             <span className="flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30">
-              {current_level === 'below_IL' ? 'Dưới IL' : current_level} <ArrowRight className="w-3 h-3" /> {target_level}
+              {current_level === 'below_IL' ? pick('Dưới IL', 'Below IL') : current_level} <ArrowRight className="w-3 h-3" /> {target_level}
             </span>
           </div>
           <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-            Viết lại mượt mà, tự nhiên và tối ưu cấu trúc câu chuẩn Mức {target_level} (có thể điều chỉnh ý để phù hợp mục tiêu).
+            {pick(
+              `Viết lại mượt mà, tự nhiên và tối ưu cấu trúc câu chuẩn Mức ${target_level}.`,
+              `Polished into natural spoken English targeting Level ${target_level}.`
+            )}
           </p>
         </div>
 
@@ -127,11 +133,11 @@ export const DiffViewer = ({
               type="button"
               onClick={onRegenerate}
               disabled={regenerating}
-              title="Tạo lại bản nâng cấp mới"
+              title={pick('Tạo lại bản nâng cấp mới', 'Regenerate upgrade')}
               className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-white dark:bg-slate-900 hover:bg-amber-50 dark:hover:bg-amber-500/15 text-slate-700 dark:text-slate-200 hover:text-amber-700 border border-slate-300 dark:border-slate-700 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
             >
               <RotateCcw className={`w-3.5 h-3.5 ${regenerating ? 'animate-spin' : ''}`} />
-              <span>Tạo lại</span>
+              <span>{pick('Tạo lại', 'Retry')}</span>
             </button>
           )}
           <div className="flex items-center bg-slate-100 dark:bg-slate-950 rounded-lg p-0.5 border border-slate-200 dark:border-slate-800 text-xs">
@@ -166,13 +172,13 @@ export const DiffViewer = ({
             ) : isPlayingAll ? (
               <>
                 <SoundWaveMini light />
-                <span>Đang đọc · Dừng</span>
+                <span>{pick('Dừng', 'Stop')}</span>
                 <Square className="w-2.5 h-2.5 fill-current opacity-80" />
               </>
             ) : (
               <>
                 <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Nghe cả bài</span>
+                <span>{pick('Nghe cả bài', 'Play All')}</span>
               </>
             )}
           </button>
@@ -192,7 +198,7 @@ export const DiffViewer = ({
             }`}
           >
             <Eye className="w-3.5 h-3.5" />
-            <span>Bản sạch để luyện nói ({sentences.length} câu)</span>
+            <span>{pick(`Bản sạch (${sentences.length} câu)`, `Clean Script (${sentences.length})`)}</span>
           </button>
           <button
             type="button"
@@ -204,13 +210,13 @@ export const DiffViewer = ({
             }`}
           >
             <GitCompare className="w-3.5 h-3.5" />
-            <span>So sánh chỗ sửa (Diff)</span>
+            <span>{pick('So sánh (Diff)', 'Compare Diff')}</span>
           </button>
         </div>
         <span className="text-[11px] text-slate-500 dark:text-slate-400">
           {viewMode === 'practice'
-            ? '💡 Bấm nút Nghe ở từng câu để nghe Eva đọc mẫu và nhại lại'
-            : '💡 Chữ gạch đỏ là phần bỏ đi, chữ xanh là phần nâng cấp'}
+            ? pick('💡 Bấm Nghe ở từng câu để nhại lại theo Eva', '💡 Play each sentence to shadow Eva')
+            : pick('💡 Chữ gạch đỏ là phần bỏ đi, chữ xanh là phần nâng cấp', '💡 Red strikethrough = removed, green = upgraded')}
         </span>
       </div>
 
@@ -240,8 +246,8 @@ export const DiffViewer = ({
                   <button
                     type="button"
                     onClick={() => handlePlaySentence(idx, sent)}
-                    title={isSpeaking ? 'Đang phát - bấm để dừng' : 'Nghe câu này'}
-                    className={`min-w-[96px] flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors shrink-0 cursor-pointer ${
+                    title={isSpeaking ? pick('Đang phát - bấm để dừng', 'Playing - click to stop') : pick('Nghe câu này', 'Play sentence')}
+                    className={`min-w-[84px] flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors shrink-0 cursor-pointer ${
                       isSpeaking
                         ? 'bg-brand-500 text-white border-brand-500 shadow-xs ring-2 ring-brand-500/30'
                         : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 border-slate-200 dark:border-slate-800'
@@ -250,12 +256,12 @@ export const DiffViewer = ({
                     {isSpeaking ? (
                       <>
                         <SoundWaveMini light />
-                        <span>Đang phát</span>
+                        <span>{pick('Dừng', 'Stop')}</span>
                       </>
                     ) : (
                       <>
                         <Volume2 className="w-3.5 h-3.5" />
-                        <span>Nghe</span>
+                        <span>{pick('Nghe', 'Play')}</span>
                       </>
                     )}
                   </button>
@@ -266,6 +272,7 @@ export const DiffViewer = ({
                     text={sent}
                     className="text-sm leading-relaxed"
                     controlsAlign="start"
+                    showControls={isVi}
                   />
                 </div>
               </div>
@@ -277,9 +284,11 @@ export const DiffViewer = ({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 flex flex-col">
             <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-200 dark:border-slate-800">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">Bài nói gốc của bạn</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                {pick('Bài nói gốc của bạn', 'Your Original Response')}
+              </span>
               <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                Mức {current_level}
+                {pick(`Mức ${current_level}`, `Level ${current_level}`)}
               </span>
             </div>
             <div className="text-sm text-slate-800 dark:text-slate-300 leading-relaxed whitespace-pre-wrap flex-1 pt-1">
@@ -291,7 +300,7 @@ export const DiffViewer = ({
             <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-200 dark:border-slate-800">
               <span className="text-xs font-bold uppercase tracking-wider text-brand-700 dark:text-brand-400 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" />
-                Chi tiết chỉnh sửa lên Mức {target_level}
+                {pick(`Chi tiết nâng cấp lên Mức ${target_level}`, `Upgraded to Level ${target_level}`)}
               </span>
             </div>
 
@@ -326,7 +335,7 @@ export const DiffViewer = ({
       {key_expressions_added && key_expressions_added.length > 0 && (
         <div className="flex flex-col gap-2">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-            Cụm từ ăn điểm đã thêm vào bài của bạn (Bấm để nghe):
+            {pick('Cụm từ ăn điểm đã thêm vào bài (Bấm để nghe):', 'Key High-Scoring Expressions Added (Click to listen):')}
           </span>
           <div className="flex flex-wrap gap-2">
             {key_expressions_added.map((expr, i) => (
@@ -337,21 +346,21 @@ export const DiffViewer = ({
                 rate={speed}
                 id={`diff-expr-${i}`}
                 label={`"${expr}"`}
-                title="Bấm để nghe phát âm"
+                title={pick('Bấm để nghe phát âm', 'Click to listen')}
               />
             ))}
           </div>
         </div>
       )}
 
-      {/* Vietnamese Coaching Notes */}
-      {vietnamese_coaching_notes && (
+      {/* Coaching Notes (VI vs EN) */}
+      {(isVi ? (vietnamese_coaching_notes || changes_explanation) : (changes_explanation || vietnamese_coaching_notes)) && (
         <div className="p-3.5 rounded-xl bg-amber-50/80 dark:bg-slate-950/80 border border-amber-300/80 dark:border-amber-500/30">
           <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-400 mb-1">
-            <span>🇻🇳 Tại sao bản nâng cấp này đạt điểm cao hơn?</span>
+            <span>{pick('Tại sao bản nâng cấp này đạt điểm cao hơn?', 'Why This Upgrade Scores Higher')}</span>
           </div>
           <p className="text-xs text-slate-800 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
-            {vietnamese_coaching_notes}
+            {isVi ? (vietnamese_coaching_notes || changes_explanation) : (changes_explanation || vietnamese_coaching_notes)}
           </p>
         </div>
       )}
@@ -360,15 +369,18 @@ export const DiffViewer = ({
       {onPracticeAgain && (
         <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <p className="text-xs text-slate-600 dark:text-slate-400">
-            🎯 <strong>Cách học hiệu quả nhất:</strong> Sau khi nghe và đọc nhại theo các câu trên 1–2 lần, hãy bấm ghi âm nói lại bằng chính giọng của bạn!
+            {pick(
+              '🎯 Mẹo luyện nói: Sau khi nghe và nhại lại 1–2 lần, hãy bấm ghi âm nói lại bằng giọng của bạn.',
+              '🎯 Study tip: Shadow the sentences once or twice, then record your own upgraded take.'
+            )}
           </p>
           <button
             type="button"
             onClick={onPracticeAgain}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all cursor-pointer shrink-0"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all cursor-pointer shrink-0 whitespace-nowrap"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Ghi âm nói lại câu này</span>
+            <span>{pick('Nói lại', 'Retry')}</span>
           </button>
         </div>
       )}

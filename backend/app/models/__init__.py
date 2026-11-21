@@ -7,6 +7,7 @@ from app.models.evaluation import Evaluation, FeedbackItem
 from app.models.report import SessionReport, LLMUsageLog
 from app.models.vocabulary import UserVocabulary
 from app.models.daily import DailyWorkout
+from app.models.playlist import SavedPlaylist
 
 __all__ = [
     "Base",
@@ -22,4 +23,5 @@ __all__ = [
     "LLMUsageLog",
     "UserVocabulary",
     "DailyWorkout",
+    "SavedPlaylist",
 ]

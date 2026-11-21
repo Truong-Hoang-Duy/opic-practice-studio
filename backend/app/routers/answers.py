@@ -1,8 +1,9 @@
 import difflib
 import re
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, status
 from sqlalchemy.orm import Session
+from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.models.question import Question
@@ -40,6 +41,20 @@ from app.services.llm_service import rewrite_answer_llm
 
 router = APIRouter(prefix="/answers", tags=["Answers"])
 
+def _delete_uploaded_audio(audio_path: Optional[str]) -> None:
+    """Safely removes an obsolete uploaded audio file inside AUDIO_UPLOAD_DIR."""
+    if not audio_path or not isinstance(audio_path, str):
+        return
+    clean_rel = audio_path.lstrip("/").replace("data/uploads/", "", 1)
+    if not clean_rel or "/" in clean_rel or "\\" in clean_rel or ".." in clean_rel:
+        return
+    full_path = os.path.join(settings.AUDIO_UPLOAD_DIR, clean_rel)
+    try:
+        if os.path.isfile(full_path):
+            os.remove(full_path)
+    except OSError as exc:
+        logger.warning(f"Failed to remove superseded audio file {full_path}: {exc}")
+
 def _ensure_scored_question(answer: Answer):
     """Q1 self-introduction is never evaluated or upgraded, mirroring the real OPIc."""
     if answer.question and answer.question.question_type in UNSCORED_QUESTION_TYPES:
@@ -71,10 +86,12 @@ async def submit_answer(
     session_id: int = Form(...),
     duration_seconds: float = Form(0.0),
     transcript_raw: str = Form(""),
+    dev_mock: bool = Form(False),
     audio_file: Optional[UploadFile] = File(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    force_mock = bool(dev_mock) and settings.ENVIRONMENT != "production"
     audio_url = None
     file_bytes = b""
     filename = None
@@ -90,6 +107,11 @@ async def submit_answer(
     if transcript_raw.strip():
         # Transcript supplied by the client (tests / manual entry)
         word_confidences = parse_words_with_confidence(transcript_raw)
+    elif force_mock:
+        duration_seconds = max(float(duration_seconds or 0.0), 62.0)
+        result = mock_transcribe(duration_seconds)
+        transcript_raw = result["text"]
+        word_confidences = result["words"]
     else:
         # Normal flow: the finished recording is transcribed here (no real-time streaming).
         # Recognition problems never block the learner: the recording is kept and the answer is still scored.
@@ -114,21 +136,29 @@ async def submit_answer(
     # Speech flow of this take (WPM, pauses, fillers) from the STT word timings
     speech_metrics = compute_speech_metrics(word_confidences, duration_seconds)
 
-    # Check if answer exists for this question
+    # Check if answer exists for this question: replace old recording & stale evaluations to keep DB/disk clean
     existing = db.query(Answer).filter(Answer.question_id == question_id, Answer.session_id == session_id).first()
     if existing:
-        # Update existing answer
-        existing.audio_path = audio_url or existing.audio_path
+        old_audio_paths = {
+            p for p in ([existing.audio_path] + [v.audio_path for v in existing.versions])
+            if p and p != audio_url
+        }
+
+        # Delete previous versions (cascades to old evaluations & feedback items so the new take is always freshly scored)
+        for old_ver in list(existing.versions):
+            db.delete(old_ver)
+        db.flush()
+
+        existing.audio_path = audio_url
         existing.duration_seconds = duration_seconds
         existing.transcript_raw = transcript_raw
         existing.transcript_edited = transcript_raw
         existing.word_confidences = word_confidences
+        existing.created_at = datetime.utcnow()
 
-        # Next version
-        max_ver = max([v.version_number for v in existing.versions] or [0])
-        new_version = AnswerVersion(
+        fresh_version = AnswerVersion(
             answer_id=existing.id,
-            version_number=max_ver + 1,
+            version_number=1,
             transcript=transcript_raw,
             source="stt",
             notes=stt_note or "Re-recorded answer",
@@ -136,9 +166,13 @@ async def submit_answer(
             duration_seconds=duration_seconds,
             speech_metrics=speech_metrics
         )
-        db.add(new_version)
+        db.add(fresh_version)
         db.commit()
         db.refresh(existing)
+
+        for old_path in old_audio_paths:
+            _delete_uploaded_audio(old_path)
+
         return existing
 
     answer = Answer(
@@ -205,9 +239,13 @@ def edit_transcript(
 def evaluate_answer(
     answer_id: int,
     version_id: Optional[int] = None,
+    dev_mock: bool = Query(False),
+    lang: Optional[str] = Query(None, pattern="^(vi|en)$"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    from app.services.evaluation_service import localize_evaluation_response
+
     answer = db.query(Answer).filter(Answer.id == answer_id).first()
     if not answer:
         raise HTTPException(status_code=404, detail="Answer not found.")
@@ -222,23 +260,25 @@ def evaluate_answer(
     if not ver:
         raise HTTPException(status_code=404, detail="Answer version not found.")
 
+    q = answer.question
+    session = answer.session or db.query(TestSession).filter(TestSession.id == answer.session_id).first()
+    use_mock = is_mock_session(session) or (bool(dev_mock) and settings.ENVIRONMENT != "production")
+
     # Check if already evaluated
     existing_eval = db.query(Evaluation).filter(Evaluation.answer_version_id == ver.id).first()
     if existing_eval:
-        return attach_speech_intelligence(existing_eval, ver, answer.question)
+        return localize_evaluation_response(db, existing_eval, ver, q, lang=lang, mock=use_mock)
 
-    q = answer.question
-    session = answer.session or db.query(TestSession).filter(TestSession.id == answer.session_id).first()
     eval_data, p_tok, c_tok, cost = run_evaluation_llm(
         q,
         exam_level_for(session),
         ver.transcript,
-        is_mock_session(session),
+        use_mock,
         duration_seconds=ver.duration_seconds or answer.duration_seconds
     )
     eval_obj = save_evaluation(db, answer.session_id, ver, eval_data, p_tok, c_tok, cost)
 
-    return attach_speech_intelligence(eval_obj, ver, q)
+    return localize_evaluation_response(db, eval_obj, ver, q, lang=lang, mock=use_mock)
 
 @router.post("/{answer_id}/rewrite", response_model=RewriteResponse)
 def rewrite_answer(
@@ -290,6 +330,7 @@ def rewrite_answer(
 
     q = answer.question
     prev_improved = (ver.rewrite_result or {}).get("improved_text", "") if isinstance(ver.rewrite_result, dict) else ""
+    use_mock = is_mock_session(answer.session) or (bool(req.dev_mock) and settings.ENVIRONMENT != "production")
     data, p_tok, c_tok, cost = rewrite_answer_llm(
         question_text=q.question_text if q else "General question",
         current_level=current_lvl,
@@ -297,7 +338,7 @@ def rewrite_answer(
         transcript=ver.transcript,
         custom_instruction=req.custom_instruction or "",
         previous_text=prev_improved if req.regenerate else "",
-        mock=is_mock_session(answer.session)
+        mock=use_mock
     )
 
     improved_text = data.get("improved_text", ver.transcript)
@@ -373,6 +414,9 @@ def delete_answer(
     if not answer:
         raise HTTPException(status_code=404, detail="Answer not found.")
 
+    audio_paths = {p for p in ([answer.audio_path] + [v.audio_path for v in answer.versions]) if p}
     db.delete(answer)
     db.commit()
+    for p in audio_paths:
+        _delete_uploaded_audio(p)
     return {"message": "Answer deleted successfully."}

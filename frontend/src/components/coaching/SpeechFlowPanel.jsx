@@ -1,5 +1,13 @@
 import React from 'react';
 import { Gauge, Timer, MessageCircle, Info } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
+
+const PACE_LABELS_EN = {
+  too_slow: 'Slow pace',
+  ideal: 'Ideal pace',
+  slightly_fast: 'Slightly fast',
+  too_fast: 'Too fast',
+};
 
 // Speaking-rate scale shown on the bar (WPM); zones match the backend bands
 const SCALE_MAX = 200;
@@ -36,16 +44,23 @@ const Stat = ({ icon: Icon, label, value, sub }) => (
 
 // Feature 1: speaking rate, dead-air pauses and filler words of the recorded take
 export const SpeechFlowPanel = ({ metrics }) => {
+  const { isVi, pick } = useLanguage();
   if (!metrics) {
     return (
       <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 flex items-start gap-2 shadow-sm">
         <Info className="w-4 h-4 shrink-0 mt-0.5" />
-        <span>Phiên bản này không có bản ghi âm (bản viết lại hoặc chưa nhận dạng được lời nói) nên không phân tích được tốc độ nói và ngập ngừng.</span>
+        <span>
+          {pick(
+            'Phiên bản này không có bản ghi âm (bản viết lại hoặc chưa nhận dạng được lời nói) nên không phân tích được tốc độ nói và ngập ngừng.',
+            'No audio recording is attached to this version (rewritten text or unrecognized speech), so pace and pause metrics are unavailable.'
+          )}
+        </span>
       </div>
     );
   }
 
-  const { wpm, pace, pace_label_vi: paceLabel, pauses = [], fillers = {}, has_timing: hasTiming } = metrics;
+  const { wpm, pace, pace_label_vi: paceLabelVi, pauses = [], fillers = {}, has_timing: hasTiming } = metrics;
+  const paceLabel = isVi ? paceLabelVi : (PACE_LABELS_EN[pace] || paceLabelVi);
   const markerLeft = wpm != null ? `${Math.min(100, (wpm / SCALE_MAX) * 100)}%` : null;
   const fillerCounts = Object.entries(fillers.counts || {});
 
@@ -53,8 +68,7 @@ export const SpeechFlowPanel = ({ metrics }) => {
     <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 flex flex-col gap-4 shadow-sm">
       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 flex flex-wrap items-center gap-x-1.5 gap-y-1">
         <Gauge className="w-4 h-4 text-brand-500" />
-        <span>Speech Flow & Hesitation</span>
-        <span className="normal-case font-medium text-slate-500 dark:text-slate-400">· Tốc độ & ngập ngừng</span>
+        <span>{pick('Tốc độ & Ngập ngừng', 'Speech Flow & Hesitation')}</span>
       </h3>
 
       {/* Speaking-rate bar */}
@@ -62,7 +76,9 @@ export const SpeechFlowPanel = ({ metrics }) => {
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-2xl font-black text-slate-900 dark:text-white">{wpm}</span>
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">từ/phút (WPM)</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {pick('từ/phút (WPM)', 'WPM')}
+            </span>
             {paceLabel && (
               <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${PACE_STYLES[pace] || ''}`}>{paceLabel}</span>
             )}
@@ -91,29 +107,37 @@ export const SpeechFlowPanel = ({ metrics }) => {
       <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
         <Stat
           icon={Timer}
-          label="Thời gian nói"
+          label={pick('Thời gian nói', 'Speaking Time')}
           value={formatTime(metrics.speaking_time_sec)}
-          sub={metrics.start_delay_sec != null ? `Bắt đầu nói sau ${metrics.start_delay_sec}s` : `${metrics.total_words} từ`}
+          sub={
+            metrics.start_delay_sec != null
+              ? pick(`Bắt đầu sau ${metrics.start_delay_sec}s`, `Started after ${metrics.start_delay_sec}s`)
+              : `${metrics.total_words} ${pick('từ', 'words')}`
+          }
         />
         <Stat
           icon={Timer}
-          label="Khoảng lặng ≥ 2s"
+          label={pick('Khoảng lặng ≥ 2s', 'Pauses ≥ 2s')}
           value={hasTiming ? metrics.pause_count : '–'}
           sub={hasTiming
-            ? (metrics.pause_count ? `Dài nhất ${metrics.longest_pause_sec}s · tổng ${metrics.total_pause_sec}s` : 'Không có khoảng im lặng chết')
-            : 'Không có mốc thời gian từng từ'}
+            ? (metrics.pause_count
+                ? pick(`Dài nhất ${metrics.longest_pause_sec}s · tổng ${metrics.total_pause_sec}s`, `Max ${metrics.longest_pause_sec}s · total ${metrics.total_pause_sec}s`)
+                : pick('Không có im lặng dài', 'No awkward pauses'))
+            : pick('Không có mốc thời gian từ', 'No word timestamps')}
         />
         <Stat
           icon={MessageCircle}
-          label="Từ đệm"
+          label={pick('Từ đệm', 'Filler Words')}
           value={fillers.total ?? 0}
-          sub={metrics.fillers_per_min != null ? `${metrics.fillers_per_min} lần/phút` : null}
+          sub={metrics.fillers_per_min != null ? `${metrics.fillers_per_min} ${pick('lần/phút', '/min')}` : null}
         />
       </div>
 
       {pauses.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Khoảng im lặng chết</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            {pick('Khoảng im lặng kéo dài', 'Long Pauses')}
+          </span>
           <ul className="flex flex-col gap-1">
             {pauses.map((p, i) => (
               <li key={i} className="text-xs text-slate-700 dark:text-slate-300 flex flex-wrap items-center gap-x-2 gap-y-0.5">

@@ -328,7 +328,7 @@ export const DailyWorkout = ({ onBack }) => {
   const timing = workout?.timing || { target_min_sec: 60, time_limit_sec: 90 };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5 sm:py-8 flex flex-col gap-4 sm:gap-5">
+    <div className="max-w-4xl mx-auto px-3.5 sm:px-6 lg:px-8 py-3 sm:py-5 lg:py-6 flex flex-col gap-3.5 sm:gap-5">
       {/* Top bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button onClick={onBack} className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-brand-600 cursor-pointer">

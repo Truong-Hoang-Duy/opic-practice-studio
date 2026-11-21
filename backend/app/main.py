@@ -1,6 +1,14 @@
+import mimetypes
 import os
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
+
+# Ensure deterministic MIME types (Windows registry sometimes maps .js to text/plain)
+mimetypes.add_type("application/javascript", ".js")
+mimetypes.add_type("application/javascript", ".mjs")
+mimetypes.add_type("text/css", ".css")
+mimetypes.add_type("video/mp4", ".mp4")
+mimetypes.add_type("text/vtt", ".vtt")
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -69,7 +77,17 @@ os.makedirs(settings.AUDIO_CACHE_DIR, exist_ok=True)
 os.makedirs(settings.AUDIO_UPLOAD_DIR, exist_ok=True)
 os.makedirs(settings.REPORTS_DIR, exist_ok=True)
 
-app.mount("/data/audio_cache", StaticFiles(directory=settings.AUDIO_CACHE_DIR), name="audio_cache")
+
+class ImmutableAudioStaticFiles(StaticFiles):
+    """Serves MD5-hashed audio cache files with aggressive immutable caching while keeping HTTP Range support."""
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code in (200, 206):
+            response.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
+        return response
+
+
+app.mount("/data/audio_cache", ImmutableAudioStaticFiles(directory=settings.AUDIO_CACHE_DIR), name="audio_cache")
 app.mount("/data/uploads", StaticFiles(directory=settings.AUDIO_UPLOAD_DIR), name="uploads")
 app.mount("/data/reports", StaticFiles(directory=settings.REPORTS_DIR), name="reports")
 

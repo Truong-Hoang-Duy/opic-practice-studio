@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '../context/LanguageContext';
 
 export const RadarChart = ({
   scores = {
@@ -11,6 +12,7 @@ export const RadarChart = ({
   },
   size = 320
 }) => {
+  const { isVi, pick } = useLanguage();
   const axes = [
     { key: "fluency_and_length", label: "Fluency & Length", vi: "Trôi chảy" },
     { key: "tense_control", label: "Tense Control", vi: "Kiểm soát thì" },
@@ -62,8 +64,7 @@ export const RadarChart = ({
             <polygon
               key={ring}
               points={ringPoints}
-              fill={ring === 5 ? "rgba(15, 23, 42, 0.4)" : "none"}
-              stroke="rgba(148, 163, 184, 0.15)"
+              className={ring === 5 ? "fill-slate-100/80 dark:fill-slate-900/50 stroke-slate-300/70 dark:stroke-slate-700/60" : "fill-none stroke-slate-300/60 dark:stroke-slate-700/50"}
               strokeWidth="1"
             />
           );
@@ -79,7 +80,7 @@ export const RadarChart = ({
               y1={center}
               x2={x}
               y2={y}
-              stroke="rgba(148, 163, 184, 0.2)"
+              className="stroke-slate-300/70 dark:stroke-slate-700/60"
               strokeWidth="1"
             />
           );
@@ -92,7 +93,7 @@ export const RadarChart = ({
           stroke="#10b981"
           strokeWidth="1.5"
           strokeDasharray="4 3"
-          opacity="0.6"
+          opacity="0.8"
         />
 
         {/* User Score Filled Polygon */}
@@ -113,17 +114,17 @@ export const RadarChart = ({
               cx={x}
               cy={y}
               r="4"
-              fill="#38bdf8"
-              stroke="#0f172a"
+              fill="#0ea5e9"
+              className="stroke-white dark:stroke-slate-900"
               strokeWidth="2"
             />
           );
         })}
 
-        {/* Labels */}
+        {/* Labels (Fixed crisp light & dark contrast!) */}
         {axes.map((axis, i) => {
           const angle = (Math.PI * 2 / totalAxes) * i - (Math.PI / 2);
-          const labelDist = radius + 22;
+          const labelDist = radius + 24;
           const lx = center + labelDist * Math.cos(angle);
           const ly = center + labelDist * Math.sin(angle);
 
@@ -135,24 +136,28 @@ export const RadarChart = ({
               y={ly}
               textAnchor="middle"
               dominantBaseline="middle"
-              className="text-[10px] font-medium fill-slate-300"
+              className="text-[10px] font-medium"
             >
-              <tspan x={lx} dy="-0.4em" className="font-semibold fill-white">{axis.label}</tspan>
-              <tspan x={lx} dy="1.2em" className="text-[9px] fill-sky-400 font-bold">{val.toFixed(1)}/5</tspan>
+              <tspan x={lx} dy="-0.4em" className="font-bold fill-slate-700 dark:fill-slate-100">
+                {isVi ? axis.vi : axis.label}
+              </tspan>
+              <tspan x={lx} dy="1.25em" className="text-[9.5px] fill-sky-600 dark:fill-sky-400 font-extrabold">
+                {val.toFixed(1)}/5
+              </tspan>
             </text>
           );
         })}
       </svg>
 
       {/* Legend */}
-      <div className="flex items-center gap-6 mt-2 text-xs">
-        <div className="flex items-center gap-1.5 text-slate-300">
-          <span className="w-3 h-3 rounded bg-sky-500/30 border border-sky-400 inline-block" />
-          <span>Your Performance</span>
+      <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 mt-2 text-xs">
+        <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium">
+          <span className="w-3 h-3 rounded bg-sky-500/30 border border-sky-500 inline-block" />
+          <span>{pick('Điểm của bạn', 'Your Performance')}</span>
         </div>
-        <div className="flex items-center gap-1.5 text-emerald-400">
-          <span className="w-3 h-0.5 border-t-2 border-dashed border-emerald-400 inline-block" />
-          <span>Reference benchmark (4.0 / 5)</span>
+        <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-medium">
+          <span className="w-3 h-0.5 border-t-2 border-dashed border-emerald-500 inline-block" />
+          <span>{pick('Mốc chuẩn (4.0 / 5)', 'Reference (4.0 / 5)')}</span>
         </div>
       </div>
     </div>

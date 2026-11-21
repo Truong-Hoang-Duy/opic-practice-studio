@@ -30,6 +30,8 @@ class SelfAssessmentSubmit(BaseModel):
     strict_mode: Optional[bool] = None
     # Local testing only: False -> use the curated question bank instead of calling the LLM (ignored in production)
     use_ai: Optional[bool] = None
+    # True -> filter & assemble the 15-question set directly from the learner's Master Study Pack using survey + topics + level
+    from_study_pack: bool = False
 
 class TopicsSubmit(BaseModel):
     topics: List[str]

@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './context/AuthContext';
+import { useLanguage } from './context/LanguageContext';
+import { AudioPlayerProvider, GlobalAudioPlayerBar, useAudioPlayer } from './context/AudioPlayerContext';
+import { NotificationProvider, notify } from './context/NotificationContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { RubricGuideModal } from './components/RubricGuideModal';
@@ -7,6 +10,7 @@ import { ScrollToTopButton, scrollPageToTop } from './components/ScrollToTopButt
 
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
+import { MockTestCenter } from './pages/MockTestCenter';
 import { SystemCheck } from './pages/SystemCheck';
 import { Survey, USER_DEFAULT_PRESET } from './pages/Survey';
 import { SelfAssessment } from './pages/SelfAssessment';
@@ -16,38 +20,80 @@ import { TestSession } from './pages/TestSession';
 import { SessionReport } from './pages/SessionReport';
 import { HistoryPage } from './pages/HistoryPage';
 import { QuestionLibrary } from './pages/QuestionLibrary';
-import { VocabularyNotebook } from './pages/VocabularyNotebook';
 import { DailyWorkout } from './pages/DailyWorkout';
+import { GuidePage } from './pages/GuidePage';
 
 import { sessionApi, formatApiError } from './api/client';
 
 const TEST_FLOW_TABS = ['system_check', 'survey', 'topic_selection', 'self_assessment', 'pre_test', 'test'];
+const VIEWPORT_LOCKED_TABS = [
+  'dashboard',
+  'library',
+  'mock_center',
+  'history',
+  'guide',
+  'system_check',
+  'survey',
+  'topic_selection',
+  'self_assessment',
+  'pre_test',
+];
 
-export const App = () => {
+const AppShell = () => {
   const { user, loading } = useAuth();
+  const { pick } = useLanguage();
+  const { pausePlayer } = useAudioPlayer();
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('opic_sidebar_collapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('opic_sidebar_collapsed', next ? '1' : '0');
+      } catch {}
+      return next;
+    });
+  };
 
   const [currentTab, setCurrentTab] = useState(() => {
-    return sessionStorage.getItem('opic_active_tab') || 'dashboard';
+    const saved = sessionStorage.getItem('opic_active_tab') || 'dashboard';
+    return saved === 'vocabulary' ? 'library' : saved;
   });
+  const [librarySubTab, setLibrarySubTab] = useState('topics');
+  const [libraryGroupIntent, setLibraryGroupIntent] = useState(null);
+  const [openFlashcardsIntent, setOpenFlashcardsIntent] = useState(false);
+  const [openRandomIntent, setOpenRandomIntent] = useState(false);
+
   const [activeSessionId, setActiveSessionId] = useState(() => {
     const saved = sessionStorage.getItem('opic_active_session_id');
     const num = Number(saved);
     return Number.isInteger(num) && num > 0 ? num : null;
   });
   const [activeSessionMode, setActiveSessionMode] = useState(() => {
-    return sessionStorage.getItem('opic_active_session_mode') || 'practice';
+    return sessionStorage.getItem('opic_active_session_mode') || 'exam';
+  });
+  const [activeExamSource, setActiveExamSource] = useState(() => {
+    return sessionStorage.getItem('opic_active_exam_source') || 'ai';
   });
   const [isRubricModalOpen, setIsRubricModalOpen] = useState(false);
-  const [sessionSetup, setSessionSetup] = useState({}); // saved topics / level when resuming an unfinished setup
+  const [sessionSetup, setSessionSetup] = useState({});
 
   const isExamScreen = currentTab === 'test' && !!user;
-  // Lock the page behind the full-height exam shell so dragging on iOS doesn't bounce/shift the whole UI
+  const isViewportLockedTab = VIEWPORT_LOCKED_TABS.includes(currentTab) && !isExamScreen;
+
   useEffect(() => {
     document.documentElement.classList.toggle('exam-locked', isExamScreen);
+    if (isExamScreen) pausePlayer();
     return () => document.documentElement.classList.remove('exam-locked');
   }, [isExamScreen]);
 
-  // Sync session state to sessionStorage
   useEffect(() => {
     if (activeSessionId) {
       sessionStorage.setItem('opic_active_session_id', String(activeSessionId));
@@ -63,22 +109,26 @@ export const App = () => {
   }, [activeSessionMode]);
 
   useEffect(() => {
+    if (activeExamSource) {
+      sessionStorage.setItem('opic_active_exam_source', activeExamSource);
+    }
+  }, [activeExamSource]);
+
+  useEffect(() => {
     sessionStorage.setItem('opic_active_tab', currentTab);
     scrollPageToTop('instant');
   }, [currentTab]);
 
   const isCreatingSessionRef = useRef(false);
 
-  // Safety guard: If inside test flow without an active session, auto-initialize
   useEffect(() => {
     if (user && TEST_FLOW_TABS.includes(currentTab) && !activeSessionId && !isCreatingSessionRef.current) {
       isCreatingSessionRef.current = true;
-      sessionApi.create({ mode: activeSessionMode || 'practice' })
-        .then((res) => {
-          setActiveSessionId(res.data.id);
-        })
+      sessionApi
+        .create({ mode: activeSessionMode || 'practice' })
+        .then((res) => setActiveSessionId(res.data.id))
         .catch((err) => {
-          console.error("Auto session initialization failed:", err);
+          console.error('Auto session initialization failed:', err);
           setCurrentTab('dashboard');
         })
         .finally(() => {
@@ -89,54 +139,37 @@ export const App = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center gap-3">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3">
         <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Loading OPIc Practice Studio...</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+          {pick('Đang tải OPIc Practice Studio...', 'Loading OPIc Practice Studio...')}
+        </p>
       </div>
     );
   }
 
-  // Not logged in -> show Login
   if (!user) {
     return (
-      <div className="h-dvh overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+      <div className="h-dvh overflow-hidden">
         <Login onLoginSuccess={() => setCurrentTab('dashboard')} />
       </div>
     );
   }
 
-  // Start new test flow
-  const handleStartNewTest = async (mode) => {
+  const handleStartNewTest = async (mode, source = 'ai') => {
     if (isCreatingSessionRef.current) return;
     isCreatingSessionRef.current = true;
-    setActiveSessionMode(mode);
+    const resolvedMode = source === 'pack' ? 'practice' : (mode || 'exam');
+    setActiveSessionMode(resolvedMode);
+    setActiveExamSource(source);
     try {
-      let initialSurvey = null;
-      if (mode === 'practice') {
-        // Fast-track for Coached Practice: Auto-populate default survey preset & jump straight to Topic Selection in 1 request
-        initialSurvey = USER_DEFAULT_PRESET;
-        try {
-          const saved = localStorage.getItem('opic_user_survey_preset');
-          if (saved) initialSurvey = JSON.parse(saved);
-        } catch (e) {
-          console.warn("Could not parse saved preset:", e);
-        }
-      }
-
-      const res = await sessionApi.create({ mode, survey_data: initialSurvey });
-      const newSessionId = res.data.id;
-      setActiveSessionId(newSessionId);
+      const res = await sessionApi.create({ mode: resolvedMode });
+      setActiveSessionId(res.data.id);
       setSessionSetup({});
-
-      if (mode === 'practice') {
-        setCurrentTab('topic_selection');
-      } else {
-        // Full Exam Simulation: Authentic 5-step system check & full background survey
-        setCurrentTab('system_check');
-      }
+      // Both Block 1 (Real Exam) & Block 2 (Filter from Study Pack) walk through the exact same setup steps
+      setCurrentTab('system_check');
     } catch (err) {
-      console.error("Failed to initialize test session", err);
-      alert(formatApiError(err, 'Không thể khởi tạo bài thi. Vui lòng thử lại.'));
+      notify.error(formatApiError(err, 'Không thể khởi tạo bài thi. Vui lòng thử lại.'));
     } finally {
       isCreatingSessionRef.current = false;
     }
@@ -152,39 +185,32 @@ export const App = () => {
     }
   };
 
-  const handleTakeTestNav = async () => {
-    if (activeSessionId && TEST_FLOW_TABS.includes(currentTab)) {
-      return;
-    }
-    await handleStartNewTest('exam');
-  };
-
-  // Resume where the learner left off: unfinished setups go back to the right setup step
   const handleResumeSession = async (sessionId) => {
     setActiveSessionId(sessionId);
     let nextTab = 'test';
     try {
       const { data } = await sessionApi.getStatus(sessionId);
-      if (data?.mode) setActiveSessionMode(data.mode);
+      if (data?.mode) {
+        setActiveSessionMode(data.mode);
+        setActiveExamSource(data.mode === 'practice' ? 'pack' : 'ai');
+      }
       setSessionSetup({ topics: data?.topics || null, level: data?.self_assessment_level || null });
       if (!data?.total_questions) {
         if (!data?.has_survey) nextTab = 'survey';
         else if (!data?.topics || data.topics.length !== 3) nextTab = 'topic_selection';
         else nextTab = 'self_assessment';
       }
-    } catch (err) {
-      console.warn("Could not load session status", err);
-    }
+    } catch {}
     setCurrentTab(nextTab);
   };
 
-  // "Take Test" in the menu always starts a fresh session
   const navigate = (tab) => {
-    if (tab === 'system_check') {
-      handleStartNewTest('practice');
-    } else {
-      setCurrentTab(tab);
+    if (tab === 'vocabulary') {
+      setLibrarySubTab('vocab');
+      setCurrentTab('library');
+      return;
     }
+    setCurrentTab(tab);
   };
 
   const handleViewReport = (sessionId) => {
@@ -198,52 +224,84 @@ export const App = () => {
     setCurrentTab('dashboard');
   };
 
+  const desktopSidebarPad = sidebarCollapsed ? 'lg:pl-11' : 'lg:pl-60';
 
   return (
-    <div className={
-      isExamScreen
-        ? "h-dvh w-full overflow-hidden flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 select-none"
-        : "min-h-dvh flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0"
-    }>
-      
-      {/* Top Navbar (Hidden in Test Mode) */}
+    <div
+      className={
+        isExamScreen
+          ? 'h-dvh w-full overflow-hidden flex flex-col select-none'
+          : isViewportLockedTab
+            ? `min-h-dvh lg:h-dvh lg:overflow-hidden flex flex-col transition-[padding,colors] duration-200 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0 ${desktopSidebarPad}`
+            : `min-h-dvh flex flex-col transition-[padding,colors] duration-200 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0 ${desktopSidebarPad}`
+      }
+    >
       {!isExamScreen && (
         <Navbar
           currentTab={currentTab}
           setTab={navigate}
-          onTakeTest={handleTakeTestNav}
-          onOpenRubric={() => setIsRubricModalOpen(true)}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={toggleSidebar}
         />
       )}
 
-      {/* Main Screen Router */}
-      <main className={isExamScreen ? "flex-1 w-full min-h-0 flex flex-col items-center overflow-y-auto overflow-x-hidden overscroll-contain" : "flex-1 min-w-0"}>
+      <main
+        className={
+          isExamScreen
+            ? 'flex-1 w-full min-h-0 flex flex-col items-center overflow-y-auto overflow-x-hidden overscroll-contain'
+            : isViewportLockedTab
+              ? 'flex-1 min-w-0 lg:min-h-0 lg:flex lg:flex-col lg:overflow-hidden'
+              : 'flex-1 min-w-0'
+        }
+      >
         {currentTab === 'dashboard' && (
           <Dashboard
             onStartTest={handleStartNewTest}
-            onResumeSession={handleResumeSession}
-            onViewReport={handleViewReport}
-            onDeleteSession={handleDeleteSession}
-            onOpenDaily={() => setCurrentTab('daily')}
-            onOpenLibrary={() => setCurrentTab('library')}
+            onOpenLibrary={() => {
+              setLibrarySubTab('topics');
+              setLibraryGroupIntent('all');
+              setCurrentTab('library');
+            }}
+            onOpenLibraryGroup={(grp) => {
+              setLibrarySubTab('topics');
+              setLibraryGroupIntent(grp);
+              setCurrentTab('library');
+            }}
+            onOpenFlashcards={() => {
+              setLibrarySubTab('topics');
+              setOpenFlashcardsIntent(true);
+              setCurrentTab('library');
+            }}
+            onOpenRandomPractice={() => {
+              setLibrarySubTab('topics');
+              setOpenRandomIntent(true);
+              setCurrentTab('library');
+            }}
+            onOpenMockCenter={() => setCurrentTab('mock_center')}
+          />
+        )}
+
+        {currentTab === 'mock_center' && (
+          <MockTestCenter
+            onStartTest={handleStartNewTest}
+            onStartPackExam={(examSessionId, mode) => {
+              setActiveSessionId(examSessionId);
+              setActiveSessionMode(mode || 'exam');
+              setCurrentTab('test');
+            }}
+            onOpenLibrary={() => {
+              setLibrarySubTab('topics');
+              setCurrentTab('library');
+            }}
           />
         )}
 
         {currentTab === 'daily' && <DailyWorkout onBack={() => setCurrentTab('dashboard')} />}
 
-        {currentTab === 'vocabulary' && <VocabularyNotebook onGoPractice={() => setCurrentTab('daily')} />}
-
-        {currentTab === 'system_check' && (
-          <SystemCheck
-            onAllChecksPassed={() => setCurrentTab('survey')}
-          />
-        )}
+        {currentTab === 'system_check' && <SystemCheck onAllChecksPassed={() => setCurrentTab('survey')} />}
 
         {currentTab === 'survey' && (
-          <Survey
-            sessionId={activeSessionId}
-            onSurveyCompleted={() => setCurrentTab('topic_selection')}
-          />
+          <Survey sessionId={activeSessionId} onSurveyCompleted={() => setCurrentTab('topic_selection')} />
         )}
 
         {currentTab === 'topic_selection' && (
@@ -257,8 +315,7 @@ export const App = () => {
         {currentTab === 'self_assessment' && (
           <SelfAssessment
             sessionId={activeSessionId}
-            sessionMode={activeSessionMode}
-            defaultStrict={activeSessionMode === 'exam'}
+            fromStudyPack={activeExamSource === 'pack'}
             initialLevel={sessionSetup.level}
             onAssessmentCompleted={(mode) => {
               if (mode) setActiveSessionMode(mode);
@@ -267,11 +324,7 @@ export const App = () => {
           />
         )}
 
-        {currentTab === 'pre_test' && (
-          <PreTestSetup
-            onStartExam={() => setCurrentTab('test')}
-          />
-        )}
+        {currentTab === 'pre_test' && <PreTestSetup onStartExam={() => setCurrentTab('test')} />}
 
         {currentTab === 'test' && (
           <TestSession
@@ -283,18 +336,23 @@ export const App = () => {
         )}
 
         {currentTab === 'report' && (
-          <SessionReport
-            sessionId={activeSessionId}
-            onReturnHome={handleReturnHome}
-          />
+          <SessionReport sessionId={activeSessionId} onReturnHome={handleReturnHome} />
         )}
 
         {currentTab === 'library' && (
           <QuestionLibrary
-            onStartPackExam={(examSessionId, mode) => {
-              setActiveSessionId(examSessionId);
-              setActiveSessionMode(mode || 'exam');
-              setCurrentTab('test');
+            initialSubTab={librarySubTab}
+            initialGroupFilter={libraryGroupIntent}
+            autoOpenFlashcards={openFlashcardsIntent}
+            autoOpenRandom={openRandomIntent}
+            onConsumeIntent={() => {
+              setOpenFlashcardsIntent(false);
+              setOpenRandomIntent(false);
+              setLibraryGroupIntent(null);
+            }}
+            onOpenDaily={() => {
+              setLibrarySubTab('topics');
+              setOpenRandomIntent(true);
             }}
           />
         )}
@@ -304,24 +362,55 @@ export const App = () => {
             onViewReport={handleViewReport}
             onResumeSession={handleResumeSession}
             onDeleteSession={handleDeleteSession}
-            onOpenDaily={() => setCurrentTab('daily')}
+          />
+        )}
+
+        {currentTab === 'guide' && (
+          <GuidePage
+            onOpenDashboard={() => setCurrentTab('dashboard')}
+            onOpenLibrary={() => {
+              setLibrarySubTab('topics');
+              setLibraryGroupIntent('all');
+              setCurrentTab('library');
+            }}
+            onOpenRandom={() => {
+              setLibrarySubTab('topics');
+              setOpenRandomIntent(true);
+              setCurrentTab('library');
+            }}
+            onOpenMockCenter={() => setCurrentTab('mock_center')}
+            onOpenHistory={() => setCurrentTab('history')}
+            onOpenRubric={() => setIsRubricModalOpen(true)}
           />
         )}
       </main>
 
-      {/* Footer with ACTFL/LTI non-affiliation disclaimer (Hidden in Test Mode) */}
-      {!isExamScreen && <Footer />}
-
-      {/* Floating Scroll-to-Top button when scrolling long pages */}
-      <ScrollToTopButton hasBottomNav={!isExamScreen} />
-
-      {/* Rubric Guide Modal */}
-      <RubricGuideModal
-        isOpen={isRubricModalOpen}
-        onClose={() => setIsRubricModalOpen(false)}
+      {/* Global Persistent Dark-Ink Audio Studio Bar (keeps playing across all tabs!) */}
+      <GlobalAudioPlayerBar
+        hidden={isExamScreen}
+        sidebarCollapsed={sidebarCollapsed}
+        onOpenListeningTab={() => {
+          setLibrarySubTab('listening');
+          setCurrentTab('library');
+        }}
       />
 
+      {!isExamScreen && <Footer desktopHidden={isViewportLockedTab} />}
+      {!isViewportLockedTab && <ScrollToTopButton hasBottomNav={!isExamScreen} />}
+      <RubricGuideModal isOpen={isRubricModalOpen} onClose={() => setIsRubricModalOpen(false)} />
     </div>
   );
 };
+
+export const App = () => {
+  const { user } = useAuth();
+  return (
+    <NotificationProvider>
+      <AudioPlayerProvider enabled={!!user}>
+        <AppShell />
+      </AudioPlayerProvider>
+    </NotificationProvider>
+  );
+};
+
 export default App;

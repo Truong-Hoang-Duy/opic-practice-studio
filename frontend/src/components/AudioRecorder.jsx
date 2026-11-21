@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, AlertCircle } from 'lucide-react';
 import { beginRecordingAudioSession, endRecordingAudioSession, getSharedAudio } from '../utils/audioUnlock';
+import { useLanguage } from '../context/LanguageContext';
 
 export const AudioRecorder = ({
   onRecordingComplete,
@@ -10,6 +11,7 @@ export const AudioRecorder = ({
   targetDurationMax = 120,
   autoStart = false, // start recording automatically (e.g. after 2nd question reading or daily prep countdown)
 }) => {
+  const { pick } = useLanguage();
   const [isRecording, setIsRecording] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [micError, setMicError] = useState(null);
@@ -228,71 +230,73 @@ export const AudioRecorder = ({
   return (
     <div className={compact
       ? "w-full flex flex-col gap-2"
-      : "w-full h-full md:h-[500px] md:min-h-[500px] md:max-h-[500px] flex-shrink-0 glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex flex-col justify-between shadow-sm"}>
+      : "w-full lg:h-full flex-shrink-0 glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-3 sm:p-4 lg:p-6 border border-slate-200 dark:border-slate-800 flex flex-col lg:justify-between gap-2.5 lg:gap-0 shadow-sm"}>
       
       {/* Microphone Error Notification */}
       {micError && (
-        <div className="w-full mb-3 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2.5">
-          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
-          <div className="flex-1">
-            <p className="font-semibold mb-0.5">Microphone Access Error</p>
-            <p className="text-rose-300/90 leading-relaxed">{micError}</p>
+        <div className="w-full p-2.5 sm:p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold mb-0.5">Microphone Error</p>
+            <p className="opacity-90 leading-snug">{micError}</p>
           </div>
         </div>
       )}
 
-      {/* Top: Timer, Countdown, and Time Limit Progress Bar ("cây chạy") */}
-      <div className="flex flex-col items-center w-full">
-        <div className="flex items-center gap-2.5">
-          <div className={`px-3.5 py-1 rounded-full border text-base font-mono font-bold flex items-center gap-2 ${getTimerStatusColor()}`}>
-            <span className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-rose-500 animate-ping' : 'bg-slate-400 dark:bg-slate-500'}`} />
+      {/* Top: Timer, Countdown, and Time Limit Progress Bar */}
+      <div className="flex flex-col items-center w-full shrink-0">
+        <div className="flex items-center gap-2">
+          <div className={`px-3 py-0.5 sm:px-3.5 sm:py-1 rounded-full border text-sm sm:text-base font-mono font-bold flex items-center gap-1.5 sm:gap-2 ${getTimerStatusColor()}`}>
+            <span className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${isRecording ? 'bg-rose-500 animate-ping' : 'bg-slate-400 dark:bg-slate-500'}`} />
             <span>{formatTime(timerSeconds)}</span>
           </div>
 
-          <div className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800/80 text-[11px] font-mono font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-            Giới hạn: <strong>{formatTime(targetDurationMax)}</strong>
+          <div className="px-2.5 py-0.5 sm:py-1 rounded-full bg-slate-100 dark:bg-slate-800/80 text-[11px] font-mono font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+            {pick('Giới hạn:', 'Limit:')} <strong>{formatTime(targetDurationMax)}</strong>
           </div>
         </div>
 
-        {/* Depleting Countdown Progress Bar ("Cây chạy hiển thị dần hết") */}
-        <div className="w-full max-w-sm mt-2">
+        {/* Depleting Countdown Progress Bar */}
+        <div className="w-full max-w-sm mt-1.5 lg:mt-2">
           <div className="flex items-center justify-between text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1 px-0.5">
-            <span>{isRecording ? '⏱️ Đang đếm ngược' : '⏱️ Giới hạn thời gian nói'}</span>
+            <span>{isRecording ? pick('⏱️ Đang đếm ngược', '⏱️ Recording') : pick('⏱️ Thời gian nói', '⏱️ Speaking time')}</span>
             <span className={timeLeft <= 15 && isRecording ? 'text-rose-600 dark:text-rose-400 font-bold animate-pulse' : 'font-semibold'}>
-              {isRecording ? `Còn lại: ${formatTime(timeLeft)}` : `Tối đa: ${formatTime(targetDurationMax)}`}
+              {isRecording
+                ? `${pick('Còn:', 'Left:')} ${formatTime(timeLeft)}`
+                : `${pick('Nên nói:', 'Target:')} ${targetDurationMin}s–${targetDurationMax}s`}
             </span>
           </div>
           
           <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden relative border border-slate-300 dark:border-slate-700/60">
-            {/* Marker: the bar has depleted to here once the recommended minimum has been spoken */}
             <div 
               className="absolute top-0 bottom-0 w-0.5 bg-slate-400/50 dark:bg-slate-500/50 z-10" 
               style={{ left: `${Math.max(0, Math.min(100, ((targetDurationMax - targetDurationMin) / targetDurationMax) * 100))}%` }} 
-              title={`Nên nói tối thiểu ${targetDurationMin}s`}
+              title={pick(`Nên nói tối thiểu ${targetDurationMin}s`, `Aim for at least ${targetDurationMin}s`)}
             />
-            {/* Depleting progress bar */}
             <div
               className={`h-full rounded-full transition-all duration-300 ease-linear ${getProgressColor()}`}
               style={{ width: `${progressPercent}%` }}
             />
           </div>
 
-          <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 mt-1 px-0.5">
+          <div className="hidden lg:flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 mt-1 px-0.5">
             <span>0:00</span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-medium">Nên nói: {targetDurationMin}s – {targetDurationMax}s</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+              {pick(`Nên nói: ${targetDurationMin}s – ${targetDurationMax}s`, `Target: ${targetDurationMin}s – ${targetDurationMax}s`)}
+            </span>
             <span>{formatTime(targetDurationMax)}</span>
           </div>
         </div>
       </div>
 
-      {/* Middle: Sound Wave Visualizer & Record Button */}
-      <div className={`flex flex-col items-center ${compact ? 'my-1' : 'my-3'}`}>
-        {/* Dynamic Sound Wave Visualizer - Fixed height container */}
-        <div className={`w-full max-w-sm h-10 flex items-center justify-center gap-1.5 px-4 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 ${compact ? 'mb-2' : 'mb-3'}`}>
+      {/* Middle: Sound Wave Visualizer & Fixed-Position Start/Stop Action Row */}
+      <div className={`flex flex-col items-center w-full shrink-0 ${compact ? 'my-1' : 'lg:my-3'}`}>
+        {/* Dynamic Sound Wave Visualizer */}
+        <div className={`w-full max-w-sm h-7 lg:h-10 flex items-center justify-center gap-1.5 px-4 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 ${compact ? 'mb-2' : 'mb-2 lg:mb-3'}`}>
           {[...Array(16)].map((_, i) => {
             const h = isRecording 
-              ? Math.max(6, Math.min(30, (audioLevel * ((i % 4) + 1)) / 3))
-              : 6;
+              ? Math.max(5, Math.min(22, (audioLevel * ((i % 4) + 1)) / 3))
+              : 5;
             return (
               <div
                 key={i}
@@ -307,34 +311,56 @@ export const AudioRecorder = ({
           })}
         </div>
 
-        {/* Main Start / Stop Button */}
-        {!isRecording ? (
+        {/* Locked Single Row: Blue Start / Red Stop NEVER moves position vertically or horizontally */}
+        <div className="w-full max-w-sm lg:max-w-none flex items-center justify-center gap-2">
           <button
-            onClick={startRecording}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-brand-600 to-sky-500 hover:from-brand-500 hover:to-sky-400 text-white font-bold text-sm shadow-md shadow-sky-500/20 transition-all transform active:scale-95 cursor-pointer"
+            type="button"
+            onClick={isRecording ? stopRecording : startRecording}
+            className={`flex-1 lg:flex-none h-11 px-4 lg:px-6 rounded-xl font-bold text-xs sm:text-sm inline-flex items-center justify-center cursor-pointer transition-colors ${
+              isRecording
+                ? 'bg-gradient-to-r from-rose-600 to-red-500 hover:from-rose-500 hover:to-red-400 text-white shadow-md shadow-rose-500/25 active:scale-95'
+                : 'btn-brand-gradient'
+            }`}
           >
-            <Mic className="w-4 h-4 animate-pulse" />
-            <span>Start Recording Answer</span>
+            <span className="inline-grid items-center justify-items-center">
+              <span className={`col-start-1 row-start-1 inline-flex items-center gap-2 whitespace-nowrap ${!isRecording ? 'visible' : 'invisible pointer-events-none'}`}>
+                <Mic className="w-4 h-4 animate-pulse shrink-0" />
+                <span>{pick('Ghi âm', 'Record')}</span>
+              </span>
+              <span className={`col-start-1 row-start-1 inline-flex items-center gap-2 whitespace-nowrap ${isRecording ? 'visible' : 'invisible pointer-events-none'}`}>
+                <Square className="w-4 h-4 fill-current shrink-0" />
+                <span>{pick('Nộp bài', 'Submit')}</span>
+              </span>
+            </span>
           </button>
-        ) : (
-          <button
-            onClick={stopRecording}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-rose-600 to-red-500 hover:from-rose-500 hover:to-red-400 text-white font-bold text-sm shadow-md shadow-rose-500/25 transition-all transform active:scale-95 cursor-pointer"
-          >
-            <Square className="w-4 h-4 fill-current" />
-            <span>Complete & Submit Recording</span>
-          </button>
-        )}
+
+          {import.meta.env.DEV && onRecordingComplete && (
+            <button
+              type="button"
+              disabled={isRecording}
+              onClick={() => {
+                setLastDuration(65);
+                onRecordingComplete({ audioBlob: null, durationSeconds: 65, devMock: true });
+              }}
+              title="Chỉ hiện ở môi trường local (npm run dev). Giả lập 1 bài nói 65 giây để kiểm tra chấm điểm & giao diện."
+              className="h-11 px-3 lg:px-3.5 rounded-xl border border-dashed border-amber-400 dark:border-amber-500/50 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-extrabold cursor-pointer transition-colors shrink-0 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              DEV · 65s
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Bottom: recording status (speech is recognised after the recording is submitted) */}
-      <div className={`w-full rounded-xl bg-slate-50/90 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 flex items-center justify-center text-center ${compact ? 'p-2.5 min-h-[44px]' : 'p-3.5 min-h-[72px]'}`}>
+      {/* Bottom: recording status (Desktop lg+ only — kept strictly hidden on mobile so button never jumps!) */}
+      <div className={`hidden lg:flex w-full rounded-xl bg-slate-50/90 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 items-center justify-center text-center ${
+        compact ? 'p-2.5 min-h-[44px]' : 'p-3.5 min-h-[68px]'
+      }`}>
         <p className="text-xs text-slate-500 dark:text-slate-400 italic leading-relaxed">
           {isRecording
-            ? 'Đang ghi âm... Hãy nói rõ vào micro. Bấm "Complete & Submit" khi trả lời xong.'
+            ? pick('Đang ghi âm... Bấm "Nộp bài" khi trả lời xong.', 'Recording... Click "Submit" when you finish speaking.')
             : lastDuration !== null
-            ? `Đã ghi ${lastDuration} giây. Hệ thống đang/đã nhận dạng giọng nói để chấm điểm.`
-            : 'Bấm "Start Recording Answer" để trả lời ngay, hoặc nghe lại lần 2 để hệ thống tự động bật ghi âm sau tiếng bíp.'}
+            ? pick(`Đã ghi ${lastDuration} giây. Đang nhận dạng giọng nói...`, `Recorded ${lastDuration}s. Transcribing your response...`)
+            : pick('Bấm "Ghi âm" để nói ngay, hoặc nghe lại lần 2 để tự bật ghi âm.', 'Click "Record" to speak now, or replay once to auto-start recording.')}
         </p>
       </div>
     </div>

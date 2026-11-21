@@ -335,11 +335,13 @@ def get_mock_json_response(prompt: str) -> Dict[str, Any]:
                 "past_used": True,
                 "present_used": True,
                 "future_used": False,
-                "explanation": "Candidate used present tense consistently and attempted simple past tense. Past narrative broke down slightly during irregular verbs."
+                "explanation": "Candidate used present tense consistently and attempted simple past tense. Past narrative broke down slightly during irregular verbs.",
+                "explanation_vi": "Thí sinh dùng thì hiện tại khá ổn định và có cố gắng chuyển sang thì quá khứ đơn, tuy nhiên còn vài lỗi ở động từ bất quy tắc khi kể chuyện."
             },
             "complication_present": True,
             "story_narrative_present": True,
             "feedback_summary": "Great effort! You maintained a clear paragraph structure and successfully communicated your main ideas. Your pronunciation is understandable, and you addressed all parts of the question. To improve further, focus on consistent past-tense verb endings (-ed) and elaborate more on the emotional resolution of your story.",
+            "feedback_summary_vi": "Nỗ lực rất tốt! Bạn duy trì được bố cục đoạn văn rõ ràng và truyền đạt trọn vẹn ý chính. Phát âm dễ hiểu và đã trả lời đủ các vế của câu hỏi. Để nâng band cao hơn, hãy giữ nhất quán đuôi thì quá khứ (-ed) và mở rộng thêm phần cảm xúc kết câu chuyện.",
             "actionable_steps": [
                 "Practice regular and irregular past tense forms so your storytelling does not slip back into the present tense.",
                 "Incorporate more precise transitional phrases like 'To put it another way,' 'What made it unforgettable was,' and 'Looking back.'",
@@ -370,28 +372,42 @@ def get_mock_json_response(prompt: str) -> Dict[str, Any]:
             ],
             "tense_timeline": [
                 {"sentence": "Well, to be honest, I really enjoy spending my weekends at home with my family.", "tense": "present", "status": "correct",
+                 "note_en": "Present simple accurately introduces a regular weekend habit.",
                  "note_vi": "Thì hiện tại đơn mô tả thói quen - mở bài đúng cách."},
                 {"sentence": "Last month something unforgettable happened when our environmental group organised a clean-up,", "tense": "past", "status": "correct",
+                 "note_en": "Clean shift to past simple using the time marker 'last month'.",
                  "note_vi": "Chuyển sang quá khứ đơn với mốc 'last month' để bắt đầu kể chuyện."},
                 {"sentence": "and I think I will join again next year because it was extraordinary.", "tense": "mixed", "status": "correct",
+                 "note_en": "Combines future intention 'will join' with past reflection 'was' — strong IH signal.",
                  "note_vi": "Kết hợp tương lai 'will join' và quá khứ 'was' - có dự định tương lai là điểm cộng IH."}
             ],
             "tense_distribution": {"past_pct": 40, "present_pct": 35, "future_pct": 25},
             "vietlish_warnings": [
-                {"original_phrase": "Last week I go with my friend", "issue_vi": "Bỏ quên chia động từ quá khứ (tiếng Việt không chia thì)",
-                 "suggested_phrase": "Last week I went with my friend", "explanation_vi": "Có mốc 'last week' thì động từ phải ở quá khứ: go -> went."},
-                {"original_phrase": "open the light", "issue_vi": "Dịch từng chữ từ 'mở đèn' của tiếng Việt",
-                 "suggested_phrase": "turn on the light", "explanation_vi": "Thiết bị điện dùng 'turn on/off' hoặc 'switch on/off', không dùng 'open/close'."}
+                {"original_phrase": "Last week I go with my friend",
+                 "issue_en": "Missing past-tense verb inflection",
+                 "issue_vi": "Bỏ quên chia động từ quá khứ (tiếng Việt không chia thì)",
+                 "suggested_phrase": "Last week I went with my friend",
+                 "explanation_en": "With the past time marker 'last week', change 'go' to 'went'.",
+                 "explanation_vi": "Có mốc 'last week' thì động từ phải ở quá khứ: go -> went."},
+                {"original_phrase": "open the light",
+                 "issue_en": "Literal translation of Vietnamese 'mở đèn'",
+                 "issue_vi": "Dịch từng chữ từ 'mở đèn' của tiếng Việt",
+                 "suggested_phrase": "turn on the light",
+                 "explanation_en": "Use 'turn on/off' or 'switch on/off' for electrical devices instead of 'open/close'.",
+                 "explanation_vi": "Thiết bị điện dùng 'turn on/off' hoặc 'switch on/off', không dùng 'open/close'."}
             ],
             "vocab_upgrades": [
                 {"original_phrase": "really enjoy", "upgraded_phrase": "look forward to", "kind": "phrasal_verb", "topic": "home",
                  "example_sentence": "I always look forward to lazy weekends at home with my family.",
+                 "note_en": "'look forward to' sounds more natural and expressive than 'really enjoy'.",
                  "note_vi": "'look forward to' = háo hức mong chờ, diễn tả cảm xúc chủ động hơn 'really enjoy'."},
                 {"original_phrase": "organised a clean-up", "upgraded_phrase": "rolled up our sleeves", "kind": "idiom", "topic": "environment",
                  "example_sentence": "Everyone rolled up their sleeves and picked up trash along the riverbank.",
+                 "note_en": "'roll up one's sleeves' adds vivid storytelling energy for hands-on teamwork.",
                  "note_vi": "'roll up one's sleeves' = xắn tay áo bắt tay vào việc, tự nhiên và sinh động khi kể chuyện."},
                 {"original_phrase": "it was extraordinary", "upgraded_phrase": "an eye-opening experience", "kind": "collocation", "topic": "environment",
                  "example_sentence": "Honestly, it was an eye-opening experience that changed how I think about plastic waste.",
+                 "note_en": "'eye-opening experience' clearly highlights personal impact instead of generic praise.",
                  "note_vi": "'eye-opening' = mở mang tầm mắt, nêu rõ tác động thay vì chỉ khen chung chung."}
             ]
         }
@@ -451,31 +467,46 @@ def get_mock_json_response(prompt: str) -> Dict[str, Any]:
             ]
         }
     else:
-        # Default report mock
+        # Default report mock (bilingual EN + VI)
         return {
             "overall_level": "IM",
             "justification": "The candidate demonstrates solid sentence connectivity and communicates effectively on routine topics. However, past tense inconsistencies and hesitation during unexpected problem-solving scenarios keep the performance at Intermediate Mid (IM).",
+            "justification_vi": "Thí sinh kết nối câu khá tốt và giao tiếp hiệu quả ở các chủ đề quen thuộc. Tuy nhiên, việc chia thì quá khứ chưa nhất quán và còn ngập ngừng khi xử lý tình huống bất ngờ khiến kết quả dừng ở mức Intermediate Mid (IM).",
             "strengths": [
                 "Clear pronunciation of common vocabulary and good sentence stress.",
                 "Strong willingness to elaborate and maintain speech flow.",
                 "Good grasp of everyday topics like home, leisure, and environment."
+            ],
+            "strengths_vi": [
+                "Phát âm rõ các từ vựng thông dụng và biết nhấn trọng âm câu.",
+                "Chủ động mở rộng ý và duy trì nhịp nói ổn định.",
+                "Nắm vững các chủ đề đời sống quen thuộc như nhà ở, giải trí và môi trường."
             ],
             "weaknesses": [
                 "Occasional past-tense dropoff where verbs revert to present forms during fast speech.",
                 "Lack of narrative complications in storytelling questions.",
                 "Vietnamese ending sound omission (-s, -ed) on third-person and past verbs."
             ],
+            "weaknesses_vi": [
+                "Thỉnh thoảng bị trượt từ thì quá khứ về thì hiện tại khi nói nhanh.",
+                "Thiếu chi tiết cao trào / tình huống bất ngờ trong các câu kể chuyện.",
+                "Còn bỏ sót âm đuôi (-s, -ed) ở động từ ngôi thứ ba và thì quá khứ."
+            ],
             "frequent_mistakes": [
                 {
                     "pattern": "Dropping past tense in past narrative",
+                    "pattern_vi": "Quên chia thì quá khứ khi kể chuyện",
                     "example_mistake": "Last year I go to Da Nang with my family.",
                     "example_correction": "Last year I went to Da Nang with my family.",
+                    "explanation_en": "Use the irregular past form 'went' when recounting a past event.",
                     "explanation_vi": "Quên chia thì quá khứ đối với động từ bất quy tắc."
                 },
                 {
                     "pattern": "Double connector (Because ... so ...)",
+                    "pattern_vi": "Dùng thừa cặp từ nối (Because ... so ...)",
                     "example_mistake": "Because it was raining so we stayed inside.",
                     "example_correction": "Because it was raining, we stayed inside.",
+                    "explanation_en": "Do not combine 'Because' and 'so' in the same English clause.",
                     "explanation_vi": "Lỗi dùng đồng thời cả 'Because' và 'so' trong cùng 1 câu."
                 }
             ],
@@ -507,8 +538,71 @@ def get_mock_json_response(prompt: str) -> Dict[str, Any]:
                         "target_outcome": "Solidify IH certification readiness."
                     }
                 ]
+            },
+            "study_plan_vi": {
+                "title": "Lộ trình 4 tuần chinh phục mục tiêu OPIc",
+                "weekly_focus": [
+                    {
+                        "week": 1,
+                        "theme": "Làm chủ thì quá khứ & âm đuôi -ed",
+                        "activities": ["Ghi âm 3 trải nghiệm quá khứ mỗi ngày", "Luyện nhại (Shadowing) theo bài mẫu chuẩn"],
+                        "target_outcome": "Giảm 90% lỗi trượt thì quá khứ."
+                    },
+                    {
+                        "week": 2,
+                        "theme": "Khung đoạn văn & từ nối chuyển ý",
+                        "activities": ["Áp dụng bố cục Mở bài → Chi tiết → Cao trào → Kết luận"],
+                        "target_outcome": "Duy trì nói trôi chảy trên 75 giây mỗi câu."
+                    },
+                    {
+                        "week": 3,
+                        "theme": "Thành thạo Role-play & xử lý sự cố bất ngờ",
+                        "activities": ["Luyện đặt 3–4 câu hỏi và đề xuất 2 phương án thay thế"],
+                        "target_outcome": "Xử lý mượt mà cụm câu Q11–Q13."
+                    },
+                    {
+                        "week": 4,
+                        "theme": "Thi mô phỏng trọn bộ 15 câu chuẩn phòng thi",
+                        "activities": ["Hoàn thành 2 bài thi thật 15 câu không xem chữ"],
+                        "target_outcome": "Vững phản xạ và sẵn sàng thi đạt mục tiêu."
+                    }
+                ]
             }
         }
+
+
+def translate_structured_bundle_llm(payload: Dict[str, Any], target_lang: str = "vi", mock: bool = False) -> Optional[Dict[str, Any]]:
+    """
+    Translates an AI-generated diagnostic report or evaluation JSON bundle into natural Vietnamese ('vi')
+    or English ('en') in a single JSON call, preserving exact JSON structure and keeping English example quotes,
+    mistakes/corrections, and ACTFL level codes (IL/IM/IH/AL) intact.
+    """
+    lang_label = "natural Vietnamese" if target_lang == "vi" else "natural English"
+    if mock or not get_openai_client():
+        return None
+    prompt = (
+        f"Translate all commentary/feedback text values inside the JSON below into {lang_label} for an OPIc speaking app.\n"
+        "RULES:\n"
+        "1. Preserve the EXACT JSON keys, nesting, and array lengths.\n"
+        "2. NEVER translate English learner quotes, example_mistake, example_correction, original_phrase, suggested_phrase, upgraded_phrase, example_sentence, sentence, or ACTFL codes (OPIc, ACTFL, IL, IM, IH, AL, Below IL).\n"
+        "3. Return ONLY valid JSON.\n\n"
+        f"INPUT JSON:\n{json.dumps(payload, ensure_ascii=False)}"
+    )
+    client = get_openai_client(timeout=45.0)
+    if not client:
+        return None
+    try:
+        resp = _create_json_completion(
+            client,
+            prompt,
+            temperature=0.1,
+            system_prompt="You are a bilingual Vietnamese-English OPIc language coach. Respond with pure valid JSON only.",
+        )
+        parsed = json.loads(resp.choices[0].message.content)
+        return parsed if isinstance(parsed, dict) else None
+    except Exception as exc:
+        logger.warning(f"Structured i18n translation to {target_lang} failed: {exc}")
+        return None
 
 def _call_openai_validated(
     prompt: str,

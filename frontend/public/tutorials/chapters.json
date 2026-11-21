@@ -1,0 +1,342 @@
+{
+  "vi": {
+    "video": "/tutorials/guide-vi.mp4",
+    "poster": "/tutorials/poster-vi.jpg",
+    "vtt": "/tutorials/guide-vi.vtt",
+    "duration": 136.5,
+    "chapters": [
+      {
+        "id": "overview",
+        "index": 1,
+        "title": "Làm quen giao diện",
+        "summary": "5 mục chính, đổi ngôn ngữ VI/EN, Sáng/Tối và vòng tiến độ.",
+        "actionTab": "dashboard",
+        "actionLabel": "Trang chủ",
+        "start": 2.23,
+        "end": 32.77
+      },
+      {
+        "id": "study_hub",
+        "index": 2,
+        "title": "Học trong Kho ôn tập",
+        "summary": "Lọc chủ đề 2 tầng, 1 bài mẫu nhiều biến thể, Điền khuyết & MP3.",
+        "actionTab": "library",
+        "actionLabel": "Kho ôn tập",
+        "start": 32.77,
+        "end": 79.98
+      },
+      {
+        "id": "mock_exam",
+        "index": 3,
+        "title": "Thi thử 15 câu với Eva",
+        "summary": "Thi thật (ẩn đề, chấm cuối) vs Thi từ bộ đề (hiện đề, chấm ngay).",
+        "actionTab": "mock_center",
+        "actionLabel": "Thi thử",
+        "start": 79.98,
+        "end": 114.53
+      },
+      {
+        "id": "report",
+        "index": 4,
+        "title": "Báo cáo AI & Tiến độ",
+        "summary": "Biểu đồ Radar 6 tiêu chí, điểm mạnh, lỗi sửa, lộ trình 4 tuần & PDF.",
+        "actionTab": "history",
+        "actionLabel": "Tiến độ",
+        "start": 114.53,
+        "end": 136.5
+      }
+    ],
+    "cues": [
+      {
+        "start": 2.234,
+        "end": 4.926,
+        "text": "Chào mừng bạn đến với OPIc Studio."
+      },
+      {
+        "start": 5.326,
+        "end": 10.934,
+        "text": "Bên trái là 5 khu vực chính: Trang chủ, Kho ôn tập, Thi thử, Tiến độ và Hướng dẫn."
+      },
+      {
+        "start": 11.656,
+        "end": 17.015,
+        "text": "Ở góc dưới bên trái, bạn có thể đổi nhanh ngôn ngữ hiển thị giữa Tiếng Việt và Tiếng Anh."
+      },
+      {
+        "start": 17.415,
+        "end": 21.271,
+        "text": "Ngay bên dưới là nút chuyển chế độ Sáng và Tối cho dịu mắt."
+      },
+      {
+        "start": 22.0,
+        "end": 26.112,
+        "text": "Trên Trang chủ, vòng tròn bên phải cho biết tỷ lệ câu bạn đã thuộc."
+      },
+      {
+        "start": 26.512,
+        "end": 32.035,
+        "text": "Hai thẻ lớn bên dưới giúp bạn vào nhanh luyện nói ngẫu nhiên, ôn bài mẫu hoặc bắt đầu thi thử."
+      },
+      {
+        "start": 32.765,
+        "end": 35.626,
+        "text": "Bước đầu tiên cho người mới là mở Kho ôn tập."
+      },
+      {
+        "start": 36.026,
+        "end": 43.881,
+        "text": "Bạn có thể lọc 2 tầng: chọn nhóm lớn ở trên, rồi chạm chủ đề con bên dưới như Listening to Music để xem gọn đúng chủ đề đó."
+      },
+      {
+        "start": 44.609,
+        "end": 50.299,
+        "text": "Mỗi chủ đề giữ một bài mẫu gốc chuẩn và gộp sẵn các cách hỏi biến thể của giám khảo Eva."
+      },
+      {
+        "start": 50.699,
+        "end": 55.805,
+        "text": "Nhờ đó, bạn chỉ cần học ít nhưng vẫn tự tin trả lời nhiều dạng câu hỏi khác nhau."
+      },
+      {
+        "start": 56.531,
+        "end": 62.39,
+        "text": "Bạn có thể bấm nút Dịch để xem nghĩa tiếng Việt, hoặc chuyển sang Điền khuyết để luyện nhớ từ khóa."
+      },
+      {
+        "start": 62.79,
+        "end": 67.317,
+        "text": "Sau đó, bấm Luyện nói ngay bên dưới để ghi âm và nhận chấm điểm trực tiếp."
+      },
+      {
+        "start": 68.046,
+        "end": 74.907,
+        "text": "Ngoài ra, mục Nghe giúp ghép các bài mẫu thành một tệp MP3 để bạn nghe ngay cả khi tắt màn hình điện thoại."
+      },
+      {
+        "start": 75.307,
+        "end": 79.25,
+        "text": "Còn mục Từ vựng lưu lại toàn bộ các cụm từ hay để nâng điểm nói."
+      },
+      {
+        "start": 79.984,
+        "end": 82.763,
+        "text": "Khi đã quen bài, bạn chuyển sang mục Thi thử."
+      },
+      {
+        "start": 83.163,
+        "end": 90.356,
+        "text": "Có hai chế độ rõ ràng: Thi thật với đề mới ẩn chữ câu hỏi, hoặc Thi từ bộ đề lọc 15 câu từ kho bạn đã học."
+      },
+      {
+        "start": 91.078,
+        "end": 94.266,
+        "text": "Cả hai chế độ đều đi qua 5 bước chuẩn phòng thi."
+      },
+      {
+        "start": 94.666,
+        "end": 102.027,
+        "text": "Ở Bước 1, bạn có thể đọc câu mẫu để kiểm tra micro với thanh sóng âm trực tiếp và kiểm tra video mẫu của Eva."
+      },
+      {
+        "start": 102.765,
+        "end": 108.372,
+        "text": "Tiếp theo, bạn chọn nhanh Khảo sát nền ở Bước 2, rồi chọn đúng 3 chủ đề chính ở Bước 3."
+      },
+      {
+        "start": 108.772,
+        "end": 113.8,
+        "text": "Cuối cùng, chọn mức độ từ Level 3 đến 6 ở Bước 4 để vào phòng thi 15 câu."
+      },
+      {
+        "start": 114.531,
+        "end": 117.636,
+        "text": "Mục Tiến độ lưu toàn bộ lịch sử các bài thi của bạn."
+      },
+      {
+        "start": 118.036,
+        "end": 122.891,
+        "text": "Bạn có thể làm tiếp bài đang dở, hoặc bấm vào Báo cáo để xem kết quả chi tiết."
+      },
+      {
+        "start": 123.625,
+        "end": 131.067,
+        "text": "Trong báo cáo, hệ thống chấm 6 tiêu chí trên biểu đồ Radar, chỉ rõ điểm mạnh, lỗi cần sửa và lộ trình 4 tuần."
+      },
+      {
+        "start": 131.467,
+        "end": 136.5,
+        "text": "Bạn cũng có thể tải file PDF về máy. Chúc bạn luyện nói thật tự tin mỗi ngày!"
+      }
+    ]
+  },
+  "en": {
+    "video": "/tutorials/guide-en.mp4",
+    "poster": "/tutorials/poster-en.jpg",
+    "vtt": "/tutorials/guide-en.vtt",
+    "duration": 156.2,
+    "chapters": [
+      {
+        "id": "overview",
+        "index": 1,
+        "title": "Studio Overview",
+        "summary": "5 main tabs, VI/EN mode, Light/Dark themes, and mastery ring.",
+        "actionTab": "dashboard",
+        "actionLabel": "Home",
+        "start": 2.28,
+        "end": 38.17
+      },
+      {
+        "id": "study_hub",
+        "index": 2,
+        "title": "Master the Study Hub",
+        "summary": "2-tier topic filter, master scripts, Cloze drills, MP3 & Vocab.",
+        "actionTab": "library",
+        "actionLabel": "Study Hub",
+        "start": 38.17,
+        "end": 87.61
+      },
+      {
+        "id": "mock_exam",
+        "index": 3,
+        "title": "15-Question Mock Exam",
+        "summary": "Real Exam (blind, final score) vs Study Pack (visible, instant).",
+        "actionTab": "mock_center",
+        "actionLabel": "Mock Test",
+        "start": 87.61,
+        "end": 128.58
+      },
+      {
+        "id": "report",
+        "index": 4,
+        "title": "AI Report & Progress",
+        "summary": "6-criteria Radar chart, strengths, 4-week study plan & PDF export.",
+        "actionTab": "history",
+        "actionLabel": "Progress",
+        "start": 128.58,
+        "end": 156.2
+      }
+    ],
+    "cues": [
+      {
+        "start": 2.282,
+        "end": 5.138,
+        "text": "Welcome to OPIc Practice Studio."
+      },
+      {
+        "start": 5.538,
+        "end": 12.162,
+        "text": "On the left are five main sections: Home, Study Hub, Mock Test, Progress, and Guide."
+      },
+      {
+        "start": 12.891,
+        "end": 19.323,
+        "text": "At the bottom left, you can switch display language between Vietnamese and English anytime."
+      },
+      {
+        "start": 19.723,
+        "end": 24.643,
+        "text": "Right below it, you can toggle smoothly between Light and Dark mode."
+      },
+      {
+        "start": 25.375,
+        "end": 30.103,
+        "text": "On Home, the mastery ring shows how many questions you have mastered."
+      },
+      {
+        "start": 30.503,
+        "end": 37.439,
+        "text": "The two cards below let you jump straight into random drills, script recall, or a mock exam."
+      },
+      {
+        "start": 38.172,
+        "end": 41.004,
+        "text": "Your best starting point is Study Hub."
+      },
+      {
+        "start": 41.404,
+        "end": 49.66,
+        "text": "Use the two-tier filter: select a broad group on top, then tap a sub-topic like Listening to Music below."
+      },
+      {
+        "start": 50.391,
+        "end": 56.511,
+        "text": "Each topic stores one clean master script and groups Eva's prompt variations together."
+      },
+      {
+        "start": 56.911,
+        "end": 62.167,
+        "text": "That way, you study less while staying ready for many different ways Eva might ask."
+      },
+      {
+        "start": 62.907,
+        "end": 68.019,
+        "text": "Switch from Read mode to Cloze fill-in-the-blanks to test your memory naturally."
+      },
+      {
+        "start": 68.419,
+        "end": 73.939,
+        "text": "Then click Speak at the bottom to record your voice and receive instant AI grading."
+      },
+      {
+        "start": 74.672,
+        "end": 81.416,
+        "text": "The Audio tab combines prompts and model answers into one MP3 track for lock-screen listening."
+      },
+      {
+        "start": 81.816,
+        "end": 86.88,
+        "text": "Meanwhile, the Vocab tab keeps all your saved higher-band expressions."
+      },
+      {
+        "start": 87.61,
+        "end": 90.514,
+        "text": "When you feel ready, open Mock Test."
+      },
+      {
+        "start": 90.914,
+        "end": 98.954,
+        "text": "Choose Real Exam for a fresh blind AI set, or From Study Pack to filter 15 questions you already studied."
+      },
+      {
+        "start": 99.688,
+        "end": 103.72,
+        "text": "Both modes walk you through five realistic setup steps."
+      },
+      {
+        "start": 104.12,
+        "end": 112.712,
+        "text": "In Step 1, test your microphone using the read-aloud sample with live audio bars, and preview Eva's video stream."
+      },
+      {
+        "start": 113.454,
+        "end": 120.894,
+        "text": "Next, complete the Background Survey in Step 2, and select exactly three core topics in Step 3."
+      },
+      {
+        "start": 121.294,
+        "end": 127.846,
+        "text": "Finally, choose Level 3 to 6 in Step 4 to launch your 15-question interview."
+      },
+      {
+        "start": 128.579,
+        "end": 132.803,
+        "text": "Open Progress anytime to review your full exam history."
+      },
+      {
+        "start": 133.203,
+        "end": 138.531,
+        "text": "You can resume unfinished tests or click Report to inspect detailed feedback."
+      },
+      {
+        "start": 139.25,
+        "end": 149.834,
+        "text": "Inside your report, AI scores six ACTFL criteria on a Radar chart, highlights strengths, obstacles, and builds a 4-week plan."
+      },
+      {
+        "start": 150.234,
+        "end": 156.2,
+        "text": "You can also export a clean PDF diagnostic report. Happy practicing!"
+      }
+    ]
+  }
+}

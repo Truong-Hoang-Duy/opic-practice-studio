@@ -285,12 +285,37 @@ def submit_self_assessment(
         session.mode = "exam" if assessment.strict_mode else "practice"
     db.commit()
 
-    # If topics have already been chosen (TopicSelection before SelfAssessment), generate questions!
+    # If topics have already been chosen (TopicSelection before SelfAssessment), generate or filter questions!
     if session.topics and len(session.topics) == 3:
         # The "no AI" shortcut exists only for local UI testing
         use_ai = assessment.use_ai is not False or settings.ENVIRONMENT == "production"
         # DEV sessions also simulate transcription, scoring, model answers and the report
         session.dev_mock = not use_ai
+
+        if assessment.from_study_pack:
+            from app.services.study_pack_service import populate_session_from_study_pack
+            pack_session = (
+                db.query(TestSession)
+                .filter(TestSession.user_id == current_user.id, TestSession.mode == "study")
+                .order_by(TestSession.started_at.desc(), TestSession.id.desc())
+                .first()
+            )
+            if not pack_session or not pack_session.questions:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Bạn chưa có câu hỏi nào trong Kho ôn tập. Hãy thêm chủ đề ở Kho ôn tập trước.",
+                )
+            if assessment.strict_mode is None:
+                session.mode = "practice"
+            created = populate_session_from_study_pack(db, session, pack_session)
+            return {
+                "message": "Self-assessment recorded and 15 questions filtered from your Study Pack.",
+                "total_questions": len(created),
+                "question_source": "study_pack",
+                "mode": session.mode,
+                "session_id": session.id,
+            }
+
         created, source = _generate_session_questions(session, db, background_tasks, use_ai=use_ai)
         return {
             "message": "Self-assessment recorded and questions generated successfully.",
@@ -509,9 +534,85 @@ def finish_session(
 
     return {"message": "Session completed.", "session_id": session.id}
 
+def _localize_report_response(
+    db: Session,
+    report: SessionReport,
+    session: TestSession,
+    session_num: int,
+    lang: Optional[str] = None,
+) -> dict:
+    """
+    Returns SessionReportResponse localized to 'vi' or 'en' (default keeps stored English).
+    For legacy reports missing a Vietnamese bundle in `report.i18n_cache`, translates once and caches permanently.
+    """
+    from app.services.llm_service import translate_structured_bundle_llm
+
+    target = "vi" if lang == "vi" else "en" if lang == "en" else None
+    cache = dict(report.i18n_cache or {})
+
+    justification = report.justification
+    strengths = list(report.strengths or [])
+    weaknesses = list(report.weaknesses or [])
+    frequent_mistakes = [dict(m) for m in (report.frequent_mistakes or [])]
+    study_plan = dict(report.study_plan or {})
+
+    if target == "vi":
+        vi_bundle = cache.get("vi")
+        if not vi_bundle:
+            translated = translate_structured_bundle_llm(
+                {
+                    "justification": justification,
+                    "strengths": strengths,
+                    "weaknesses": weaknesses,
+                    "frequent_mistakes": frequent_mistakes,
+                    "study_plan": study_plan,
+                },
+                target_lang="vi",
+                mock=is_mock_session(session),
+            )
+            if translated:
+                vi_bundle = {
+                    "justification": translated.get("justification") or justification,
+                    "strengths": translated.get("strengths") or strengths,
+                    "weaknesses": translated.get("weaknesses") or weaknesses,
+                    "frequent_mistakes": translated.get("frequent_mistakes") or frequent_mistakes,
+                    "study_plan": translated.get("study_plan") or study_plan,
+                }
+                cache["vi"] = vi_bundle
+                report.i18n_cache = cache
+                db.commit()
+        if vi_bundle:
+            justification = vi_bundle.get("justification") or justification
+            strengths = vi_bundle.get("strengths") or strengths
+            weaknesses = vi_bundle.get("weaknesses") or weaknesses
+            if vi_bundle.get("frequent_mistakes"):
+                frequent_mistakes = vi_bundle["frequent_mistakes"]
+            if vi_bundle.get("study_plan"):
+                study_plan = vi_bundle["study_plan"]
+
+    return {
+        "id": report.id,
+        "session_id": report.session_id,
+        "session_number": session_num,
+        "overall_level": report.overall_level,
+        "passed": report.passed,
+        "justification": justification,
+        "radar_scores": report.radar_scores or {},
+        "per_question_summary": report.per_question_summary or [],
+        "frequent_mistakes": frequent_mistakes,
+        "strengths": strengths,
+        "weaknesses": weaknesses,
+        "study_plan": study_plan,
+        "pdf_path": report.pdf_path,
+        "created_at": report.created_at,
+        "target_level": exam_level_for(session),
+    }
+
+
 @router.get("/{session_id}/report", response_model=SessionReportResponse)
 def get_session_report(
     session_id: int,
+    lang: Optional[str] = Query(None, pattern="^(vi|en)$"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -522,9 +623,7 @@ def get_session_report(
     session_num = get_user_session_number(db, current_user.id, session.id)
     existing_report = db.query(SessionReport).filter(SessionReport.session_id == session.id).first()
     if existing_report:
-        existing_report.target_level = exam_level_for(session)
-        existing_report.session_number = session_num
-        return existing_report
+        return _localize_report_response(db, existing_report, session, session_num, lang=lang)
 
     # Generate new report
     questions = db.query(Question).filter(Question.session_id == session.id).order_by(Question.order_index).all()
@@ -658,6 +757,23 @@ def get_session_report(
         study_plan=report_data.get("study_plan", {})
     )
 
+    report_i18n: dict = {}
+    if report_data.get("justification_vi") or report_data.get("strengths_vi") or report_data.get("study_plan_vi"):
+        vi_mistakes = []
+        for m in report_data.get("frequent_mistakes") or []:
+            if isinstance(m, dict):
+                vi_mistakes.append({
+                    **m,
+                    "pattern": m.get("pattern_vi") or m.get("pattern") or "",
+                })
+        report_i18n["vi"] = {
+            "justification": report_data.get("justification_vi") or report_data.get("justification", ""),
+            "strengths": report_data.get("strengths_vi") or report_data.get("strengths", []),
+            "weaknesses": report_data.get("weaknesses_vi") or report_data.get("weaknesses", []),
+            "frequent_mistakes": vi_mistakes or report_data.get("frequent_mistakes", []),
+            "study_plan": report_data.get("study_plan_vi") or report_data.get("study_plan", {}),
+        }
+
     new_report = SessionReport(
         session_id=session.id,
         overall_level=report_data.get("overall_level", "IM"),
@@ -668,12 +784,11 @@ def get_session_report(
         strengths=report_data.get("strengths", []),
         weaknesses=report_data.get("weaknesses", []),
         study_plan=report_data.get("study_plan", {}),
+        i18n_cache=report_i18n or None,
         pdf_path=pdf_url
     )
     db.add(new_report)
     db.commit()
     db.refresh(new_report)
-    new_report.target_level = exam_level_for(session)
-    new_report.session_number = session_num
 
-    return new_report
+    return _localize_report_response(db, new_report, session, session_num, lang=lang)

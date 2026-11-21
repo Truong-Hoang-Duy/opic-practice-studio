@@ -18,6 +18,7 @@ class SessionReport(Base):
     strengths = Column(JSON, nullable=True) # Key strengths observed
     weaknesses = Column(JSON, nullable=True) # Major barriers to reaching IH
     study_plan = Column(JSON, nullable=True) # Suggested 2-4 week study plan for Vietnamese learners
+    i18n_cache = Column(JSON, nullable=True) # Cached localized report bundles {"vi": {...}, "en": {...}}
 
     pdf_path = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)

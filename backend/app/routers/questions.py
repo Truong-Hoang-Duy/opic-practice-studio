@@ -36,23 +36,34 @@ def get_question_audio(question_id: int, db: Session = Depends(get_db)):
 
 def inherit_first_model_answers(db: Session, q: Question) -> List[ModelAnswer]:
     """
-    If an earlier question with the same text already has AI-generated model answers,
-    clone that first set onto `q` so the learner studies one consistent model outline across tests.
+    If an earlier question with the same text (or same canonical topic/type slot) already has
+    AI-generated model answers, clone that first set onto `q` so the learner studies one
+    consistent Master Script across tests without duplicate scripts.
     """
+    from app.services.study_pack_service import infer_canonical_key_for_question
+
     norm_text = (q.question_text or "").strip()
-    if not norm_text:
+    ckey = infer_canonical_key_for_question(q)
+    if not norm_text and not ckey:
         return []
 
-    donor_query = (
+    base_query = (
         db.query(Question)
         .join(ModelAnswer, ModelAnswer.question_id == Question.id)
-        .filter(Question.question_text == norm_text, Question.id != q.id)
+        .filter(Question.id != q.id)
     )
     if q.session and q.session.user_id:
-        donor_query = donor_query.join(TestSession, Question.session_id == TestSession.id).filter(
+        base_query = base_query.join(TestSession, Question.session_id == TestSession.id).filter(
             TestSession.user_id == q.session.user_id
         )
-    donor_q = donor_query.order_by(Question.id.asc()).first()
+
+    donor_q = (
+        base_query.filter(Question.question_text == norm_text).order_by(Question.id.asc()).first()
+        if norm_text
+        else None
+    )
+    if not donor_q and ckey:
+        donor_q = base_query.filter(Question.canonical_key == ckey).order_by(Question.id.asc()).first()
     if not donor_q:
         return []
 

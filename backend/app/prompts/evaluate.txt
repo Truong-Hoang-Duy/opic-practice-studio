@@ -77,11 +77,13 @@ You MUST return ONLY a valid JSON object matching this exact structure:
     "past_used": true/false,
     "present_used": true/false,
     "future_used": true/false,
-    "explanation": "..."
+    "explanation": "...",
+    "explanation_vi": "..."
   }},
   "complication_present": true/false,
   "story_narrative_present": true/false,
   "feedback_summary": "...",
+  "feedback_summary_vi": "...",
   "actionable_steps": [
     "Step 1...",
     "Step 2...",
@@ -101,6 +103,7 @@ You MUST return ONLY a valid JSON object matching this exact structure:
       "sentence": "Last year, I traveled to Da Nang with my family.",
       "tense": "past" | "present" | "future" | "mixed",
       "status": "correct" | "incorrect",
+      "note_en": "Correct past simple verb to open the story.",
       "note_vi": "Sử dụng đúng thì quá khứ đơn để mở đầu câu chuyện."
     }}
   ],
@@ -112,19 +115,22 @@ You MUST return ONLY a valid JSON object matching this exact structure:
   "vietlish_warnings": [
     {{
       "original_phrase": "open the light",
+      "issue_en": "Word-for-word translation from Vietnamese 'mở đèn'",
       "issue_vi": "Dịch từng chữ từ 'mở đèn' của tiếng Việt",
       "suggested_phrase": "turn on the light",
+      "explanation_en": "Use 'turn on/off' or 'switch on/off' for electrical devices in English.",
       "explanation_vi": "Trong tiếng Anh, thiết bị điện luôn dùng 'turn on/off' hoặc 'switch on/off'."
     }}
   ],
   "vocab_upgrades": [
     {{
-      "original_phrase": "the weather was very bad",
+      "original_phrase": "bad weather",
       "upgraded_phrase": "torrential downpour",
       "kind": "collocation",
-      "topic": "travel",
-      "example_sentence": "On the second day, we got caught in a torrential downpour, so we had to take shelter in a small café.",
-      "note_vi": "'torrential downpour' = mưa như trút nước, miêu tả cụ thể và sinh động hơn 'very bad weather'."
+      "topic": "general",
+      "example_sentence": "We were caught in a torrential downpour on our way home.",
+      "note_en": "More vivid and natural than 'bad weather' when narrating a sudden heavy storm.",
+      "note_vi": "Tự nhiên và giàu hình ảnh hơn 'bad weather' khi kể lại cơn mưa lớn bất ngờ."
     }}
   ]
 }}

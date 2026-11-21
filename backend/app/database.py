@@ -60,15 +60,18 @@ def create_database_engine():
         except Exception as exc:
             logger.warning(f"PostgreSQL connection error: {exc}. Falling back to SQLite.")
 
-    # Local SQLite database (reliable fallback for local development)
-    current_file = Path(__file__).resolve()
-    backend_dir = current_file.parent.parent
-    data_dir = backend_dir / "data"
-    data_dir.mkdir(parents=True, exist_ok=True)
-    sqlite_path = (data_dir / "opic_studio.db").as_posix()
-    sqlite_url = f"sqlite:///{sqlite_path}"
-
-    logger.info(f"Using local SQLite database: {sqlite_path}")
+    # Local SQLite database (honor explicit custom sqlite URL when provided, else default to backend/data/opic_studio.db)
+    if raw_url.startswith("sqlite:///") and raw_url != "sqlite:///./data/opic_studio.db":
+        sqlite_url = raw_url
+        logger.info(f"Using custom SQLite database: {sqlite_url}")
+    else:
+        current_file = Path(__file__).resolve()
+        backend_dir = current_file.parent.parent
+        data_dir = backend_dir / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        sqlite_path = (data_dir / "opic_studio.db").as_posix()
+        sqlite_url = f"sqlite:///{sqlite_path}"
+        logger.info(f"Using local SQLite database: {sqlite_path}")
     return create_engine(
         sqlite_url,
         connect_args={"check_same_thread": False},
@@ -83,6 +86,9 @@ engine = create_database_engine()
 ADDED_COLUMNS = {
     "questions": {
         "category": "VARCHAR(50)",
+        "canonical_key": "VARCHAR(120)",
+        "prompt_variants": "JSON",
+        "story_tags": "JSON",
         "study_status": "VARCHAR(20) DEFAULT 'unlearned'",
         "question_translation_vi": "TEXT",
         "next_review_at": "TIMESTAMP",
@@ -91,7 +97,14 @@ ADDED_COLUMNS = {
     },
     "model_answers": {"sentences_vi": "JSON"},
     "answer_versions": {"audio_path": "VARCHAR(255)", "duration_seconds": "FLOAT", "speech_metrics": "JSON", "rewrite_result": "JSON"},
-    "evaluations": {"tense_timeline": "JSON", "tense_distribution": "JSON", "vietlish_warnings": "JSON", "vocab_upgrades": "JSON"},
+    "evaluations": {
+        "tense_timeline": "JSON",
+        "tense_distribution": "JSON",
+        "vietlish_warnings": "JSON",
+        "vocab_upgrades": "JSON",
+        "i18n_cache": "JSON",
+    },
+    "session_reports": {"i18n_cache": "JSON"},
     "test_sessions": {"dev_mock": "BOOLEAN DEFAULT FALSE"},
     "daily_workouts": {"source_question_id": "INTEGER"},
 }

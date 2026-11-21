@@ -3,6 +3,7 @@ import { Volume2, RotateCcw, VolumeX } from 'lucide-react';
 import { ViTooltip } from './Tooltip';
 import { resolveMediaUrl, vocabularyApi } from '../api/client';
 import { getSharedAudio, getVoices, playBeep, endRecordingAudioSession, setPendingPlayback, clearPendingPlayback } from '../utils/audioUnlock';
+import { useLanguage } from '../context/LanguageContext';
 
 // Browser voices closest to Eva (calm young American female), used when server audio is unavailable
 const PREFERRED_VOICES = ['Aria', 'Jenny', 'Ava', 'Samantha', 'Google US English', 'Zira'];
@@ -28,8 +29,11 @@ export const EvaAvatar = ({
   allowReplay = true,
   maxReplays = 1,
   // Strict exam: replay is only possible within this many seconds after Eva finishes reading
-  replayWindowSec = null
+  replayWindowSec = null,
+  // 'responsive' (horizontal on mobile, large vertical portrait on desktop) | 'horizontal' (sleek compact bar on all viewports)
+  layout = 'responsive',
 }) => {
+  const { pick } = useLanguage();
   const [isPlaying, setIsPlaying] = useState(false);
   const [replayCount, setReplayCount] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -283,176 +287,218 @@ export const EvaAvatar = ({
     }
   };
 
+  const isAlwaysHorizontal = layout === 'horizontal';
+
   return (
-    <div className="flex flex-col items-center">
-      {/* Avatar Container */}
-      <div className="relative">
-        {/* Glow halo when talking */}
-        <div className={`absolute -inset-2 rounded-full blur-md transition-opacity duration-300 ${
-          isPlaying ? 'bg-gradient-to-tr from-sky-500/40 via-emerald-500/40 to-cyan-500/40 opacity-100' : 'opacity-0'
-        }`} />
+    <div
+      className={`w-full flex flex-row items-center justify-between gap-2.5 ${
+        isAlwaysHorizontal ? '' : 'lg:flex-col lg:justify-center lg:gap-0'
+      }`}
+    >
+      {/* Avatar + Name/Status */}
+      <div
+        className={`flex flex-row items-center gap-2.5 sm:gap-3 min-w-0 ${
+          isAlwaysHorizontal ? '' : 'lg:flex-col lg:gap-0'
+        }`}
+      >
+        {/* Avatar Container */}
+        <div className="relative shrink-0">
+          {/* Glow halo when talking */}
+          <div
+            className={`absolute -inset-1.5 ${isAlwaysHorizontal ? '' : 'lg:-inset-2'} rounded-full blur-md transition-opacity duration-300 ${
+              isPlaying ? 'bg-gradient-to-tr from-sky-500/40 via-emerald-500/40 to-cyan-500/40 opacity-100' : 'opacity-0'
+            }`}
+          />
 
-        {/* Avatar SVG Portrait */}
-        <div className="relative w-32 h-32 rounded-full p-1 bg-gradient-to-b from-sky-400/40 to-slate-700/80 shadow-2xl overflow-hidden flex items-center justify-center">
-          <svg viewBox="0 0 160 160" className="w-full h-full rounded-full bg-slate-900">
-            {/* Background gradient */}
-            <defs>
-              <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#0f172a" />
-                <stop offset="100%" stopColor="#1e293b" />
-              </linearGradient>
-              <linearGradient id="skinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#fed7aa" />
-                <stop offset="100%" stopColor="#fdba74" />
-              </linearGradient>
-              <linearGradient id="hairGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#78350f" />
-                <stop offset="100%" stopColor="#451a03" />
-              </linearGradient>
-              <linearGradient id="blazerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#0369a1" />
-                <stop offset="100%" stopColor="#0c4a6e" />
-              </linearGradient>
-            </defs>
+          {/* Avatar SVG Portrait */}
+          <div
+            className={`relative rounded-full p-0.5 bg-gradient-to-b from-sky-400/40 to-slate-700/80 shadow-lg overflow-hidden flex items-center justify-center ${
+              isAlwaysHorizontal
+                ? 'w-14 h-14 lg:w-16 lg:h-16'
+                : 'w-14 h-14 lg:w-32 lg:h-32 lg:p-1 lg:shadow-2xl'
+            }`}
+          >
+            <svg viewBox="0 0 160 160" className="w-full h-full rounded-full bg-slate-900">
+              {/* Background gradient */}
+              <defs>
+                <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#0f172a" />
+                  <stop offset="100%" stopColor="#1e293b" />
+                </linearGradient>
+                <linearGradient id="skinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#fed7aa" />
+                  <stop offset="100%" stopColor="#fdba74" />
+                </linearGradient>
+                <linearGradient id="hairGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#78350f" />
+                  <stop offset="100%" stopColor="#451a03" />
+                </linearGradient>
+                <linearGradient id="blazerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#0369a1" />
+                  <stop offset="100%" stopColor="#0c4a6e" />
+                </linearGradient>
+              </defs>
 
-            <rect width="160" height="160" fill="url(#bgGrad)" />
+              <rect width="160" height="160" fill="url(#bgGrad)" />
 
-            {/* Shoulders & Professional Blazer */}
-            <path d="M25 160 C30 120, 60 115, 80 115 C100 115, 130 120, 135 160 Z" fill="url(#blazerGrad)" />
-            {/* Inner blouse */}
-            <polygon points="68,120 92,120 80,145" fill="#f8fafc" />
+              {/* Shoulders & Professional Blazer */}
+              <path d="M25 160 C30 120, 60 115, 80 115 C100 115, 130 120, 135 160 Z" fill="url(#blazerGrad)" />
+              {/* Inner blouse */}
+              <polygon points="68,120 92,120 80,145" fill="#f8fafc" />
 
-            {/* Neck */}
-            <rect x="72" y="90" width="16" height="28" fill="url(#skinGrad)" rx="4" />
+              {/* Neck */}
+              <rect x="72" y="90" width="16" height="28" fill="url(#skinGrad)" rx="4" />
 
-            {/* Back Hair */}
-            <path d="M42 60 C38 105, 45 130, 52 140 C52 120, 48 90, 56 60 Z" fill="url(#hairGrad)" />
-            <path d="M118 60 C122 105, 115 130, 108 140 C108 120, 112 90, 104 60 Z" fill="url(#hairGrad)" />
+              {/* Back Hair */}
+              <path d="M42 60 C38 105, 45 130, 52 140 C52 120, 48 90, 56 60 Z" fill="url(#hairGrad)" />
+              <path d="M118 60 C122 105, 115 130, 108 140 C108 120, 112 90, 104 60 Z" fill="url(#hairGrad)" />
 
-            {/* Face */}
-            <ellipse cx="80" cy="74" rx="26" ry="32" fill="url(#skinGrad)" />
+              {/* Face */}
+              <ellipse cx="80" cy="74" rx="26" ry="32" fill="url(#skinGrad)" />
 
-            {/* Front Hair Bangs */}
-            <path d="M54 62 C60 40, 100 40, 106 62 C96 52, 64 52, 54 62 Z" fill="url(#hairGrad)" />
-            <path d="M54 62 C50 78, 54 95, 57 100 C56 85, 58 70, 62 62 Z" fill="url(#hairGrad)" />
-            <path d="M106 62 C110 78, 106 95, 103 100 C104 85, 102 70, 98 62 Z" fill="url(#hairGrad)" />
+              {/* Front Hair Bangs */}
+              <path d="M54 62 C60 40, 100 40, 106 62 C96 52, 64 52, 54 62 Z" fill="url(#hairGrad)" />
+              <path d="M54 62 C50 78, 54 95, 57 100 C56 85, 58 70, 62 62 Z" fill="url(#hairGrad)" />
+              <path d="M106 62 C110 78, 106 95, 103 100 C104 85, 102 70, 98 62 Z" fill="url(#hairGrad)" />
 
-            {/* Eyes */}
-            <ellipse cx="70" cy="73" rx="3.5" ry="4" fill="#1e293b" />
-            <circle cx="71" cy="71.5" r="1.2" fill="#ffffff" />
-            <ellipse cx="90" cy="73" rx="3.5" ry="4" fill="#1e293b" />
-            <circle cx="91" cy="71.5" r="1.2" fill="#ffffff" />
+              {/* Eyes */}
+              <ellipse cx="70" cy="73" rx="3.5" ry="4" fill="#1e293b" />
+              <circle cx="71" cy="71.5" r="1.2" fill="#ffffff" />
+              <ellipse cx="90" cy="73" rx="3.5" ry="4" fill="#1e293b" />
+              <circle cx="91" cy="71.5" r="1.2" fill="#ffffff" />
 
-            {/* Eyebrows */}
-            <path d="M65 67 Q70 65 75 67" stroke="#451a03" strokeWidth="1.6" fill="none" strokeLinecap="round" />
-            <path d="M85 67 Q90 65 95 67" stroke="#451a03" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+              {/* Eyebrows */}
+              <path d="M65 67 Q70 65 75 67" stroke="#451a03" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+              <path d="M85 67 Q90 65 95 67" stroke="#451a03" strokeWidth="1.6" fill="none" strokeLinecap="round" />
 
-            {/* Subtle Blush */}
-            <circle cx="64" cy="80" r="4" fill="#f43f5e" opacity="0.25" />
-            <circle cx="96" cy="80" r="4" fill="#f43f5e" opacity="0.25" />
+              {/* Subtle Blush */}
+              <circle cx="64" cy="80" r="4" fill="#f43f5e" opacity="0.25" />
+              <circle cx="96" cy="80" r="4" fill="#f43f5e" opacity="0.25" />
 
-            {/* Nose */}
-            <path d="M80 74 Q81 81 79 82" stroke="#ea580c" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.6" />
+              {/* Nose */}
+              <path d="M80 74 Q81 81 79 82" stroke="#ea580c" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.6" />
 
-            {/* Mouth */}
-            {isPlaying ? (
-              /* Animated talking mouth */
-              <ellipse 
-                cx="80" 
-                cy="90" 
-                rx="5.5" 
-                ry="4.5" 
-                fill="#be123c" 
-                className="animate-talking" 
-              />
-            ) : (
-              /* Calm, friendly closed smile */
-              <path d="M74 88 Q80 92 86 88" stroke="#be123c" strokeWidth="2" fill="none" strokeLinecap="round" />
-            )}
+              {/* Mouth */}
+              {isPlaying ? (
+                /* Animated talking mouth */
+                <ellipse
+                  cx="80"
+                  cy="90"
+                  rx="5.5"
+                  ry="4.5"
+                  fill="#be123c"
+                  className="animate-talking"
+                />
+              ) : (
+                /* Calm, friendly closed smile */
+                <path d="M74 88 Q80 92 86 88" stroke="#be123c" strokeWidth="2" fill="none" strokeLinecap="round" />
+              )}
 
-            {/* Interviewer Headset Microphone */}
-            <path d="M56 68 C50 68, 48 76, 50 82" stroke="#0284c7" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-            <circle cx="50" cy="82" r="3" fill="#0369a1" />
-            <path d="M50 82 Q56 94 68 94" stroke="#0284c7" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-            <circle cx="68" cy="94" r="2.2" fill="#38bdf8" />
-          </svg>
-        </div>
-
-        {/* Status indicator dot */}
-        <div className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-slate-900 flex items-center justify-center ${
-          isPlaying ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
-        }`}>
-          {isPlaying && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-        </div>
-      </div>
-
-      {/* Name and State description */}
-      <div className="mt-2 text-center">
-        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center justify-center gap-1.5">
-          <span>Eva</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-500/20 font-semibold">
-            ACTFL Examiner
-          </span>
-        </h3>
-        <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
-          {isPlaying
-            ? replayCount > 0
-              ? 'Đang đọc lần 2 (tự ghi âm sau khi đọc xong)...'
-              : 'Speaking question...'
-            : 'Listening attentively'}
-        </p>
-      </div>
-
-      {/* Equalizer sound wave animation while Eva talks - Fixed height reserved */}
-      <div className="h-5 mt-1 flex items-center justify-center">
-        {isPlaying ? (
-          <div className="flex items-center gap-1 h-5 px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-sky-500/30 shadow-xs">
-            <div className="w-1 bg-sky-500 dark:bg-sky-400 rounded-full animate-sound-wave" style={{ animationDelay: '0.1s' }} />
-            <div className="w-1 bg-emerald-500 dark:bg-emerald-400 rounded-full animate-sound-wave" style={{ animationDelay: '0.3s' }} />
-            <div className="w-1 bg-sky-500 dark:bg-sky-400 rounded-full animate-sound-wave" style={{ animationDelay: '0.2s' }} />
-            <div className="w-1 bg-cyan-500 dark:bg-cyan-400 rounded-full animate-sound-wave" style={{ animationDelay: '0.4s' }} />
-            <div className="w-1 bg-emerald-500 dark:bg-emerald-400 rounded-full animate-sound-wave" style={{ animationDelay: '0.15s' }} />
+              {/* Interviewer Headset Microphone */}
+              <path d="M56 68 C50 68, 48 76, 50 82" stroke="#0284c7" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+              <circle cx="50" cy="82" r="3" fill="#0369a1" />
+              <path d="M50 82 Q56 94 68 94" stroke="#0284c7" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+              <circle cx="68" cy="94" r="2.2" fill="#38bdf8" />
+            </svg>
           </div>
-        ) : null}
+
+          {/* Status indicator dot */}
+          <div
+            className={`absolute bottom-0 right-0 ${isAlwaysHorizontal ? '' : 'lg:bottom-1 lg:right-1 lg:w-4 lg:h-4'} w-3.5 h-3.5 rounded-full border-2 border-slate-900 flex items-center justify-center ${
+              isPlaying ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
+            }`}
+          >
+            {isPlaying && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+          </div>
+        </div>
+
+        {/* Name and State description */}
+        <div className={`text-left min-w-0 ${isAlwaysHorizontal ? '' : 'lg:mt-2 lg:text-center'}`}>
+          <h3 className={`text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 ${isAlwaysHorizontal ? '' : 'lg:justify-center'}`}>
+            <span>Eva</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-500/30 font-semibold whitespace-nowrap">
+              <span className="sm:hidden">AI</span>
+              <span className="hidden sm:inline">ACTFL Examiner</span>
+            </span>
+          </h3>
+          <div className="flex items-center gap-2 mt-0.5">
+            <p className="text-[11px] lg:text-xs text-slate-600 dark:text-slate-400 font-medium truncate">
+              {isPlaying
+                ? replayCount > 0
+                  ? pick('Đang đọc lần 2...', 'Replaying...')
+                  : pick('Đang đọc câu hỏi...', 'Speaking...')
+                : pick('Đang lắng nghe', 'Listening')}
+            </p>
+            {isAlwaysHorizontal && isPlaying && (
+              <div className="inline-flex items-center gap-0.5 h-4 px-1.5 rounded-full bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-sky-500/30 overflow-hidden shrink-0">
+                <div className="w-[2px] h-3 bg-sky-500 dark:bg-sky-400 rounded-full origin-center animate-sound-wave" style={{ animationDelay: '0.1s' }} />
+                <div className="w-[2px] h-3 bg-emerald-500 dark:bg-emerald-400 rounded-full origin-center animate-sound-wave" style={{ animationDelay: '0.3s' }} />
+                <div className="w-[2px] h-3 bg-sky-500 dark:bg-sky-400 rounded-full origin-center animate-sound-wave" style={{ animationDelay: '0.2s' }} />
+                <div className="w-[2px] h-3 bg-cyan-500 dark:bg-cyan-400 rounded-full origin-center animate-sound-wave" style={{ animationDelay: '0.4s' }} />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Audio controls (Replay question button) */}
-      <div className="flex items-center gap-2 mt-2">
+      {/* Equalizer sound wave (Responsive vertical mode only) */}
+      {!isAlwaysHorizontal && (
+        <div className={`${isPlaying ? 'flex' : 'hidden lg:flex'} h-5 lg:mt-1 items-center justify-center shrink-0`}>
+          {isPlaying ? (
+            <div className="flex items-center gap-1 h-5 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-900/80 border border-slate-300 dark:border-sky-500/30 shadow-xs overflow-hidden">
+              <div className="w-1 h-3.5 bg-sky-500 dark:bg-sky-400 rounded-full origin-center animate-sound-wave" style={{ animationDelay: '0.1s' }} />
+              <div className="w-1 h-3.5 bg-emerald-500 dark:bg-emerald-400 rounded-full origin-center animate-sound-wave" style={{ animationDelay: '0.3s' }} />
+              <div className="w-1 h-3.5 bg-sky-500 dark:bg-sky-400 rounded-full origin-center animate-sound-wave" style={{ animationDelay: '0.2s' }} />
+              <div className="w-1 h-3.5 bg-cyan-500 dark:bg-cyan-400 rounded-full origin-center animate-sound-wave" style={{ animationDelay: '0.4s' }} />
+              <div className="w-1 h-3.5 bg-emerald-500 dark:bg-emerald-400 rounded-full origin-center animate-sound-wave" style={{ animationDelay: '0.15s' }} />
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* Audio controls (Replay question button + Mute) */}
+      <div className={`flex items-center gap-1.5 shrink-0 ${isAlwaysHorizontal ? '' : 'lg:gap-2 lg:mt-2'}`}>
         {autoplayBlocked && !isPlaying ? (
           <button
             onClick={handleFirstPlay}
             data-eva-play
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-500 hover:bg-brand-600 text-white shadow-sm cursor-pointer"
+            className="h-8 min-w-[96px] inline-flex items-center justify-center gap-1.5 px-2.5 lg:px-3 rounded-lg text-xs font-semibold bg-brand-500 hover:bg-brand-600 text-white shadow-sm cursor-pointer whitespace-nowrap"
           >
-            <Volume2 className="w-3.5 h-3.5" />
-            <span>Phát câu hỏi</span>
+            <Volume2 className="w-3.5 h-3.5 shrink-0" />
+            <span>{pick('Phát', 'Play')}</span>
           </button>
         ) : (
         <ViTooltip vi={replayWindowSec
-          ? `Thi nghiêm túc: chỉ được nghe lại 1 lần, trong ${replayWindowSec} giây sau khi Eva đọc xong.`
-          : 'Nghe lại câu hỏi một lần nữa (Quy chế OPIc cho phép nghe lại 1 lần).'}>
+          ? pick(
+              `Thi nghiêm túc: chỉ được nghe lại 1 lần, trong ${replayWindowSec} giây sau khi Eva đọc xong.`,
+              `Real Exam: 1 replay allowed within ${replayWindowSec}s after Eva finishes.`
+            )
+          : pick(
+              'Nghe lại câu hỏi một lần nữa (Quy chế OPIc cho phép nghe lại 1 lần).',
+              'Replay the question once (OPIc allows 1 replay).'
+            )}>
           <button
             onClick={handleReplay}
             disabled={!canReplay}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+            className={`h-8 min-w-[104px] inline-flex items-center justify-center gap-1.5 px-2.5 lg:px-3 rounded-lg text-[11px] lg:text-xs font-semibold border transition-colors whitespace-nowrap ${
               canReplay
                 ? (replayWindowSec
-                    ? 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-500/40 cursor-pointer shadow-xs animate-pulse-subtle'
+                    ? 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-500/40 cursor-pointer shadow-xs animate-pulse-subtle'
                     : 'bg-sky-50 hover:bg-sky-100 dark:bg-slate-900 dark:hover:bg-slate-800 text-sky-700 dark:text-sky-400 border-sky-300 dark:border-sky-500/30 hover:border-sky-400 cursor-pointer shadow-xs')
                 : 'bg-slate-100 dark:bg-slate-900/40 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-800 cursor-not-allowed'
             }`}
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            <RotateCcw className="w-3.5 h-3.5 shrink-0" />
             <span>{
               !replayWindowSec
-                ? `Replay (${maxReplays - replayCount} left)`
+                ? `${pick('Nghe lại', 'Replay')} (${maxReplays - replayCount})`
                 : replayCount >= maxReplays
-                ? 'Đã nghe lại'
+                ? pick('Đã nghe lại', 'Replayed')
                 : replayWindowLeft > 0
-                ? `Nghe lại (${replayWindowLeft}s)`
+                ? `${pick('Nghe lại', 'Replay')} (${replayWindowLeft}s)`
                 : replayWindowLeft === 0
-                ? 'Hết lượt nghe lại'
-                : 'Replay (1 left)'
+                ? pick('Hết lượt', 'Expired')
+                : `${pick('Nghe lại', 'Replay')} (1)`
             }</span>
           </button>
         </ViTooltip>
@@ -460,13 +506,12 @@ export const EvaAvatar = ({
 
         <button
           onClick={toggleMute}
-          title={isMuted ? "Unmute" : "Mute"}
-          className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-slate-800 transition-colors cursor-pointer shadow-xs"
+          title={isMuted ? pick('Bật tiếng', 'Unmute') : pick('Tắt tiếng', 'Mute')}
+          className="w-8 h-8 inline-flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-slate-800 transition-colors cursor-pointer shadow-xs shrink-0"
         >
           {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
         </button>
       </div>
-
     </div>
   );
 };

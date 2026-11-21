@@ -38,8 +38,24 @@ def test_dev_session_simulates_every_ai_and_stt_call(client, monkeypatch):
     assert len(client.get(f"/api/questions/{q3['id']}/model-answers", headers=headers).json()) == 3
 
     client.post(f"/api/sessions/{sid}/finish", headers=headers)
-    report = client.get(f"/api/sessions/{sid}/report", headers=headers)
-    assert report.status_code == 200
-    rows = {r["question_num"]: r for r in report.json()["per_question_summary"]}
+    report_en = client.get(f"/api/sessions/{sid}/report?lang=en", headers=headers)
+    assert report_en.status_code == 200
+    rows = {r["question_num"]: r for r in report_en.json()["per_question_summary"]}
     assert rows[2]["status"] == "scored" and rows[2]["audio_path"]
     assert rows[3]["status"] == "scored" and rows[3]["transcript"]
+
+    # Bilingual VI vs EN evaluation and report commentary while keeping question text in English
+    ev_vi = client.post(f"/api/answers/{normal['id']}/evaluate?lang=vi", headers=headers)
+    ev_en = client.post(f"/api/answers/{normal['id']}/evaluate?lang=en", headers=headers)
+    assert ev_vi.status_code == 200 and ev_en.status_code == 200
+    assert ev_vi.json()["feedback_summary"] != ev_en.json()["feedback_summary"]
+    assert "Nỗ lực" in ev_vi.json()["feedback_summary"]
+    assert "Great effort" in ev_en.json()["feedback_summary"]
+
+    report_vi = client.get(f"/api/sessions/{sid}/report?lang=vi", headers=headers)
+    assert report_vi.status_code == 200
+    assert report_vi.json()["justification"] != report_en.json()["justification"]
+    assert "Thí sinh" in report_vi.json()["justification"]
+    assert "candidate" in report_en.json()["justification"].lower()
+    # OPIc questions must ALWAYS remain in English regardless of display language
+    assert rows[3]["question_text"] == report_vi.json()["per_question_summary"][2]["question_text"]

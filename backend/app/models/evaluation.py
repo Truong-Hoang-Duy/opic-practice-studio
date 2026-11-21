@@ -35,6 +35,7 @@ class Evaluation(Base):
     # Feedback and IH Action Plan
     feedback_summary = Column(Text, nullable=False)
     actionable_steps = Column(JSON, nullable=True) # List of 3 concrete actions to reach IH
+    i18n_cache = Column(JSON, nullable=True) # Cached localized evaluation bundles {"vi": {...}, "en": {...}}
 
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 

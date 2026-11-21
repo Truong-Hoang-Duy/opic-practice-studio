@@ -35,7 +35,7 @@ api.interceptors.response.use(
     const isTransient = !error.response || status === 502 || status === 503 || status === 504;
     const isSafeToRetry =
       (config.method || '').toLowerCase() === 'get' ||
-      /\/(answers|daily|vocabulary\/speak|evaluate|rewrite)/.test(config.url || '');
+      /\/(answers|daily|vocabulary\/speak|evaluate|rewrite|library\/playlist)/.test(config.url || '');
     const retryCount = config._retryTransient || 0;
     if (isTransient && isSafeToRetry && retryCount < 2) {
       config._retryTransient = retryCount + 1;
@@ -75,7 +75,9 @@ export const sessionApi = {
   getQuestionByIndex: (id, orderIndex) => api.get(`/sessions/${validateSessionId(id)}/questions/${orderIndex}`),
   finishSession: (id) => api.post(`/sessions/${validateSessionId(id)}/finish`),
   skipQuestion: (id, orderIndex) => api.post(`/sessions/${validateSessionId(id)}/questions/${orderIndex}/skip`),
-  getReport: (id) => api.get(`/sessions/${validateSessionId(id)}/report`),
+  getReport: (id, lang) => api.get(`/sessions/${validateSessionId(id)}/report`, {
+    params: lang ? { lang } : undefined,
+  }),
   delete: (id) => api.delete(`/sessions/${validateSessionId(id)}`),
   deleteAll: () => api.delete('/sessions'),
 };
@@ -96,7 +98,14 @@ export const questionApi = {
 export const answerApi = {
   submit: (formData) => api.post('/answers', formData),
   editTranscript: (id, data) => api.patch(`/answers/${id}/transcript`, data),
-  evaluate: (id, versionId) => api.post(`/answers/${id}/evaluate${versionId ? `?version_id=${versionId}` : ''}`),
+  evaluate: (id, versionId, devMock = false, lang = null) =>
+    api.post(`/answers/${id}/evaluate`, null, {
+      params: {
+        ...(versionId ? { version_id: versionId } : {}),
+        ...(devMock ? { dev_mock: true } : {}),
+        ...(lang ? { lang } : {}),
+      },
+    }),
   rewrite: (id, data) => api.post(`/answers/${id}/rewrite`, data),
   acceptRewrite: (id, formData) => api.post(`/answers/${id}/accept-rewrite`, formData),
   delete: (id) => api.delete(`/answers/${id}`),
@@ -113,7 +122,18 @@ export const historyApi = {
 
 export const libraryApi = {
   get: () => api.get('/library'),
+  getCatalog: () => api.get('/library/catalog'),
+  syncCurriculum: (data) => api.post('/library/curriculum/sync', data),
+  prioritizeQuestion: (questionId, level) =>
+    api.post(`/library/questions/${questionId}/prioritize`, null, { params: level ? { level } : undefined }),
+  addPromptVariant: (questionId, data) => api.post(`/library/questions/${questionId}/variants`, data),
+  deleteStudySlot: (questionId) => api.delete(`/library/questions/${questionId}`),
   playlist: (data) => api.post('/library/playlist', data),
+  listPlaylists: () => api.get('/library/playlists'),
+  playlistStatus: (playlistId) => api.get(`/library/playlists/${playlistId}/status`),
+  rebuildPlaylist: (playlistId) => api.post(`/library/playlists/${playlistId}/rebuild`),
+  renamePlaylist: (playlistId, title) => api.patch(`/library/playlists/${playlistId}`, { title }),
+  deletePlaylist: (playlistId) => api.delete(`/library/playlists/${playlistId}`),
   createStudyPack: (data) => api.post('/library/study-pack', data),
   resumeStudyPack: (sessionId) => api.post(`/library/study-pack/${sessionId}/resume`),
   studyPackProgress: (sessionId) => api.get(`/library/study-pack/${sessionId}/progress`),

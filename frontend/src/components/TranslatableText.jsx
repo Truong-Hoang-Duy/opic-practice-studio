@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Languages, Loader2 } from 'lucide-react';
 import { vocabularyApi, formatApiError } from '../api/client';
+import { useLanguage } from '../context/LanguageContext';
 
 // Shared in-memory cache & bounded background prefetch queue so clicking "Dịch câu" is instant
 const translationCache = new Map();
@@ -57,13 +58,18 @@ export const TranslatableText = ({
   className = '',
   showControls = true,
   controlsAlign = 'end', // 'start' | 'end'
+  externalShowTranslation = null, // boolean when controlled by a single parent "Dịch" toggle
 }) => {
+  const { isVi } = useLanguage();
   const rawText = (text || '').trim();
   const initialVi = (preTranslatedVi || '').trim() || translationCache.get(rawText) || null;
   const [showSentenceTr, setShowSentenceTr] = useState(false);
   const [sentenceTr, setSentenceTr] = useState(initialVi);
   const [loadingSentence, setLoadingSentence] = useState(false);
   const [sentenceError, setSentenceError] = useState('');
+
+  const effectiveShowControls = showControls && isVi;
+  const isVisible = isVi && (externalShowTranslation !== null ? !!externalShowTranslation : showSentenceTr);
 
   useEffect(() => {
     if (!rawText) return;
@@ -73,11 +79,40 @@ export const TranslatableText = ({
       setSentenceTr(pre);
       return;
     }
-    setSentenceTr(translationCache.get(rawText) || null);
-    if (showControls) {
+    const cached = translationCache.get(rawText) || null;
+    setSentenceTr(cached);
+    if (effectiveShowControls) {
       prefetchSentence(rawText);
     }
-  }, [rawText, preTranslatedVi, showControls]);
+  }, [rawText, preTranslatedVi, effectiveShowControls]);
+
+  useEffect(() => {
+    if (externalShowTranslation !== true || !rawText) return;
+    if ((preTranslatedVi || '').trim()) {
+      setSentenceTr((preTranslatedVi || '').trim());
+      return;
+    }
+    if (translationCache.has(rawText)) {
+      setSentenceTr(translationCache.get(rawText));
+      return;
+    }
+    let cancelled = false;
+    setLoadingSentence(true);
+    setSentenceError('');
+    fetchSentenceTranslation(rawText)
+      .then((vi) => {
+        if (!cancelled) setSentenceTr(vi);
+      })
+      .catch((err) => {
+        if (!cancelled) setSentenceError(formatApiError(err, 'Không dịch được câu này.'));
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSentence(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [externalShowTranslation, rawText, preTranslatedVi]);
 
   if (!rawText) return null;
 
@@ -110,25 +145,33 @@ export const TranslatableText = ({
         <span>{rawText}</span>
       </div>
 
-      {showControls && (
+      {effectiveShowControls && (
         <div className={`flex flex-wrap items-center gap-2 ${controlsAlign === 'end' ? 'justify-end' : 'justify-start'}`}>
           <button
             type="button"
             onClick={handleToggleSentence}
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer ${
+            className={`h-7 inline-flex items-center justify-center px-2.5 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer shrink-0 ${
               showSentenceTr
                 ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-400/50'
                 : 'bg-slate-100/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-sky-400'
             }`}
           >
-            <Languages className="w-3.5 h-3.5" />
-            <span>{showSentenceTr ? 'Ẩn dịch' : 'Dịch câu'}</span>
+            <span className="inline-grid items-center justify-items-center">
+              <span className={`col-start-1 row-start-1 inline-flex items-center gap-1 whitespace-nowrap ${!showSentenceTr ? 'visible' : 'invisible pointer-events-none'}`}>
+                <Languages className="w-3.5 h-3.5 shrink-0" />
+                <span>Dịch câu</span>
+              </span>
+              <span className={`col-start-1 row-start-1 inline-flex items-center gap-1 whitespace-nowrap ${showSentenceTr ? 'visible' : 'invisible pointer-events-none'}`}>
+                <Languages className="w-3.5 h-3.5 shrink-0" />
+                <span>Ẩn dịch</span>
+              </span>
+            </span>
           </button>
         </div>
       )}
 
-      {showSentenceTr && (
-        <div className="rounded-xl bg-sky-50/90 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/30 px-3 py-2.5 text-xs text-slate-700 dark:text-slate-200 leading-relaxed animate-in fade-in">
+      {isVisible && (
+        <div className="rounded-xl bg-sky-50/90 dark:bg-sky-500/10 border border-sky-200/80 dark:border-sky-500/30 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 leading-snug animate-in fade-in">
           {loadingSentence ? (
             <span className="inline-flex items-center gap-1.5 text-sky-600 dark:text-sky-300">
               <Loader2 className="w-3.5 h-3.5 animate-spin" />

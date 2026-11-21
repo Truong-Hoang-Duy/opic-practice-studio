@@ -2,12 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { TrendingUp, ArrowRight, Star, Loader2 } from 'lucide-react';
 import { vocabularyApi } from '../../api/client';
 import { SpeakButton } from '../SpeakButton';
+import { useLanguage } from '../../context/LanguageContext';
 
 export const KIND_LABELS = {
   collocation: 'Collocation',
   phrasal_verb: 'Phrasal verb',
   idiom: 'Idiom',
   topic_word: 'Từ chủ đề',
+};
+
+export const KIND_LABELS_EN = {
+  collocation: 'Collocation',
+  phrasal_verb: 'Phrasal verb',
+  idiom: 'Idiom',
+  topic_word: 'Topic word',
 };
 
 export const KIND_STYLES = {
@@ -33,6 +41,7 @@ export const HighlightedExample = ({ sentence, phrase }) => {
 
 // IH/AL vocabulary upgrades for one answer, each savable to the personal notebook
 export const VocabUpgrades = ({ upgrades = [], questionId }) => {
+  const { isVi, pick } = useLanguage();
   const [savedIds, setSavedIds] = useState({}); // upgraded phrase (lowercase) -> notebook id
   const [busy, setBusy] = useState({});
 
@@ -67,14 +76,17 @@ export const VocabUpgrades = ({ upgrades = [], questionId }) => {
     <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 flex flex-col gap-3 shadow-sm">
       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 flex flex-wrap items-center gap-x-1.5 gap-y-1">
         <TrendingUp className="w-4 h-4 text-emerald-500" />
-        <span>Từ vựng nâng band IH/AL</span>
-        <span className="normal-case font-medium text-slate-500 dark:text-slate-400">· Bấm ☆ để lưu vào Sổ tay</span>
+        <span>{pick('Từ vựng nâng band IH/AL', 'IH/AL Vocabulary Upgrades')}</span>
+        <span className="normal-case font-medium text-slate-500 dark:text-slate-400">
+          {pick('· Bấm ☆ để lưu vào Sổ tay', '· Click ☆ to save')}
+        </span>
       </h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
         {upgrades.map((u) => {
           const key = u.upgraded_phrase.toLowerCase();
           const saved = !!savedIds[key];
+          const note = isVi ? (u.note_vi || u.note_en) : (u.note_en || u.note_vi);
           return (
             <div key={key} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800/80 flex flex-col gap-2 text-xs">
               <div className="flex items-start justify-between gap-2">
@@ -87,14 +99,14 @@ export const VocabUpgrades = ({ upgrades = [], questionId }) => {
                   <SpeakButton
                     text={u.upgraded_phrase}
                     id={`vocab-up-${key}`}
-                    label="Nghe"
-                    playingLabel="Đang phát"
-                    title={`Nghe phát âm ${u.upgraded_phrase}`}
+                    label={pick('Nghe', 'Play')}
+                    playingLabel={pick('Dừng', 'Stop')}
+                    title={pick(`Nghe phát âm ${u.upgraded_phrase}`, `Listen to ${u.upgraded_phrase}`)}
                   />
                   <button
                     onClick={() => toggleSave(u)}
                     disabled={busy[key]}
-                    title={saved ? 'Bỏ khỏi Sổ tay' : 'Lưu vào Sổ tay từ vựng'}
+                    title={saved ? pick('Bỏ khỏi Sổ tay', 'Remove from notebook') : pick('Lưu vào Sổ tay từ vựng', 'Save to vocabulary notebook')}
                     aria-pressed={saved}
                     className={`p-2 rounded-lg cursor-pointer disabled:opacity-50 ${saved
                       ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10'
@@ -106,15 +118,15 @@ export const VocabUpgrades = ({ upgrades = [], questionId }) => {
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${KIND_STYLES[u.kind] || KIND_STYLES.collocation}`}>
-                  {KIND_LABELS[u.kind] || u.kind}
+                  {(isVi ? KIND_LABELS[u.kind] : KIND_LABELS_EN[u.kind]) || u.kind}
                 </span>
                 {u.example_sentence && (
                   <SpeakButton
                     variant="chip"
                     text={u.example_sentence}
                     id={`vocab-ex-${key}`}
-                    label="Nghe câu ví dụ"
-                    title="Nghe cả câu ví dụ"
+                    label={pick('Nghe ví dụ', 'Play example')}
+                    title={pick('Nghe cả câu ví dụ', 'Listen to example sentence')}
                   />
                 )}
               </div>
@@ -123,7 +135,7 @@ export const VocabUpgrades = ({ upgrades = [], questionId }) => {
                   <HighlightedExample sentence={u.example_sentence} phrase={u.upgraded_phrase} />
                 </p>
               )}
-              {u.note_vi && <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">🇻🇳 {u.note_vi}</p>}
+              {note && <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">{note}</p>}
             </div>
           );
         })}

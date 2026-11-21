@@ -111,14 +111,19 @@ def test_recognition_problems_still_save_audio_and_score(client, monkeypatch):
     ev = client.post(f"/api/answers/{body['id']}/evaluate", headers=headers).json()
     assert ev["estimated_level"] == "below_IL" and ev["score_fluency"] == 1
 
-    # Silence on a re-take: new version with its own recording file (earlier take is not overwritten)
+    # Silence on a re-take: replaces previous take, deletes earlier file on disk, and keeps DB compact
+    import os
+    first_disk_file = os.path.join(settings.AUDIO_UPLOAD_DIR, first_audio.lstrip("/").replace("data/uploads/", "", 1))
+    assert os.path.isfile(first_disk_file)
     monkeypatch.setattr(answers_router, "transcribe_audio_file", lambda *a, **k: {"text": "", "words": []})
     resp = client.post("/api/answers", data={"question_id": qid, "session_id": sid},
                        files={"audio_file": ("q2.webm", b"fake-audio-2", "audio/webm")}, headers=headers)
     assert resp.status_code == 200
     versions = resp.json()["versions"]
-    assert versions[-1]["notes"] == "no_speech"
-    assert versions[-1]["audio_path"] != first_audio
+    assert len(versions) == 1
+    assert versions[0]["notes"] == "no_speech"
+    assert versions[0]["audio_path"] != first_audio
+    assert not os.path.exists(first_disk_file)
 
     # No audio and no transcript is still rejected
     assert client.post("/api/answers", data={"question_id": qid, "session_id": sid}, headers=headers).status_code == 422

@@ -29,25 +29,38 @@ Average Sub-scores across session:
 6. Design a concrete, personalized 4-week practice plan tailored for Vietnamese learners to reach and secure the target level ({TARGET_LEVEL}).
 
 === JSON OUTPUT SCHEMA ===
-Return ONLY a valid JSON object:
+Return ONLY a valid JSON object containing BOTH natural English fields and natural Vietnamese (*_vi) equivalents (keep English example mistakes/corrections and ACTFL codes IL/IM/IH/AL in English inside *_vi fields):
 {{
   "overall_level": "below_IL" | "IL" | "IM" | "IH",
   "justification": "...",
+  "justification_vi": "...",
   "strengths": [
     "Strength 1...",
     "Strength 2...",
     "Strength 3..."
+  ],
+  "strengths_vi": [
+    "Điểm mạnh 1...",
+    "Điểm mạnh 2...",
+    "Điểm mạnh 3..."
   ],
   "weaknesses": [
     "Weakness 1...",
     "Weakness 2...",
     "Weakness 3..."
   ],
+  "weaknesses_vi": [
+    "Điểm yếu 1...",
+    "Điểm yếu 2...",
+    "Điểm yếu 3..."
+  ],
   "frequent_mistakes": [
     {{
       "pattern": "...",
+      "pattern_vi": "...",
       "example_mistake": "...",
       "example_correction": "...",
+      "explanation_en": "...",
       "explanation_vi": "..."
     }}
   ],
@@ -75,6 +88,35 @@ Return ONLY a valid JSON object:
       {{
         "week": 4,
         "theme": "Fluency Simulation (60-120s timing and stamina)",
+        "activities": ["..."],
+        "target_outcome": "..."
+      }}
+    ]
+  }},
+  "study_plan_vi": {{
+    "title": "Lộ trình 4 tuần chinh phục {TARGET_LEVEL}",
+    "weekly_focus": [
+      {{
+        "week": 1,
+        "theme": "Củng cố thì quá khứ & âm đuôi (-s, -ed)",
+        "activities": ["..."],
+        "target_outcome": "..."
+      }},
+      {{
+        "week": 2,
+        "theme": "Bố cục đoạn văn & từ nối mạch lạc",
+        "activities": ["..."],
+        "target_outcome": "..."
+      }},
+      {{
+        "week": 3,
+        "theme": "Xử lý sự cố bất ngờ & Role-play",
+        "activities": ["..."],
+        "target_outcome": "..."
+      }},
+      {{
+        "week": 4,
+        "theme": "Mô phỏng phòng thi thật (nhịp nói 60-120 giây)",
         "activities": ["..."],
         "target_outcome": "..."
       }}

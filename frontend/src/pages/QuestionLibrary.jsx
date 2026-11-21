@@ -1,10 +1,50 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Library, ChevronDown, ChevronLeft, ChevronRight, Mic, Sparkles, Headphones, Download, Repeat,
-  Loader2, ArrowLeft, X, Trash2, RotateCcw, CheckCircle, FileText, Eye, EyeOff, BookOpen,
-  Volume2, Play, GraduationCap, MoreHorizontal, Plus, Flame, Pause
+  ChevronLeft,
+  ChevronRight,
+  Mic,
+  Sparkles,
+  Headphones,
+  Download,
+  Loader2,
+  ArrowLeft,
+  X,
+  Trash2,
+  RotateCcw,
+  CheckCircle,
+  FileText,
+  Eye,
+  EyeOff,
+  BookOpen,
+  Volume2,
+  Play,
+  Plus,
+  Flame,
+  Search,
+  Pencil,
+  Check,
+  RefreshCw,
+  AlertCircle,
+  Clock,
+  Home,
+  Music,
+  Globe,
+  MessageCircle,
+  Wand2,
+  Layers,
+  Tag,
+  ChevronDown,
+  Languages,
+  Shuffle,
 } from 'lucide-react';
-import { libraryApi, sessionApi, questionApi, answerApi, resolveMediaUrl, formatApiError, recordingFileName } from '../api/client';
+import {
+  libraryApi,
+  questionApi,
+  answerApi,
+  resolveMediaUrl,
+  formatApiError,
+  recordingFileName,
+} from '../api/client';
 import { EvaAvatar } from '../components/EvaAvatar';
 import { AudioRecorder } from '../components/AudioRecorder';
 import { AnswerCoaching } from './AnswerCoaching';
@@ -12,47 +52,134 @@ import { SpeakButton, SoundWaveMini } from '../components/SpeakButton';
 import { TranslatableText } from '../components/TranslatableText';
 import { RegenerateModal } from '../components/RegenerateModal';
 import { FlashcardReview } from '../components/FlashcardReview';
+import { VocabularyNotebook } from './VocabularyNotebook';
+import { useAudioPlayer } from '../context/AudioPlayerContext';
 import { speakPhrase, stopSpeaking } from '../utils/speakPhrase';
 import { scrollPageToTop } from '../components/ScrollToTopButton';
-import { USER_DEFAULT_PRESET } from './Survey';
+import { recordStudyActivity } from '../utils/studyStreak';
+import { confirmDialog, notify } from '../context/NotificationContext';
+import { useLanguage } from '../context/LanguageContext';
 
 const LEVELS = ['IL', 'IM', 'IH'];
 const POLL_MS = 3000;
 const SHOW_DEV_MOCK = import.meta.env.DEV;
-
 const OFFICIAL_TOPIC_IDS = ['environment', 'human_rights', 'global_workplace', 'socio_cultural', 'communication_media'];
-const OFFICIAL_TOPIC_OPTIONS = [
-  { id: 'environment', label: 'Environment (Môi trường)' },
-  { id: 'human_rights', label: 'Human Rights (Quyền con người)' },
-  { id: 'global_workplace', label: 'Global Workplace (Làm việc toàn cầu)' },
-  { id: 'socio_cultural', label: 'Socio-Cultural (Văn hóa - Xã hội)' },
-  { id: 'communication_media', label: 'Communication Media (Truyền thông)' },
+
+const TOPIC_GROUPS = [
+  {
+    key: 'home',
+    label: 'Nền tảng',
+    labelEn: 'Basics',
+    icon: Home,
+    grad: 'from-amber-400 to-orange-500',
+    ribbon: 'from-amber-400 via-orange-500 to-amber-500',
+    cardBg: 'bg-white/95 dark:bg-[#141e33]/90 border-slate-200/80 dark:border-slate-700/60 hover:border-amber-300 dark:hover:border-amber-500/40',
+    activeRing: 'ring-2 ring-amber-400 border-amber-400 bg-amber-50/90 dark:bg-amber-500/20',
+    stroke: '#f59e0b',
+  },
+  {
+    key: 'leisure',
+    label: 'Sở thích',
+    labelEn: 'Hobbies',
+    icon: Music,
+    grad: 'from-violet-500 to-fuchsia-500',
+    ribbon: 'from-violet-500 via-purple-500 to-fuchsia-500',
+    cardBg: 'bg-white/95 dark:bg-[#141e33]/90 border-slate-200/80 dark:border-slate-700/60 hover:border-violet-300 dark:hover:border-violet-500/40',
+    activeRing: 'ring-2 ring-violet-400 border-violet-400 bg-violet-50/90 dark:bg-violet-500/20',
+    stroke: '#8b5cf6',
+  },
+  {
+    key: 'official',
+    label: 'Chủ đề chính',
+    labelEn: 'Core Topics',
+    icon: Globe,
+    grad: 'from-emerald-500 to-teal-500',
+    ribbon: 'from-emerald-500 via-teal-500 to-cyan-500',
+    cardBg: 'bg-white/95 dark:bg-[#141e33]/90 border-slate-200/80 dark:border-slate-700/60 hover:border-emerald-300 dark:hover:border-emerald-500/40',
+    activeRing: 'ring-2 ring-emerald-400 border-emerald-400 bg-emerald-50/90 dark:bg-emerald-500/20',
+    stroke: '#10b981',
+  },
+  {
+    key: 'role_play',
+    label: 'Role-play',
+    labelEn: 'Role-play',
+    icon: MessageCircle,
+    grad: 'from-sky-500 to-blue-600',
+    ribbon: 'from-sky-500 via-blue-500 to-indigo-500',
+    cardBg: 'bg-white/95 dark:bg-[#141e33]/90 border-slate-200/80 dark:border-slate-700/60 hover:border-sky-300 dark:hover:border-sky-500/40',
+    activeRing: 'ring-2 ring-sky-400 border-sky-400 bg-sky-50/90 dark:bg-sky-500/20',
+    stroke: '#0ea5e9',
+  },
+  {
+    key: 'unexpected',
+    label: 'Đột xuất',
+    labelEn: 'Unexpected',
+    icon: Sparkles,
+    grad: 'from-rose-500 to-pink-500',
+    ribbon: 'from-rose-500 via-pink-500 to-orange-500',
+    cardBg: 'bg-white/95 dark:bg-[#141e33]/90 border-slate-200/80 dark:border-slate-700/60 hover:border-rose-300 dark:hover:border-rose-500/40',
+    activeRing: 'ring-2 ring-rose-400 border-rose-400 bg-rose-50/90 dark:bg-rose-500/20',
+    stroke: '#f43f5e',
+  },
+  {
+    key: 'custom',
+    label: 'Tự thêm',
+    labelEn: 'Custom',
+    icon: Wand2,
+    grad: 'from-indigo-500 to-cyan-500',
+    ribbon: 'from-indigo-500 via-blue-500 to-cyan-500',
+    cardBg: 'bg-white/95 dark:bg-[#141e33]/90 border-slate-200/80 dark:border-slate-700/60 hover:border-indigo-300 dark:hover:border-indigo-500/40',
+    activeRing: 'ring-2 ring-indigo-400 border-indigo-400 bg-indigo-50/90 dark:bg-indigo-500/20',
+    stroke: '#6366f1',
+  },
 ];
 
-const GROUP_FILTERS = [
-  { key: 'all', label: 'Tất cả' },
-  { key: 'home', label: 'Nhà ở' },
-  { key: 'leisure', label: 'Sở thích' },
-  { key: 'official', label: '3 Chủ đề chính' },
-  { key: 'role_play', label: 'Role-play' },
-  { key: 'unexpected', label: 'Đột xuất' },
-];
+const LEVEL_COVER_GRAD = {
+  IH: 'from-emerald-500 to-teal-500',
+  IM: 'from-indigo-500 to-sky-500',
+  IL: 'from-amber-400 to-orange-500',
+};
+
+const QUESTION_TYPE_VI = {
+  description: 'Miêu tả',
+  routine: 'Thói quen',
+  past_experience: 'Kỷ niệm & Sự cố',
+  comparison: 'So sánh',
+  role_play_ask: 'Đóng vai · Đặt câu hỏi',
+  role_play_problem: 'Đóng vai · Xử lý sự cố',
+  role_play_experience: 'Trải nghiệm thực tế',
+  unexpected_situation: 'Tình huống bất ngờ',
+};
+
+const QUESTION_TYPE_EN = {
+  description: 'Description',
+  routine: 'Routine',
+  past_experience: 'Past Experience',
+  comparison: 'Comparison',
+  role_play_ask: 'Role-play · Ask Questions',
+  role_play_problem: 'Role-play · Problem Solving',
+  role_play_experience: 'Real-life Experience',
+  unexpected_situation: 'Unexpected Situation',
+};
 
 const STUDY_STATUS_META = {
   unlearned: {
     label: 'Chưa học',
+    labelEn: 'New',
     next: 'learning',
     dot: 'bg-slate-400',
     cls: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700',
   },
   learning: {
     label: 'Đang học',
+    labelEn: 'Learning',
     next: 'mastered',
     dot: 'bg-amber-500',
     cls: 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-500/40',
   },
   mastered: {
     label: 'Đã thuộc',
+    labelEn: 'Mastered',
     next: 'unlearned',
     dot: 'bg-emerald-500',
     cls: 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/40',
@@ -61,8 +188,60 @@ const STUDY_STATUS_META = {
 
 const groupKeyOf = (category) => {
   if (OFFICIAL_TOPIC_IDS.includes(category)) return 'official';
-  if (['home', 'leisure', 'role_play', 'unexpected'].includes(category)) return category;
+  if (['home', 'leisure', 'role_play', 'unexpected', 'custom'].includes(category)) return category;
   return 'leisure';
+};
+
+const formatDurationVi = (sec) => {
+  if (!sec || sec <= 0) return '';
+  const totalSec = Math.round(sec);
+  const mins = Math.floor(totalSec / 60);
+  const rem = totalSec % 60;
+  if (mins >= 60) return `${Math.floor(mins / 60)}g ${mins % 60}p`;
+  if (mins > 0) return rem > 0 ? `${mins}p ${rem}s` : `${mins} phút`;
+  return `${rem}s`;
+};
+
+const formatFileSize = (bytes) => {
+  if (!bytes || bytes <= 0) return '';
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+};
+
+const formatShortDate = (iso) => {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return (
+      d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) +
+      ' ' +
+      d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    );
+  } catch {
+    return '';
+  }
+};
+
+const MiniRing = ({ done, total, stroke = '#0ea5e9' }) => {
+  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+  const r = 13;
+  const c = 2 * Math.PI * r;
+  return (
+    <svg className="w-8 h-8 -rotate-90 shrink-0" viewBox="0 0 32 32">
+      <circle cx="16" cy="16" r={r} stroke="currentColor" className="text-slate-300/60 dark:text-slate-700" strokeWidth="3.5" fill="none" />
+      <circle
+        cx="16"
+        cy="16"
+        r={r}
+        stroke={stroke}
+        strokeWidth="3.5"
+        strokeLinecap="round"
+        fill="none"
+        strokeDasharray={c}
+        strokeDashoffset={c - (pct / 100) * c}
+      />
+    </svg>
+  );
 };
 
 const CLOZE_CONNECTORS = new Set([
@@ -71,36 +250,26 @@ const CLOZE_CONNECTORS = new Set([
   'suddenly', 'luckily', 'actually', 'instead', 'therefore', 'moreover', 'besides',
 ]);
 
-// Active Cloze renderer: blanks connectors & key verbs/words into tappable chips
 const ClozeSentence = ({ text }) => {
   const [revealed, setRevealed] = useState({});
   const tokens = useMemo(() => (text || '').split(/(\s+)/), [text]);
+  useEffect(() => { setRevealed({}); }, [text]);
 
-  useEffect(() => {
-    setRevealed({});
-  }, [text]);
-
-  // Pick up to 3-4 meaningful blank positions per sentence (connectors + longer content words)
   const blankIndexes = useMemo(() => {
     const picked = new Set();
-    const fallbackCandidates = [];
+    const fallback = [];
     tokens.forEach((tok, idx) => {
       const clean = tok.replace(/^[^a-zA-Z]+|[^a-zA-Z]+$/g, '').toLowerCase();
       if (!clean || clean.length < 3) return;
-      if (CLOZE_CONNECTORS.has(clean)) {
-        picked.add(idx);
-      } else if (clean.length >= 6 || /ed$|ing$/.test(clean)) {
-        fallbackCandidates.push(idx);
-      }
+      if (CLOZE_CONNECTORS.has(clean)) picked.add(idx);
+      else if (clean.length >= 6 || /ed$|ing$/.test(clean)) fallback.push(idx);
     });
-    for (let i = 0; i < fallbackCandidates.length && picked.size < 4; i += 2) {
-      picked.add(fallbackCandidates[i]);
-    }
+    for (let i = 0; i < fallback.length && picked.size < 4; i += 2) picked.add(fallback[i]);
     return picked;
   }, [tokens]);
 
   return (
-    <p className="text-sm sm:text-[15px] leading-relaxed text-slate-800 dark:text-slate-100">
+    <p className="text-[15px] leading-relaxed text-slate-800 dark:text-slate-100">
       {tokens.map((tok, idx) => {
         if (!blankIndexes.has(idx)) return <span key={idx}>{tok}</span>;
         const isShown = !!revealed[idx];
@@ -117,7 +286,7 @@ const ClozeSentence = ({ text }) => {
               className={`inline-block px-1.5 py-0.5 mx-0.5 rounded-md border text-xs sm:text-sm font-semibold transition-colors cursor-pointer ${
                 isShown
                   ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-400/50'
-                  : 'bg-brand-500/10 text-brand-700 dark:text-brand-300 border-dashed border-brand-400 min-w-[48px] text-center'
+                  : 'bg-brand-500/10 text-brand-700 dark:text-sky-300 border-dashed border-brand-400 min-w-[48px] text-center'
               }`}
             >
               {isShown ? word : '_____'}
@@ -130,14 +299,9 @@ const ClozeSentence = ({ text }) => {
   );
 };
 
-// Reverse Recall (Việt -> Anh): shows Vietnamese meaning; tap to flip and reveal English
 const ViToEnSentence = ({ enText, viText }) => {
   const [shown, setShown] = useState(false);
-
-  useEffect(() => {
-    setShown(false);
-  }, [enText]);
-
+  useEffect(() => { setShown(false); }, [enText]);
   return (
     <button
       type="button"
@@ -148,41 +312,24 @@ const ViToEnSentence = ({ enText, viText }) => {
         {viText || 'Chạm để lật xem câu tiếng Anh'}
       </p>
       {shown ? (
-        <p className="text-sm sm:text-[15px] leading-relaxed text-emerald-700 dark:text-emerald-300 font-semibold pt-1 border-t border-dashed border-slate-200 dark:border-slate-800 animate-in fade-in">
+        <p className="text-[15px] leading-relaxed text-emerald-700 dark:text-emerald-300 font-semibold pt-1.5 border-t border-dashed border-slate-200 dark:border-slate-700">
           {enText}
         </p>
       ) : (
-        <span className="text-[11px] text-slate-400 group-hover:text-brand-500">
-          Chạm để lật đáp án tiếng Anh
-        </span>
+        <span className="text-[11px] text-slate-400 group-hover:text-brand-500">Chạm để lật đáp án</span>
       )}
     </button>
   );
 };
 
-// Generate missing model answers (never overwrites existing ones)
-const generateMissingModelAnswers = async (questionIds, level, onDone) => {
-  const queue = [...questionIds];
-  const worker = async () => {
-    while (queue.length) {
-      const id = queue.shift();
-      try {
-        await questionApi.regenerateModel(id, { level: level || 'IM' });
-      } catch (err) {
-        console.error('Model answer generation failed', err);
-      }
-      if (onDone) onDone(id);
-    }
-  };
-  await Promise.all([worker(), worker()]);
-};
-
-// ---------- Screen 2B: Focused Speaking Practice & AI Grading ----------
+// ---------- Screen 2B: Focused Speaking Practice & Blind Random Reflex Drill ----------
 const FocusPracticeView = ({
   question,
   session,
   model,
   startInRecordMode = true,
+  randomMode = false,
+  onPickAnotherRandom = null,
   studyStatus,
   onUpdateStudyStatus,
   onReviewRating,
@@ -191,29 +338,40 @@ const FocusPracticeView = ({
   onNextQuestion,
   hasNext,
 }) => {
+  const { isVi, pick } = useLanguage();
   const [answer, setAnswer] = useState(question?.existing_answer || null);
   const [isRecording, setIsRecording] = useState(startInRecordMode || !question?.existing_answer);
   const [submitting, setSubmitting] = useState(false);
+  const [devMockLastAnswer, setDevMockLastAnswer] = useState(false);
   const [autoStartRecord, setAutoStartRecord] = useState(false);
+  const [showPromptText, setShowPromptText] = useState(!randomMode);
+  const [showPromptVi, setShowPromptVi] = useState(false);
   const [showModelHint, setShowModelHint] = useState(false);
 
   useEffect(() => {
     scrollPageToTop('instant');
     setAnswer(question?.existing_answer || null);
     setIsRecording(startInRecordMode || !question?.existing_answer);
+    setDevMockLastAnswer(false);
+    setShowPromptText(!randomMode);
+    setShowPromptVi(false);
     setShowModelHint(false);
     setAutoStartRecord(false);
-  }, [question?.id, startInRecordMode]);
+  }, [question?.id, startInRecordMode, randomMode]);
 
-  const handleRecordingComplete = async ({ audioBlob, durationSeconds }) => {
+  const handleRecordingComplete = async ({ audioBlob, durationSeconds, devMock = false }) => {
     setSubmitting(true);
+    const useDevMock = Boolean(import.meta.env.DEV && devMock);
     try {
       const formData = new FormData();
       formData.append('question_id', question.id);
       formData.append('session_id', session.session_id);
       formData.append('duration_seconds', durationSeconds);
+      if (useDevMock) formData.append('dev_mock', 'true');
       if (audioBlob) formData.append('audio_file', audioBlob, recordingFileName(audioBlob, `study_q${question.id}`));
       const res = await answerApi.submit(formData);
+      recordStudyActivity();
+      setDevMockLastAnswer(useDevMock);
       setAnswer(res.data);
       if (onAnswerSaved) onAnswerSaved(question.id, res.data);
       if ((studyStatus || 'unlearned') === 'unlearned' && onUpdateStudyStatus) {
@@ -221,7 +379,7 @@ const FocusPracticeView = ({
       }
       setIsRecording(false);
     } catch (err) {
-      alert(formatApiError(err, 'Không lưu được câu trả lời. Vui lòng ghi âm lại.'));
+      notify.error(formatApiError(err, 'Không lưu được câu trả lời. Vui lòng ghi âm lại.'));
     } finally {
       setSubmitting(false);
     }
@@ -229,27 +387,52 @@ const FocusPracticeView = ({
 
   if (answer && !isRecording) {
     return (
-      <div className="max-w-4xl mx-auto px-3.5 sm:px-6 pt-4 pb-8 flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-2">
+      <div className="w-full max-w-[1380px] mx-auto px-3.5 sm:px-6 lg:px-8 py-3 sm:py-5 lg:py-6 lg:h-full lg:min-h-0 lg:overflow-hidden flex flex-col gap-3 sm:gap-4">
+        <div className="flex items-center justify-between gap-2 shrink-0">
           <button
             type="button"
             onClick={onBackToStudy}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-card text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer whitespace-nowrap"
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Quay lại bài mẫu Q{question.order_index}</span>
+            <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
+            <span>{pick('Quay lại', 'Back')}</span>
           </button>
+          {randomMode && onPickAnotherRandom && (
+            <button
+              type="button"
+              onClick={onPickAnotherRandom}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-50 dark:bg-violet-500/15 border border-violet-200 dark:border-violet-500/35 text-violet-700 dark:text-violet-200 text-xs font-extrabold cursor-pointer hover:bg-violet-100 whitespace-nowrap"
+            >
+              <Shuffle className="w-3.5 h-3.5 shrink-0" />
+              <span>{pick('Câu khác', 'Another')}</span>
+            </button>
+          )}
         </div>
         <AnswerCoaching
           answerId={answer.id}
           answer={answer}
           question={question}
+          devMock={devMockLastAnswer || Boolean(session?.dev_mock)}
           assessmentLevel={session.self_assessment_level || 4}
           studyStatus={studyStatus}
           onUpdateStudyStatus={onUpdateStudyStatus}
           onReviewRating={onReviewRating}
-          nextLabel={hasNext ? 'Sang câu tiếp theo' : 'Quay lại bài mẫu'}
-          onNextQuestion={() => (hasNext && onNextQuestion ? onNextQuestion() : onBackToStudy())}
+          nextLabel={
+            randomMode && onPickAnotherRandom
+              ? pick('Câu khác', 'Another')
+              : hasNext
+                ? pick('Câu tiếp', 'Next')
+                : pick('Quay lại', 'Back')
+          }
+          onNextQuestion={() => {
+            if (randomMode && onPickAnotherRandom) {
+              onPickAnotherRandom();
+            } else if (hasNext && onNextQuestion) {
+              onNextQuestion();
+            } else {
+              onBackToStudy();
+            }
+          }}
           onTranscriptEdited={(newText) => {
             const updated = { ...answer, transcript_edited: newText };
             setAnswer(updated);
@@ -265,112 +448,252 @@ const FocusPracticeView = ({
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={onBackToStudy}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Quay lại bài mẫu Q{question.order_index}</span>
-        </button>
-        {answer && (
-          <button
-            type="button"
-            onClick={() => setIsRecording(false)}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer"
-          >
-            <CheckCircle className="w-3.5 h-3.5" />
-            <span>Xem điểm cũ</span>
-          </button>
-        )}
-      </div>
+    <div className="fixed inset-x-0 top-[calc(3.5rem+env(safe-area-inset-top))] bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 overflow-hidden bg-[#f3f6fc] dark:bg-[#090e1a] lg:static lg:inset-auto lg:z-auto lg:bg-transparent lg:dark:bg-transparent w-full max-w-[1380px] mx-auto px-3.5 sm:px-6 lg:px-8 py-3 sm:py-5 lg:py-6 lg:h-full flex flex-col">
+      <div className="w-full flex-1 min-h-0 lg:max-h-[840px] lg:my-auto flex flex-col justify-between gap-2.5 sm:gap-3.5 lg:gap-4">
+        {/* Single Non-Wrapping Top Bar */}
+        <div className="flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <button
+              type="button"
+              onClick={onBackToStudy}
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl glass-card text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer shrink-0 whitespace-nowrap"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
+              <span>{pick('Quay lại', 'Back')}</span>
+            </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-5 glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 flex flex-col gap-3">
-          <div className="flex justify-center">
-            <EvaAvatar
-              key={question.id}
-              audioUrl={question.audio_path}
-              text={question.question_text}
-              autoPlay
-              maxReplays={1}
-              onSecondReadEnded={() => setAutoStartRecord(true)}
-            />
+            {randomMode && (
+              <span className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full bg-violet-500/15 border border-violet-300/70 dark:border-violet-500/35 text-violet-700 dark:text-violet-200 text-[11px] font-extrabold whitespace-nowrap">
+                <Shuffle className="w-3 h-3 shrink-0" />
+                <span>{pick('Ngẫu nhiên', 'Random')}</span>
+              </span>
+            )}
           </div>
 
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800">
-            <TranslatableText
-              text={question.question_text}
-              preTranslatedVi={question.question_translation_vi}
-              className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed"
-              controlsAlign="start"
-            />
-          </div>
-
-          {model && (
-            <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {randomMode && onPickAnotherRandom && (
               <button
                 type="button"
-                onClick={() => setShowModelHint((v) => !v)}
-                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-xs font-semibold text-sky-700 dark:text-sky-300 cursor-pointer"
+                onClick={onPickAnotherRandom}
+                className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-violet-50 dark:hover:bg-violet-500/15 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold cursor-pointer transition-colors whitespace-nowrap"
               >
-                {showModelHint ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                <span>{showModelHint ? `Che bài mẫu ${model.level} (tự nhớ nói)` : `Hiện bài mẫu ${model.level} để đọc theo`}</span>
+                <Shuffle className="w-3.5 h-3.5 text-violet-500 shrink-0" />
+                <span>{pick('Đổi câu', 'Switch')}</span>
               </button>
-              {showModelHint && (
-                <div className="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-xs text-slate-800 dark:text-slate-200 leading-relaxed max-h-48 overflow-y-auto">
-                  {model.text}
-                </div>
-              )}
-            </div>
-          )}
+            )}
+            {answer && (
+              <button
+                type="button"
+                onClick={() => setIsRecording(false)}
+                className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl btn-speak-gradient text-xs font-extrabold cursor-pointer whitespace-nowrap"
+              >
+                <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{pick('Xem điểm', 'View Score')}</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="lg:col-span-7 relative">
-          <AudioRecorder
-            key={question.id}
-            onRecordingComplete={handleRecordingComplete}
-            isPracticeMode
-            autoStart={autoStartRecord}
-            targetDurationMin={question.timing?.target_min_sec || 45}
-            targetDurationMax={question.timing?.time_limit_sec || 90}
-          />
-          {submitting && (
-            <div className="absolute inset-0 z-20 rounded-2xl bg-slate-950/80 flex items-center justify-center gap-2 text-sky-400 text-sm font-semibold">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>Đang nhận dạng giọng nói & chấm điểm...</span>
+        {/* Main Listening + Recording Workspace: Flex col on mobile, Balanced Full-Height 6/6 Grid on Desktop */}
+        <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-12 gap-2.5 lg:gap-5 items-stretch">
+          {/* Eva Examiner + Spacious Inline Question/Translation/Model Card */}
+          <div className="flex-1 min-h-0 lg:col-span-6 glass-panel rounded-2xl p-3 sm:p-4 lg:p-5 flex flex-col justify-between gap-2.5 lg:gap-3.5 h-full overflow-hidden">
+            <div className="w-full shrink-0">
+              <EvaAvatar
+                key={question.id}
+                layout="horizontal"
+                audioUrl={question.audio_path}
+                text={question.question_text}
+                autoPlay
+                maxReplays={1}
+                onSecondReadEnded={() => setAutoStartRecord(true)}
+              />
             </div>
-          )}
+
+            {/* Spacious Inline Prompt & Model Answer Area */}
+            <div className="flex-1 min-h-0 flex flex-col gap-2 pt-2.5 border-t border-slate-200/70 dark:border-slate-800/80">
+              <div className="flex items-center justify-between gap-2 shrink-0">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+                  {showModelHint ? pick('Gợi ý bài mẫu', 'Model Hint') : showPromptText ? question.topic : pick('Đề bài đang ẩn', 'Prompt Hidden')}
+                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {isVi && showPromptText && !showModelHint && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPromptVi((v) => !v)}
+                      className={`h-7 inline-flex items-center justify-center px-2.5 rounded-lg border text-[11px] font-bold transition-colors cursor-pointer shrink-0 ${
+                        showPromptVi
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400'
+                      }`}
+                    >
+                      <span className="inline-grid items-center justify-items-center">
+                        <span className={`col-start-1 row-start-1 inline-flex items-center gap-1 whitespace-nowrap ${!showPromptVi ? 'visible' : 'invisible pointer-events-none'}`}>
+                          <Languages className="w-3.5 h-3.5 shrink-0" />
+                          <span>Dịch</span>
+                        </span>
+                        <span className={`col-start-1 row-start-1 inline-flex items-center gap-1 whitespace-nowrap ${showPromptVi ? 'visible' : 'invisible pointer-events-none'}`}>
+                          <Languages className="w-3.5 h-3.5 shrink-0" />
+                          <span>Ẩn dịch</span>
+                        </span>
+                      </span>
+                    </button>
+                  )}
+                  {model && (
+                    <button
+                      type="button"
+                      onClick={() => setShowModelHint((v) => !v)}
+                      className={`lg:hidden h-7 inline-flex items-center justify-center px-2 rounded-lg border text-[11px] font-bold transition-colors cursor-pointer shrink-0 ${
+                        showModelHint
+                          ? 'bg-emerald-600 text-white border-emerald-600'
+                          : 'bg-indigo-50 dark:bg-sky-500/15 text-indigo-700 dark:text-sky-300 border-indigo-200/80 dark:border-sky-500/30'
+                      }`}
+                    >
+                      <span className="inline-grid items-center justify-items-center">
+                        <span className={`col-start-1 row-start-1 inline-flex items-center gap-1 whitespace-nowrap ${!showModelHint ? 'visible' : 'invisible pointer-events-none'}`}>
+                          <Sparkles className="w-3 h-3 shrink-0" />
+                          <span>{pick('Bài mẫu', 'Model')}</span>
+                        </span>
+                        <span className={`col-start-1 row-start-1 inline-flex items-center gap-1 whitespace-nowrap ${showModelHint ? 'visible' : 'invisible pointer-events-none'}`}>
+                          <EyeOff className="w-3 h-3 shrink-0" />
+                          <span>{pick('Ẩn mẫu', 'Hide')}</span>
+                        </span>
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModelHint(false);
+                      setShowPromptText((v) => !v);
+                    }}
+                    className="h-7 inline-flex items-center justify-center px-2 rounded-lg text-[11px] font-bold text-indigo-600 dark:text-sky-400 hover:bg-indigo-50 dark:hover:bg-sky-500/10 transition-colors cursor-pointer shrink-0"
+                  >
+                    <span className="inline-grid items-center justify-items-center">
+                      <span className={`col-start-1 row-start-1 inline-flex items-center gap-1 whitespace-nowrap ${showPromptText ? 'visible' : 'invisible pointer-events-none'}`}>
+                        <EyeOff className="w-3.5 h-3.5 shrink-0" />
+                        <span>{pick('Ẩn đề', 'Hide')}</span>
+                      </span>
+                      <span className={`col-start-1 row-start-1 inline-flex items-center gap-1 whitespace-nowrap ${!showPromptText ? 'visible' : 'invisible pointer-events-none'}`}>
+                        <Eye className="w-3.5 h-3.5 shrink-0" />
+                        <span>{pick('Hiện đề', 'Show')}</span>
+                      </span>
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-4 lg:p-5 rounded-2xl theme-surface-subtle flex flex-col">
+                {showModelHint && model ? (
+                  <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-line my-auto lg:hidden">
+                    {model.text}
+                  </p>
+                ) : null}
+                <div className={`w-full my-auto ${showModelHint && model ? 'hidden lg:block' : ''}`}>
+                  {showPromptText ? (
+                    <TranslatableText
+                      text={question.question_text}
+                      preTranslatedVi={question.question_translation_vi}
+                      className="text-sm sm:text-[15px] lg:text-base text-slate-900 dark:text-slate-100 leading-relaxed font-semibold text-left"
+                      showControls={false}
+                      externalShowTranslation={isVi && showPromptVi}
+                    />
+                  ) : (
+                    <p className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 italic text-center py-4">
+                      {pick(
+                        'Lắng nghe Eva đọc câu hỏi và trả lời tự nhiên như thi thật. Bấm "Hiện đề" nếu cần xem chữ & dịch.',
+                        'Listen to Eva and respond naturally like in the real test. Click "Show" if you want to read the prompt.'
+                      )}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {model && (
+              <div className="hidden lg:flex flex-col gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowModelHint((v) => !v)}
+                  className="w-full h-9 flex items-center justify-center rounded-xl bg-indigo-50 dark:bg-sky-500/15 hover:bg-indigo-100 dark:hover:bg-sky-500/25 border border-indigo-200/80 dark:border-sky-500/30 text-xs font-bold text-indigo-700 dark:text-sky-300 cursor-pointer transition-colors"
+                >
+                  <span className="inline-grid items-center justify-items-center">
+                    <span className={`col-start-1 row-start-1 inline-flex items-center gap-1.5 whitespace-nowrap ${!showModelHint ? 'visible' : 'invisible pointer-events-none'}`}>
+                      <Eye className="w-3.5 h-3.5 shrink-0" />
+                      <span>{pick('Bài mẫu', 'Model Answer')}</span>
+                    </span>
+                    <span className={`col-start-1 row-start-1 inline-flex items-center gap-1.5 whitespace-nowrap ${showModelHint ? 'visible' : 'invisible pointer-events-none'}`}>
+                      <EyeOff className="w-3.5 h-3.5 shrink-0" />
+                      <span>{pick('Ẩn mẫu', 'Hide Model')}</span>
+                    </span>
+                  </span>
+                </button>
+                {showModelHint && (
+                  <div className="p-3 rounded-xl bg-emerald-50/85 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 text-xs sm:text-[13px] text-slate-800 dark:text-slate-200 leading-relaxed max-h-36 overflow-y-auto">
+                    {model.text}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Audio Recorder Area: Balanced 6 Cols on Desktop, Compact on Mobile */}
+          <div className="shrink-0 lg:col-span-6 relative flex flex-col">
+            <AudioRecorder
+              key={question.id}
+              onRecordingComplete={handleRecordingComplete}
+              isPracticeMode
+              autoStart={autoStartRecord}
+              targetDurationMin={question.timing?.target_min_sec || 45}
+              targetDurationMax={question.timing?.time_limit_sec || 90}
+            />
+            {submitting && (
+              <div className="absolute inset-0 z-20 rounded-2xl bg-slate-950/80 flex items-center justify-center gap-2 text-sky-400 text-sm font-semibold">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>{pick('Đang nhận dạng & chấm điểm AI...', 'Transcribing & grading with AI...')}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-// ---------- Screen 2A: Focus Study View (1 question per screen, zero clutter) ----------
-const FocusStudyView = ({
-  questions,
-  activeIndex,
+// ---------- Master Script Study Card (Shared between Desktop Split-View & Mobile Focus View) ----------
+const MasterScriptCard = ({
+  question,
   session,
-  onChangeIndex,
-  onBack,
   onCycleStatus,
   onOpenRegenerate,
-  onGenerateMissing,
-  generating,
+  onPrioritize,
+  prioritizing,
+  onAddVariant,
+  onDeleteSlot,
   onOpenPractice,
+  isMobileFocus = false,
+  onBackMobile,
+  onPrev,
+  onNext,
+  hasPrev,
+  hasNext,
+  positionLabel,
 }) => {
-  const q = questions[activeIndex];
+  const { isVi, pick } = useLanguage();
   const [playingIdx, setPlayingIdx] = useState(null);
   const [studyMode, setStudyMode] = useState('read'); // 'read' | 'cloze' | 'vi2en'
+  const [showVi, setShowVi] = useState(false);
+  const [activeVariantIdx, setActiveVariantIdx] = useState(-1); // -1 = core prompt, >= 0 = variant
+  const [showAddVariant, setShowAddVariant] = useState(false);
+  const [newVariantText, setNewVariantText] = useState('');
+  const [newVariantBridge, setNewVariantBridge] = useState('');
+  const [savingVariant, setSavingVariant] = useState(false);
 
   const targetLevel = session?.default_model_level || 'IM';
   const model = useMemo(() => {
-    if (!q?.model_answers?.length) return null;
-    return q.model_answers.find((m) => m.level === targetLevel) || q.model_answers[0];
-  }, [q, targetLevel]);
+    if (!question?.model_answers?.length) return null;
+    return question.model_answers.find((m) => m.level === targetLevel) || question.model_answers[0];
+  }, [question, targetLevel]);
 
   const sentences = useMemo(() => {
     if (!model) return [];
@@ -378,22 +701,36 @@ const FocusStudyView = ({
     return (model.text || '').split(/(?<=[.!?])\s+/).filter(Boolean);
   }, [model]);
   const sentencesVi = Array.isArray(model?.sentences_vi) ? model.sentences_vi : [];
+  const variants = Array.isArray(question?.prompt_variants) ? question.prompt_variants : [];
+  const storyTags = Array.isArray(question?.story_tags) ? question.story_tags : [];
 
   useEffect(() => {
-    scrollPageToTop('instant');
     stopSpeaking();
     setPlayingIdx(null);
-  }, [q?.id]);
+    setActiveVariantIdx(-1);
+    setShowAddVariant(false);
+    setNewVariantText('');
+    setNewVariantBridge('');
+  }, [question?.id]);
 
-  useEffect(() => {
-    return () => stopSpeaking();
-  }, []);
+  useEffect(() => () => stopSpeaking(), []);
 
-  if (!q) return null;
+  if (!question) {
+    return (
+      <div className="glass-card rounded-3xl p-10 text-center flex flex-col items-center justify-center gap-3 min-h-[360px]">
+        <BookOpen className="w-10 h-10 text-slate-300 dark:text-slate-600" />
+        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Chọn một chủ đề bên trái để học</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs">
+          Mỗi ô giữ duy nhất 1 bài mẫu gốc và gộp toàn bộ cách hỏi tương tự để bạn học ít mà trả lời được mọi đề.
+        </p>
+      </div>
+    );
+  }
 
-  const stMeta = STUDY_STATUS_META[q.study_status || 'unlearned'] || STUDY_STATUS_META.unlearned;
-  const hasPrev = activeIndex > 0;
-  const hasNext = activeIndex < questions.length - 1;
+  const stMeta = STUDY_STATUS_META[question.study_status || 'unlearned'] || STUDY_STATUS_META.unlearned;
+  const activeVariant = activeVariantIdx >= 0 ? variants[activeVariantIdx] : null;
+  const displayedPrompt = activeVariant ? activeVariant.question : question.question_text;
+  const groupMeta = TOPIC_GROUPS.find((g) => g.key === groupKeyOf(question.category)) || TOPIC_GROUPS[5];
 
   const handlePlaySentence = async (idx, sent) => {
     if (playingIdx === idx) {
@@ -403,460 +740,766 @@ const FocusStudyView = ({
     }
     setPlayingIdx(idx);
     await speakPhrase(sent, {
-      id: `focus-m-${q.id}-${idx}`,
+      id: `ms-${question.id}-${idx}`,
       onEnd: () => setPlayingIdx(null),
     });
   };
 
+  const handleSubmitVariant = async (e) => {
+    e.preventDefault();
+    if (!newVariantText.trim() || savingVariant) return;
+    setSavingVariant(true);
+    try {
+      await onAddVariant(question.id, {
+        question: newVariantText.trim(),
+        bridge: newVariantBridge.trim() || undefined,
+      });
+      setNewVariantText('');
+      setNewVariantBridge('');
+      setShowAddVariant(false);
+    } finally {
+      setSavingVariant(false);
+    }
+  };
+
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-4 pb-36 md:pb-24 flex flex-col gap-4">
-      {/* Clean top bar */}
-      <div className="flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Danh sách</span>
-        </button>
-
-        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-          Câu {activeIndex + 1} / {questions.length}
-        </span>
-
-        <button
-          type="button"
-          onClick={() => onCycleStatus(q)}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold cursor-pointer transition-colors ${stMeta.cls}`}
-        >
-          <span className={`w-2 h-2 rounded-full ${stMeta.dot}`} />
-          <span>{stMeta.label}</span>
-        </button>
-      </div>
-
-      {/* Block 1: Question */}
-      <div className="glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 flex flex-col gap-3 shadow-sm">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xs font-bold px-2 py-0.5 rounded-lg bg-brand-500/15 text-brand-700 dark:text-brand-300">
-              Q{q.order_index}
-            </span>
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate">
-              {q.topic || q.category_label}
-            </span>
-          </div>
-          <SpeakButton
-            variant="question"
-            text={q.question_text}
-            audioUrl={q.audio_path}
-            id={`focus-q-${q.id}`}
-            label="Nghe câu hỏi"
-            playingLabel="Đang đọc"
-          />
+    <div className="h-full min-h-0 flex flex-col gap-2 lg:gap-3">
+      {isMobileFocus && (
+        <div className="flex items-center justify-between gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={onBackMobile}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl glass-card text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer whitespace-nowrap"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
+            <span>{pick('Danh sách', 'List')}</span>
+          </button>
+          <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{positionLabel}</span>
+          <button
+            type="button"
+            onClick={() => onCycleStatus(question)}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold cursor-pointer whitespace-nowrap ${stMeta.cls}`}
+          >
+            <span className={`w-2 h-2 rounded-full ${stMeta.dot}`} />
+            <span>{pick(stMeta.label, stMeta.labelEn)}</span>
+          </button>
         </div>
+      )}
 
-        <TranslatableText
-          text={q.question_text}
-          preTranslatedVi={q.question_translation_vi}
-          className="text-[15px] sm:text-base font-semibold text-slate-900 dark:text-white leading-relaxed"
-          controlsAlign="start"
-        />
-      </div>
+      {/* Full-Height Bounded Paper-Like Study Studio Card (Header + Scrollable Body + Pinned Footer) */}
+      <div className="flex-1 min-h-0 glass-panel rounded-2xl sm:rounded-3xl overflow-hidden flex flex-col">
+        <div className={`h-1.5 w-full shrink-0 bg-gradient-to-r ${groupMeta.ribbon}`} />
 
-      {/* Block 2: Clean Model Answer (hairline dividers, 3-mode compact toggle) */}
-      <div className="glass-card bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div className="p-4 sm:p-5 flex flex-col gap-3 border-b border-slate-200 dark:border-slate-800">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-emerald-500" />
-              <span className="text-sm font-bold text-slate-900 dark:text-white">
-                Bài mẫu chuẩn {model?.level || targetLevel}
+        {/* Compact Studio Header (Always Pinned) */}
+        <div className="px-3.5 sm:px-5 pt-3 sm:pt-4 pb-2.5 sm:pb-3.5 border-b border-slate-200/80 dark:border-slate-700/60 flex flex-col gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
+              <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white tracking-tight truncate">
+                {question.topic}
+              </h2>
+              <span className="px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-sky-300 border border-indigo-200/70 dark:border-indigo-500/30 text-[11px] font-bold shrink-0">
+                {isVi ? (QUESTION_TYPE_VI[question.question_type] || question.question_type) : (QUESTION_TYPE_EN[question.question_type] || question.question_type)}
               </span>
+              {storyTags.slice(0, 2).map((tag) => (
+                <span
+                  key={tag}
+                  className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-500/15 border border-teal-200/70 dark:border-teal-500/30 text-teal-700 dark:text-teal-300 text-[10px] font-semibold shrink-0"
+                >
+                  <Tag className="w-2.5 h-2.5" />
+                  {tag}
+                </span>
+              ))}
             </div>
 
-            {model && (
-              <div className="flex items-center gap-2">
-                <SpeakButton
-                  text={model.text}
-                  audioUrl={model.audio_path}
-                  id={`focus-full-${q.id}-${model.level}`}
-                  label="Nghe cả bài"
-                  playingLabel="Đang phát"
-                />
+            <div className="flex items-center gap-1.5 shrink-0">
+              {!isMobileFocus && (
                 <button
                   type="button"
-                  onClick={() => onOpenRegenerate(q, model.level)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-amber-500/15 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-semibold cursor-pointer"
+                  onClick={() => onCycleStatus(question)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] font-bold cursor-pointer transition-colors ${stMeta.cls}`}
                 >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Tạo lại</span>
+                  <span className={`w-2 h-2 rounded-full ${stMeta.dot}`} />
+                  <span>{pick(stMeta.label, stMeta.labelEn)}</span>
+                </button>
+              )}
+              {onDeleteSlot && (
+                <button
+                  type="button"
+                  onClick={() => onDeleteSlot(question)}
+                  title={pick('Xóa câu này khỏi kho', 'Remove question from study hub')}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Compact Warm Prompt & Eva Variant Switcher */}
+          <div className="rounded-2xl bg-gradient-to-br from-amber-50/90 via-orange-50/35 to-white dark:from-[#0f172a]/90 dark:via-[#111c36]/80 dark:to-[#0f172a]/70 border border-amber-200/80 dark:border-slate-700/70 px-3 sm:px-3.5 py-2 sm:py-2.5 flex flex-col gap-1.5 sm:gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 min-w-0 overflow-x-auto flex-nowrap">
+                <button
+                  type="button"
+                  onClick={() => setActiveVariantIdx(-1)}
+                  className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold border cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
+                    activeVariantIdx === -1
+                      ? 'bg-gradient-to-r from-indigo-600 to-sky-500 text-white border-transparent shadow-xs'
+                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-300'
+                  }`}
+                >
+                  {pick('Câu chuẩn', 'Core Prompt')}
+                </button>
+                {variants.map((v, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActiveVariantIdx(idx)}
+                    className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold border cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
+                      activeVariantIdx === idx
+                        ? 'bg-gradient-to-r from-indigo-600 to-sky-500 text-white border-transparent shadow-xs'
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-300'
+                    }`}
+                  >
+                    {v.label || pick(`Cách hỏi ${idx + 1}`, `Variant ${idx + 1}`)}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setShowAddVariant((v) => !v)}
+                  title={pick('Thêm cách Eva có thể hỏi khác', 'Add another prompt variation')}
+                  className="px-2 py-0.5 rounded-lg text-[11px] font-bold border border-dashed border-amber-400/80 text-amber-800 dark:text-amber-300 hover:bg-amber-500/10 cursor-pointer inline-flex items-center gap-0.5 whitespace-nowrap shrink-0"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>{pick('Thêm', 'Add')}</span>
                 </button>
               </div>
+
+              <SpeakButton
+                variant="question"
+                text={displayedPrompt}
+                audioUrl={activeVariant ? null : question.audio_path}
+                id={`ms-q-${question.id}-${activeVariantIdx}`}
+                label={pick('Nghe', 'Listen')}
+                playingLabel={pick('Dừng', 'Stop')}
+                className="!h-7 !px-2.5 !text-[11px]"
+              />
+            </div>
+
+            <TranslatableText
+              text={displayedPrompt}
+              preTranslatedVi={activeVariant ? null : question.question_translation_vi}
+              showControls={false}
+              externalShowTranslation={isVi && showVi}
+              className="text-[13.5px] sm:text-sm font-bold text-slate-900 dark:text-white leading-snug"
+            />
+
+            {activeVariant?.bridge && (
+              <div className="rounded-xl bg-white/95 dark:bg-slate-800/85 border border-emerald-200/80 dark:border-emerald-500/30 px-3 py-1.5 text-[11px] text-slate-700 dark:text-slate-200">
+                <span className="font-extrabold text-emerald-700 dark:text-emerald-300 mr-1.5">{pick('Câu dẫn nối bài gốc:', 'Bridge to master script:')}</span>
+                <span className="italic">"{activeVariant.bridge}"</span>
+              </div>
+            )}
+
+            {showAddVariant && (
+              <form onSubmit={handleSubmitVariant} className="flex flex-col gap-2 pt-2 border-t border-amber-200/60 dark:border-slate-700">
+                <input
+                  type="text"
+                  value={newVariantText}
+                  onChange={(e) => setNewVariantText(e.target.value)}
+                  placeholder={pick('Nhập câu hỏi tương tự bằng tiếng Anh...', 'Enter a similar English prompt...')}
+                  className="w-full theme-input rounded-xl px-3 py-1.5 text-xs"
+                  required
+                />
+                <input
+                  type="text"
+                  value={newVariantBridge}
+                  onChange={(e) => setNewVariantBridge(e.target.value)}
+                  placeholder={pick('Câu dẫn chuyển ý 1 dòng (tùy chọn)...', 'Optional 1-line transition sentence...')}
+                  className="w-full theme-input rounded-xl px-3 py-1.5 text-xs"
+                />
+                <div className="flex justify-end gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddVariant(false)}
+                    className="px-3 py-1 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 cursor-pointer"
+                  >
+                    {pick('Hủy', 'Cancel')}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingVariant}
+                    className="px-3.5 py-1 rounded-lg btn-brand-gradient text-xs font-bold cursor-pointer disabled:opacity-60"
+                  >
+                    {savingVariant ? pick('Đang lưu...', 'Saving...') : pick('Lưu biến thể', 'Save Variant')}
+                  </button>
+                </div>
+              </form>
             )}
           </div>
 
-          {/* Compact 3-mode active recall bar (fits 1 line on 375px phones) */}
+          {/* Single Compact Toolbar: Study Modes + Global Translate Toggle + Audio + Rewrite */}
           {model && (
-            <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-              {[
-                { key: 'read', label: 'Đọc' },
-                { key: 'cloze', label: 'Khuyết' },
-                { key: 'vi2en', label: 'Việt → Anh' },
-              ].map((m) => (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="inline-flex p-0.5 rounded-xl bg-slate-100/90 dark:bg-[#0b1120] border border-slate-200/90 dark:border-slate-700/60">
+                {[
+                  { key: 'read', label: pick('Đọc', 'Read') },
+                  { key: 'cloze', label: pick('Điền khuyết', 'Cloze') },
+                  ...(isVi ? [{ key: 'vi2en', label: 'Việt → Anh' }] : []),
+                ].map((m) => (
+                  <button
+                    key={m.key}
+                    type="button"
+                    onClick={() => setStudyMode(m.key)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      studyMode === m.key
+                        ? 'bg-gradient-to-r from-indigo-600 to-sky-500 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                {isVi && studyMode === 'read' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowVi((v) => !v)}
+                    className={`h-7 inline-flex items-center justify-center px-2.5 rounded-lg border text-[11px] font-bold transition-colors cursor-pointer shrink-0 ${
+                      showVi
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400'
+                    }`}
+                  >
+                    <span className="inline-grid items-center justify-items-center">
+                      <span className={`col-start-1 row-start-1 inline-flex items-center gap-1 whitespace-nowrap ${!showVi ? 'visible' : 'invisible pointer-events-none'}`}>
+                        <Languages className="w-3.5 h-3.5 shrink-0" />
+                        <span>Dịch</span>
+                      </span>
+                      <span className={`col-start-1 row-start-1 inline-flex items-center gap-1 whitespace-nowrap ${showVi ? 'visible' : 'invisible pointer-events-none'}`}>
+                        <Languages className="w-3.5 h-3.5 shrink-0" />
+                        <span>Ẩn dịch</span>
+                      </span>
+                    </span>
+                  </button>
+                )}
+                <SpeakButton
+                  text={model.text}
+                  audioUrl={model.audio_path}
+                  id={`ms-full-${question.id}-${model.level}`}
+                  label={pick('Nghe', 'Play')}
+                  playingLabel={pick('Dừng', 'Stop')}
+                />
                 <button
-                  key={m.key}
                   type="button"
-                  onClick={() => setStudyMode(m.key)}
-                  className={`py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                    studyMode === m.key
-                      ? 'bg-brand-500 text-white shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
+                  onClick={() => onOpenRegenerate(question, model.level)}
+                  className="h-7 inline-flex items-center justify-center gap-1 px-2.5 rounded-lg bg-white dark:bg-slate-800 hover:bg-amber-500/15 hover:text-amber-700 dark:hover:text-amber-300 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-[11px] font-bold transition-colors cursor-pointer shrink-0 whitespace-nowrap"
                 >
-                  {m.label}
+                  <RotateCcw className="w-3 h-3 shrink-0" />
+                  <span>{pick('Viết lại', 'Rewrite')}</span>
                 </button>
-              ))}
+              </div>
             </div>
           )}
         </div>
 
-        {model ? (
-          <div className="divide-y divide-slate-200/80 dark:divide-slate-800/80">
-            {sentences.map((sent, idx) => {
-              const isSpeaking = playingIdx === idx;
-              return (
-                <div
-                  key={idx}
-                  className={`px-4 sm:px-5 py-3.5 flex flex-col gap-2 transition-colors ${
-                    isSpeaking ? 'bg-brand-50/70 dark:bg-brand-500/10' : ''
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={`text-[11px] font-mono px-2 py-0.5 rounded ${
+        {/* Independent Scrollable Sentences Pane (fits all normal IM/IH sentences without scroll!) */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {model ? (
+            <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
+              {sentences.map((sent, idx) => {
+                const isSpeaking = playingIdx === idx;
+                return (
+                  <div
+                    key={idx}
+                    className={`px-5 py-2.5 flex items-start gap-3 transition-colors ${
                       isSpeaking
-                        ? 'bg-brand-500 text-white font-bold'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-semibold'
-                    }`}>
-                      #{idx + 1}
+                        ? 'bg-indigo-50/75 dark:bg-sky-500/10'
+                        : 'hover:bg-slate-50/60 dark:hover:bg-slate-800/30'
+                    }`}
+                  >
+                    <span
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono font-extrabold mt-0.5 shrink-0 transition-colors ${
+                        isSpeaking
+                          ? 'bg-gradient-to-br from-indigo-600 to-sky-500 text-white shadow-xs'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                      }`}
+                    >
+                      {String(idx + 1).padStart(2, '0')}
                     </span>
+
+                    <div className="flex-1 min-w-0">
+                      {studyMode === 'cloze' ? (
+                        <ClozeSentence text={sent} />
+                      ) : studyMode === 'vi2en' ? (
+                        <ViToEnSentence enText={sent} viText={sentencesVi[idx] || ''} />
+                      ) : (
+                        <TranslatableText
+                          text={sent}
+                          preTranslatedVi={sentencesVi[idx] || null}
+                          showControls={false}
+                          externalShowTranslation={showVi}
+                          className="text-[14.5px] leading-[1.6] text-slate-900 dark:text-slate-100 font-medium"
+                        />
+                      )}
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => handlePlaySentence(idx, sent)}
-                      className={`min-w-[92px] flex items-center justify-center gap-1.5 px-3 py-1 rounded-lg border text-[11px] font-semibold transition-colors cursor-pointer ${
+                      aria-label="Nghe câu này"
+                      className={`w-8 h-8 inline-flex items-center justify-center rounded-lg border transition-colors cursor-pointer shrink-0 ${
                         isSpeaking
-                          ? 'bg-brand-500 text-white border-brand-500'
-                          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                          ? 'bg-gradient-to-r from-indigo-600 to-sky-500 text-white border-transparent shadow-sm'
+                          : 'bg-white dark:bg-slate-800/80 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-sky-300'
                       }`}
                     >
-                      {isSpeaking ? (
-                        <>
-                          <SoundWaveMini light />
-                          <span>Đang phát</span>
-                        </>
-                      ) : (
-                        <>
-                          <Volume2 className="w-3.5 h-3.5" />
-                          <span>Nghe</span>
-                        </>
-                      )}
+                      {isSpeaking ? <SoundWaveMini light /> : <Volume2 className="w-4 h-4 shrink-0" />}
                     </button>
                   </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-8 text-center flex flex-col items-center justify-center gap-3 h-full">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Bài mẫu chuẩn {targetLevel} của ô này đang nằm trong hàng đợi sinh nền.
+              </p>
+              <button
+                type="button"
+                onClick={() => onPrioritize(question.id, targetLevel)}
+                disabled={prioritizing}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl btn-brand-gradient text-xs font-extrabold cursor-pointer disabled:opacity-60 whitespace-nowrap"
+              >
+                {prioritizing ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Sparkles className="w-4 h-4 shrink-0" />}
+                <span>{prioritizing ? 'Đang tạo...' : 'Tạo ngay'}</span>
+              </button>
+            </div>
+          )}
+        </div>
 
-                  {studyMode === 'cloze' ? (
-                    <ClozeSentence text={sent} />
-                  ) : studyMode === 'vi2en' ? (
-                    <ViToEnSentence enText={sent} viText={sentencesVi[idx] || ''} />
-                  ) : (
-                    <TranslatableText
-                      text={sent}
-                      preTranslatedVi={sentencesVi[idx] || null}
-                      className="text-sm sm:text-[15px] leading-relaxed text-slate-800 dark:text-slate-100"
-                      controlsAlign="start"
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="p-6 text-center flex flex-col items-center gap-3">
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Bài mẫu chuẩn {targetLevel} của câu này chưa được tạo.
-            </p>
+        {/* Always-Visible Pinned Speak Footer (Crisp 2-word buttons, NEVER wraps!) */}
+        <div className="px-3.5 sm:px-5 py-2.5 sm:py-3 bg-slate-50/90 dark:bg-[#0b1120]/70 border-t border-slate-200/80 dark:border-slate-800 flex items-center gap-2 shrink-0">
+          {isMobileFocus && (
             <button
               type="button"
-              onClick={() => onGenerateMissing(q.id, targetLevel)}
-              disabled={generating}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold cursor-pointer disabled:opacity-60"
+              disabled={!hasPrev}
+              onClick={onPrev}
+              aria-label="Câu trước"
+              className="w-10 h-10 inline-flex items-center justify-center rounded-xl glass-card text-slate-700 dark:text-slate-200 disabled:opacity-35 cursor-pointer shrink-0"
             >
-              {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              <span>{generating ? 'Đang tạo bài mẫu...' : `Tạo bài mẫu ${targetLevel}`}</span>
+              <ChevronLeft className="w-4 h-4" />
             </button>
-          </div>
-        )}
-      </div>
-
-      {/* Previous speaking score link (compact, only if practiced) */}
-      {q.existing_answer && (
-        <button
-          type="button"
-          onClick={() => onOpenPractice(false)}
-          className="w-full p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 flex items-center justify-between text-xs font-semibold text-emerald-800 dark:text-emerald-300 cursor-pointer"
-        >
-          <span className="flex items-center gap-2">
-            <FileText className="w-4 h-4" />
-            <span>
-              Xem điểm chấm gần nhất (đã nói {q.practice_count} lần{q.last_level ? ` · ${q.last_level}` : ''})
-            </span>
-          </span>
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      )}
-
-      {/* Fixed Bottom Thumb Bar: Prev · Speak & Grade · Next */}
-      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0 z-30 border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md">
-        <div className="max-w-3xl mx-auto px-4 py-2.5 flex items-center gap-2">
-          <button
-            type="button"
-            disabled={!hasPrev}
-            onClick={() => onChangeIndex(activeIndex - 1)}
-            aria-label="Câu trước"
-            className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 disabled:opacity-35 cursor-pointer"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-
+          )}
           <button
             type="button"
             onClick={() => onOpenPractice(true)}
-            className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-sm font-bold shadow-md shadow-brand-600/20 cursor-pointer active:scale-[0.99] transition-all"
+            className="flex-1 h-10 inline-flex items-center justify-center gap-2 px-4 rounded-xl btn-speak-gradient text-xs sm:text-sm font-extrabold cursor-pointer whitespace-nowrap"
           >
-            <Mic className="w-4 h-4" />
-            <span>Luyện nói & Chấm điểm</span>
+            <Mic className="w-4 h-4 shrink-0" />
+            <span>{pick('Luyện nói', 'Speak')}</span>
           </button>
-
-          <button
-            type="button"
-            disabled={!hasNext}
-            onClick={() => onChangeIndex(activeIndex + 1)}
-            aria-label="Câu sau"
-            className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 disabled:opacity-35 cursor-pointer"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          {question.existing_answer && (
+            <button
+              type="button"
+              onClick={() => onOpenPractice(false)}
+              className="h-10 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/35 text-xs font-bold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100/80 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            >
+              <FileText className="w-3.5 h-3.5 shrink-0" />
+              <span>{question.last_level || pick(`${question.practice_count} lần`, `${question.practice_count}x`)}</span>
+            </button>
+          )}
+          {isMobileFocus && (
+            <button
+              type="button"
+              disabled={!hasNext}
+              onClick={onNext}
+              aria-label="Câu sau"
+              className="w-10 h-10 inline-flex items-center justify-center rounded-xl glass-card text-slate-700 dark:text-slate-200 disabled:opacity-35 cursor-pointer shrink-0"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-// ---------- Create 50-Question Study Pack Bottom Sheet / Modal ----------
-const StudyPackModal = ({ isOpen, onClose, onCreated, initialTopics }) => {
-  const [targetLevel, setTargetLevel] = useState('IM');
-  const [topics, setTopics] = useState(
-    initialTopics?.length === 3 ? initialTopics : ['environment', 'socio_cultural', 'communication_media']
-  );
+// ---------- Unlimited Anti-Duplicate Topic Curriculum Picker Modal ----------
+const CurriculumModal = ({ isOpen, onClose, onSynced, currentLevel = 'IM' }) => {
+  const [catalog, setCatalog] = useState(null);
+  const [catalogQuery, setCatalogQuery] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [customTopics, setCustomTopics] = useState([]);
+  const [customInput, setCustomInput] = useState('');
+  const [targetLevel, setTargetLevel] = useState(currentLevel || 'IM');
   const [personalProfile, setPersonalProfile] = useState('');
   const [devMock, setDevMock] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (isOpen) {
-      setError('');
-      if (initialTopics?.length === 3) setTopics(initialTopics);
-    }
-  }, [isOpen, initialTopics]);
+    if (!isOpen) return;
+    setError('');
+    setTargetLevel(currentLevel || 'IM');
+    setLoading(true);
+    libraryApi
+      .getCatalog()
+      .then((res) => {
+        setCatalog(res.data);
+        const owned = res.data.topics.filter((t) => t.owned).map((t) => t.id);
+        const defaults = res.data.topics.filter((t) => t.default_selected).map((t) => t.id);
+        setSelectedIds(owned.length > 0 ? owned : defaults);
+      })
+      .catch((err) => setError(formatApiError(err, 'Không tải được danh mục chủ đề.')))
+      .finally(() => setLoading(false));
+  }, [isOpen, currentLevel]);
+
+  const totalSlots = useMemo(() => {
+    if (!catalog) return 0;
+    const byId = Object.fromEntries(catalog.topics.map((t) => [t.id, t]));
+    const catalogSlots = selectedIds.reduce((acc, id) => acc + (byId[id]?.slot_count || 3), 0);
+    return catalogSlots + customTopics.length * 3;
+  }, [catalog, selectedIds, customTopics]);
 
   if (!isOpen) return null;
 
   const toggleTopic = (id) => {
-    setError('');
-    if (topics.includes(id)) {
-      setTopics(topics.filter((t) => t !== id));
-    } else if (topics.length < 3) {
-      setTopics([...topics, id]);
-    } else {
-      setError('Chọn đúng 3 chủ đề chính (bỏ chọn 1 chủ đề cũ trước).');
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const selectAllInGroup = (groupKey) => {
+    if (!catalog) return;
+    const ids = catalog.topics.filter((t) => t.group === groupKey).map((t) => t.id);
+    const allIn = ids.every((id) => selectedIds.includes(id));
+    setSelectedIds((prev) =>
+      allIn ? prev.filter((id) => !ids.includes(id)) : Array.from(new Set([...prev, ...ids]))
+    );
+  };
+
+  const addCustomTopic = () => {
+    const clean = customInput.trim();
+    if (!clean) return;
+    if (!customTopics.some((c) => c.toLowerCase() === clean.toLowerCase())) {
+      setCustomTopics((prev) => [...prev, clean]);
     }
+    setCustomInput('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (topics.length !== 3) {
-      setError('Vui lòng chọn đúng 3 chủ đề chính.');
+    if (!selectedIds.length && !customTopics.length) {
+      setError('Hãy chọn ít nhất một chủ đề để thêm vào kho.');
       return;
     }
-    setCreating(true);
+    setSubmitting(true);
     setError('');
     try {
-      const res = await libraryApi.createStudyPack({
+      const { data } = await libraryApi.syncCurriculum({
         target_level: targetLevel,
-        topics,
-        survey_data: USER_DEFAULT_PRESET,
+        topic_ids: selectedIds,
+        custom_topics: customTopics,
         personal_profile: personalProfile.trim() || undefined,
         dev_mock: devMock,
       });
-      onCreated(res.data);
+      onSynced(data);
       onClose();
     } catch (err) {
-      setError(formatApiError(err, 'Không tạo được bộ 50 câu ôn tập.'));
+      setError(formatApiError(err, 'Không đồng bộ được kho chủ đề.'));
     } finally {
-      setCreating(false);
+      setSubmitting(false);
     }
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center sm:p-4 animate-in fade-in"
-      onClick={() => !creating && onClose()}
+      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center sm:p-4"
+      onClick={() => !submitting && onClose()}
     >
       <form
         onSubmit={handleSubmit}
         onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 border-t sm:border border-slate-200 dark:border-slate-700 rounded-t-3xl sm:rounded-2xl shadow-2xl p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-6 flex flex-col gap-4"
+        className="w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-[#1a2438] border-t sm:border border-slate-200 dark:border-slate-700 rounded-t-3xl sm:rounded-3xl shadow-2xl p-5 sm:p-6 flex flex-col gap-5"
       >
-        <div className="w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto sm:hidden" />
-
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <GraduationCap className="w-5 h-5 text-brand-500" />
-              <span>Tạo bộ 50 câu ôn tập</span>
+            <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">
+              Chọn chủ đề ôn tập
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-              Phủ đủ Survey của bạn (Nhà ở, Phim, Công viên, Nhạc, Nấu ăn, Đi bộ) + 3 chủ đề chính + Role-play + Đột xuất. Không có câu giới thiệu.
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Chọn bao nhiêu chủ đề tùy thích — các ô đã có sẽ tự giữ nguyên bài mẫu và tiến độ thuộc, không bị trùng lặp.
             </p>
           </div>
-          <button type="button" disabled={creating} onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer">
-            <X className="w-4 h-4" />
+          <button type="button" disabled={submitting} onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-700 cursor-pointer">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Mức bài mẫu:</label>
+          <label className="text-xs font-extrabold text-slate-700 dark:text-slate-300">Mức bài mẫu</label>
           <div className="grid grid-cols-3 gap-2">
             {LEVELS.map((lvl) => (
               <button
                 key={lvl}
                 type="button"
                 onClick={() => setTargetLevel(lvl)}
-                className={`py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                className={`py-2.5 rounded-xl text-xs font-extrabold border cursor-pointer transition-all ${
                   targetLevel === lvl
-                    ? 'bg-brand-500 text-white border-brand-500 shadow-xs'
-                    : 'bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800'
+                    ? 'bg-gradient-to-r from-indigo-600 to-sky-500 text-white border-transparent shadow-sm'
+                    : 'bg-slate-50 dark:bg-[#0b1120]/70 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400'
                 }`}
               >
-                {lvl}{lvl === 'IM' ? ' (Mặc định)' : ''}
+                {lvl}
               </button>
             ))}
           </div>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-            3 Chủ đề chính ({topics.length}/3):
-          </label>
-          <div className="flex flex-wrap gap-1.5">
-            {OFFICIAL_TOPIC_OPTIONS.map((t) => {
-              const active = topics.includes(t.id);
+        {/* Unlimited Categorized Catalog */}
+        {loading ? (
+          <div className="py-10 flex items-center justify-center gap-2 text-xs text-slate-500">
+            <Loader2 className="w-4 h-4 animate-spin" /> Đang tải danh mục chủ đề...
+          </div>
+        ) : catalog ? (
+          <div className="flex flex-col gap-4">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={catalogQuery}
+                onChange={(e) => setCatalogQuery(e.target.value)}
+                placeholder="Tìm nhanh chủ đề (khách sạn, thuê xe, ngân hàng, cắm trại...)"
+                className="w-full theme-input rounded-xl pl-8 pr-3 py-2 text-xs"
+              />
+            </div>
+
+            {catalog.groups.map((grp) => {
+              const qLow = catalogQuery.trim().toLowerCase();
+              const grpItems = catalog.topics.filter(
+                (t) =>
+                  t.group === grp.key &&
+                  (!qLow || `${t.title_vi} ${t.title_en}`.toLowerCase().includes(qLow))
+              );
+              if (!grpItems.length) return null;
+              const allSelected = grpItems.every((t) => selectedIds.includes(t.id));
               return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => toggleTopic(t.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
-                    active
-                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-400'
-                      : 'bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800'
-                  }`}
-                >
-                  {active ? '✓ ' : ''}{t.label}
-                </button>
+                <div key={grp.key} className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200">{grp.label}</span>
+                    <button
+                      type="button"
+                      onClick={() => selectAllInGroup(grp.key)}
+                      className="text-[11px] font-bold text-brand-600 dark:text-sky-400 hover:underline cursor-pointer"
+                    >
+                      {allSelected ? 'Bỏ chọn nhóm' : 'Chọn cả nhóm'}
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {grpItems.map((t) => {
+                      const active = selectedIds.includes(t.id);
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => toggleTopic(t.id)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer inline-flex items-center gap-1.5 ${
+                            active
+                              ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 border-emerald-400'
+                              : 'bg-slate-50 dark:bg-[#0f172a]/70 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                          }`}
+                        >
+                          {active && <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />}
+                          <span>{t.title_vi}</span>
+                          {t.owned && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-sky-500" title="Đã có trong kho" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               );
             })}
-          </div>
-        </div>
 
+            {/* Custom Unlimited Topics */}
+            <div className="flex flex-col gap-2 pt-2 border-t border-slate-200 dark:border-slate-700/60">
+              <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200">Chủ đề tự nhập</span>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={customInput}
+                  onChange={(e) => setCustomInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addCustomTopic();
+                    }
+                  }}
+                  placeholder="Ví dụ: Làm việc ở Samsung, Nuôi con nhỏ, Du lịch Đà Lạt..."
+                  className="flex-1 theme-input rounded-xl px-3 py-2 text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={addCustomTopic}
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs font-bold cursor-pointer inline-flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Thêm</span>
+                </button>
+              </div>
+              {customTopics.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {customTopics.map((ct) => (
+                    <span
+                      key={ct}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 text-xs font-semibold"
+                    >
+                      {ct}
+                      <button
+                        type="button"
+                        onClick={() => setCustomTopics((prev) => prev.filter((x) => x !== ct))}
+                        className="cursor-pointer hover:text-rose-500"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
+
+        {/* Optional Personal Profile */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-            Hồ sơ ngắn của bạn (tuỳ chọn — tiếng Việt hay Anh):
-          </label>
+          <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Hồ sơ cá nhân hóa bài mẫu</label>
           <textarea
-            rows={3}
+            rows={2}
             value={personalProfile}
             onChange={(e) => setPersonalProfile(e.target.value)}
-            placeholder="Ví dụ: Sống ở chung cư với gia đình tại TP.HCM, hay nấu ăn đơn giản, thích đi công viên buổi sáng... (Có thể để trống)"
-            className="w-full rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 p-3 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 resize-none outline-none focus:border-brand-500"
+            placeholder="Ví dụ: Sống ở chung cư cùng gia đình tại TP.HCM, hay nấu ăn đơn giản..."
+            className="w-full theme-input rounded-xl p-3 text-xs resize-none"
           />
         </div>
 
         {SHOW_DEV_MOCK && (
           <label className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300 cursor-pointer">
             <input type="checkbox" checked={devMock} onChange={(e) => setDevMock(e.target.checked)} />
-            <span>DEV: Giả lập không gọi AI</span>
+            <span>DEV giả lập không gọi AI</span>
           </label>
         )}
 
         {error && <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{error}</p>}
 
-        <div className="flex items-center justify-end gap-2 pt-1">
-          <button type="button" disabled={creating} onClick={onClose} className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer">
-            Hủy
-          </button>
-          <button
-            type="submit"
-            disabled={creating}
-            className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold bg-brand-600 hover:bg-brand-500 text-white shadow-sm cursor-pointer disabled:opacity-60"
-          >
-            {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            <span>{creating ? 'Đang tạo 50 câu...' : 'Tạo ngay 50 câu'}</span>
-          </button>
+        {/* Sticky Footer Counter + Sync Action */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-200 dark:border-slate-700/60">
+          <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+            {selectedIds.length + customTopics.length} chủ đề · {totalSlots} ô chuẩn
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={onClose}
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={submitting || (!selectedIds.length && !customTopics.length)}
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-extrabold btn-brand-gradient cursor-pointer disabled:opacity-50"
+            >
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              <span>{submitting ? 'Đang đồng bộ...' : 'Tạo & Đồng bộ'}</span>
+            </button>
+          </div>
         </div>
       </form>
     </div>
   );
 };
 
-// ---------- Main Page: Clean 2-Tab / 2-Screen Mobile-First Question Bank ----------
-export const QuestionLibrary = ({ onStartPackExam }) => {
+// ---------- Main Page: Unified 3-SubTab Master Study Hub ("Kho ôn tập") ----------
+export const QuestionLibrary = ({
+  initialSubTab = 'topics',
+  initialGroupFilter = null,
+  autoOpenFlashcards = false,
+  autoOpenRandom = false,
+  onConsumeIntent,
+  onOpenDaily,
+}) => {
+  const { isVi, pick } = useLanguage();
   const [sets, setSets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [mainTab, setMainTab] = useState('study'); // 'study' | 'history'
-  const [groupFilter, setGroupFilter] = useState('all');
+  const [subTab, setSubTab] = useState(initialSubTab); // 'topics' | 'listening' | 'vocab'
+  const [groupFilter, setGroupFilter] = useState(initialGroupFilter || 'all');
+  const [subTopicFilter, setSubTopicFilter] = useState('all');
   const [onlyUnmastered, setOnlyUnmastered] = useState(false);
-  const [expandedHistory, setExpandedHistory] = useState({});
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [includeQuestion, setIncludeQuestion] = useState(true);
-  const [shadowingPause, setShadowingPause] = useState(false);
-  const [loop, setLoop] = useState(true);
+  const [topicSearch, setTopicSearch] = useState('');
 
-  // Focus Study / Practice / Flashcard SRS state
-  const [focusContext, setFocusContext] = useState(null); // { sessionId, questionIds, index }
-  const [practiceMode, setPracticeMode] = useState(null); // null | { startInRecordMode: boolean }
-  const [flashcardCtx, setFlashcardCtx] = useState(null); // { session, questions }
-  const lastListenArgsRef = useRef(null); // remembers { session, questionsToPlay } so toggling Nhại rebuilds smoothly
+  // Desktop split-view active slot + Mobile focus/practice/flashcard state
+  const [desktopSelectedId, setDesktopSelectedId] = useState(null);
+  const [mobileFocusIds, setMobileFocusIds] = useState(null);
+  const [mobileFocusIdx, setMobileFocusIdx] = useState(0);
+  const [practiceTarget, setPracticeTarget] = useState(null); // { question, startInRecordMode }
+  const [flashcardCtx, setFlashcardCtx] = useState(null);
+
+  // Listening tab builder state
+  const [playlistSearch, setPlaylistSearch] = useState('');
+  const [builderSource, setBuilderSource] = useState('pack_all');
+  const [builderTitle, setBuilderTitle] = useState('');
+  const [builderIncludeQ, setBuilderIncludeQ] = useState(true);
+  const [builderShadowing, setBuilderShadowing] = useState(false);
+  const [editingPlId, setEditingPlId] = useState(null);
+  const [editingPlTitle, setEditingPlTitle] = useState('');
 
   // Modals & background jobs
-  const [showStudyModal, setShowStudyModal] = useState(false);
-  const [regenTarget, setRegenTarget] = useState(null); // { question, level }
+  const [showCurriculumModal, setShowCurriculumModal] = useState(false);
+  const [regenTarget, setRegenTarget] = useState(null);
   const [regenLoading, setRegenLoading] = useState(false);
-  const [generatingQId, setGeneratingQId] = useState(null);
-  const [startingExamId, setStartingExamId] = useState(null);
+  const [prioritizingQId, setPrioritizingQId] = useState(null);
   const [packProgressMap, setPackProgressMap] = useState({});
-  const [player, setPlayer] = useState(null); // { status, url, done, total, count, message }
 
-  const audioRef = useRef(null);
-  const pollRef = useRef(null);
-  const packPollRef = useRef(null);
+  const {
+    savedPlaylists,
+    cachedKeys,
+    player,
+    startListening,
+    playSavedPlaylist,
+    rebuildSavedPlaylist,
+    renameSavedPlaylist,
+    deleteSavedPlaylist,
+    refreshPlaylists,
+  } = useAudioPlayer();
+
+  useEffect(() => {
+    if (initialSubTab) setSubTab(initialSubTab);
+  }, [initialSubTab]);
+
+  useEffect(() => {
+    if (initialGroupFilter) {
+      setGroupFilter(initialGroupFilter);
+      setSubTopicFilter('all');
+      if (onConsumeIntent) onConsumeIntent();
+    }
+  }, [initialGroupFilter]);
+
+  const handleSelectGroup = (nextGroup) => {
+    setGroupFilter(nextGroup);
+    setSubTopicFilter('all');
+  };
 
   const load = async () => {
     try {
       const res = await libraryApi.get();
-      setSets(res.data);
+      setSets(res.data || []);
       const nextProgress = {};
-      res.data.forEach((s) => {
+      (res.data || []).forEach((s) => {
         if (s.study_progress) nextProgress[s.session_id] = s.study_progress;
       });
       setPackProgressMap(nextProgress);
@@ -869,10 +1512,6 @@ export const QuestionLibrary = ({ onStartPackExam }) => {
 
   useEffect(() => {
     load();
-    return () => {
-      clearTimeout(pollRef.current);
-      clearTimeout(packPollRef.current);
-    };
   }, []);
 
   // Poll any running study pack background job
@@ -881,8 +1520,7 @@ export const QuestionLibrary = ({ onStartPackExam }) => {
       .filter((p) => p && p.running && p.done < p.total)
       .map((p) => p.session_id);
     if (!runningIds.length) return;
-
-    packPollRef.current = setTimeout(async () => {
+    const t = setTimeout(async () => {
       let changed = false;
       for (const sid of runningIds) {
         try {
@@ -890,36 +1528,117 @@ export const QuestionLibrary = ({ onStartPackExam }) => {
           const prev = packProgressMap[sid];
           if (!prev || prev.done !== data.done || prev.running !== data.running) changed = true;
           setPackProgressMap((m) => ({ ...m, [sid]: data }));
-        } catch (err) {
-          console.warn('Study pack progress poll failed', err);
-        }
+        } catch {}
       }
       if (changed) await load();
     }, POLL_MS);
-
-    return () => clearTimeout(packPollRef.current);
+    return () => clearTimeout(t);
   }, [packProgressMap]);
 
-  const studyPacks = useMemo(() => sets.filter((s) => s.is_study_pack), [sets]);
+  const masterPack = useMemo(() => sets.find((s) => s.is_study_pack) || null, [sets]);
   const examSets = useMemo(() => sets.filter((s) => !s.is_study_pack), [sets]);
-  const activeStudyPack = studyPacks[0] || null;
 
-  const latestUserTopics = useMemo(() => {
-    const found = sets.find((s) => s.topics?.length === 3);
-    return found ? found.topics : ['environment', 'socio_cultural', 'communication_media'];
-  }, [sets]);
+  const pickSmartRandomQuestion = (sourceList, excludeId = null) => {
+    const base = (sourceList || []).filter((q) => q.question_type !== 'self_intro');
+    if (!base.length) return null;
+    const withoutPrev = base.length > 1 && excludeId ? base.filter((q) => q.id !== excludeId) : base;
+    const due = withoutPrev.filter((q) => q.is_due_today);
+    const unmastered = withoutPrev.filter((q) => q.study_status !== 'mastered');
+    const pool = due.length ? due : unmastered.length ? unmastered : withoutPrev;
+    return pool[Math.floor(Math.random() * pool.length)];
+  };
 
-  // Keep Focus Study View synced with latest `sets` after status updates / regenerations
-  const activeFocusSession = useMemo(
-    () => (focusContext ? sets.find((s) => s.session_id === focusContext.sessionId) || null : null),
-    [sets, focusContext]
+  // Honor dashboard quick jump to SRS flashcards or Random Speaking Practice
+  useEffect(() => {
+    if (!masterPack) return;
+    const qs = masterPack.questions || [];
+    if (autoOpenRandom && qs.length > 0) {
+      const picked = pickSmartRandomQuestion(qs);
+      if (picked) {
+        setDesktopSelectedId(picked.id);
+        setPracticeTarget({ question: picked, startInRecordMode: true, randomMode: true });
+      }
+      if (onConsumeIntent) onConsumeIntent();
+      return;
+    }
+    if (autoOpenFlashcards) {
+      const due = qs.filter((q) => q.is_due_today);
+      const unmastered = qs.filter((q) => q.study_status !== 'mastered' && (q.model_answers || []).length > 0);
+      const list = due.length ? due : (unmastered.length ? unmastered : qs).slice(0, 12);
+      if (list.length > 0) setFlashcardCtx({ session: masterPack, questions: list });
+      if (onConsumeIntent) onConsumeIntent();
+    }
+  }, [autoOpenFlashcards, autoOpenRandom, masterPack]);
+
+  const allPackQuestions = masterPack?.questions || [];
+
+  const groupStats = useMemo(() => {
+    const stats = {};
+    TOPIC_GROUPS.forEach((g) => {
+      stats[g.key] = { total: 0, mastered: 0 };
+    });
+    allPackQuestions.forEach((q) => {
+      const k = groupKeyOf(q.category);
+      if (!stats[k]) stats[k] = { total: 0, mastered: 0 };
+      stats[k].total += 1;
+      if (q.study_status === 'mastered') stats[k].mastered += 1;
+    });
+    return stats;
+  }, [allPackQuestions]);
+
+  const subTopicsInGroup = useMemo(() => {
+    if (groupFilter === 'all') return [];
+    const map = new Map();
+    allPackQuestions.forEach((q) => {
+      if (groupKeyOf(q.category) !== groupFilter) return;
+      const key = (q.topic || '').trim();
+      if (!key) return;
+      if (!map.has(key)) map.set(key, { topic: key, total: 0, mastered: 0 });
+      const entry = map.get(key);
+      entry.total += 1;
+      if (q.study_status === 'mastered') entry.mastered += 1;
+    });
+    return Array.from(map.values());
+  }, [allPackQuestions, groupFilter]);
+
+  useEffect(() => {
+    if (subTopicFilter !== 'all' && !subTopicsInGroup.some((t) => t.topic === subTopicFilter)) {
+      setSubTopicFilter('all');
+    }
+  }, [subTopicsInGroup, subTopicFilter]);
+
+  const filteredQuestions = useMemo(() => {
+    const qStr = topicSearch.trim().toLowerCase();
+    return allPackQuestions.filter((q) => {
+      if (groupFilter !== 'all' && groupKeyOf(q.category) !== groupFilter) return false;
+      if (subTopicFilter !== 'all' && (q.topic || '').trim() !== subTopicFilter) return false;
+      if (onlyUnmastered && q.study_status === 'mastered') return false;
+      if (qStr && !`${q.topic} ${q.question_text}`.toLowerCase().includes(qStr)) return false;
+      return true;
+    });
+  }, [allPackQuestions, groupFilter, subTopicFilter, onlyUnmastered, topicSearch]);
+
+  // Keep Desktop Split-View selected question always pointing to a valid visible slot
+  useEffect(() => {
+    if (!filteredQuestions.length) {
+      setDesktopSelectedId(null);
+      return;
+    }
+    if (!filteredQuestions.some((q) => q.id === desktopSelectedId)) {
+      setDesktopSelectedId(filteredQuestions[0].id);
+    }
+  }, [filteredQuestions, desktopSelectedId]);
+
+  const activeDesktopQuestion = useMemo(
+    () => filteredQuestions.find((q) => q.id === desktopSelectedId) || filteredQuestions[0] || null,
+    [filteredQuestions, desktopSelectedId]
   );
-  const activeFocusQuestions = useMemo(() => {
-    if (!activeFocusSession || !focusContext) return [];
-    const byId = {};
-    activeFocusSession.questions.forEach((q) => { byId[q.id] = q; });
-    return focusContext.questionIds.map((id) => byId[id]).filter(Boolean);
-  }, [activeFocusSession, focusContext]);
+
+  const mobileFocusQuestions = useMemo(() => {
+    if (!mobileFocusIds || !masterPack) return [];
+    const byId = Object.fromEntries(allPackQuestions.map((q) => [q.id, q]));
+    return mobileFocusIds.map((id) => byId[id]).filter(Boolean);
+  }, [mobileFocusIds, masterPack, allPackQuestions]);
 
   const handleCycleStatus = async (q) => {
     const cur = q.study_status || 'unlearned';
@@ -932,7 +1651,7 @@ export const QuestionLibrary = ({ onStartPackExam }) => {
     );
     try {
       await libraryApi.updateStudyStatus(q.id, next);
-    } catch (err) {
+    } catch {
       load();
     }
   };
@@ -946,99 +1665,8 @@ export const QuestionLibrary = ({ onStartPackExam }) => {
     );
     try {
       await libraryApi.updateStudyStatus(questionId, nextStatus);
-    } catch (err) {
+    } catch {
       load();
-    }
-  };
-
-  const handleGenerateOneMissing = async (qId, level) => {
-    setGeneratingQId(qId);
-    try {
-      await questionApi.regenerateModel(qId, { level: level || 'IM' });
-      await load();
-    } catch (err) {
-      alert(formatApiError(err, 'Không tạo được bài mẫu.'));
-    } finally {
-      setGeneratingQId(null);
-    }
-  };
-
-  const handleConfirmRegenerate = async (customInstruction) => {
-    if (!regenTarget) return;
-    setRegenLoading(true);
-    try {
-      await questionApi.regenerateModel(regenTarget.question.id, {
-        level: regenTarget.level || 'IM',
-        custom_instruction: customInstruction || undefined,
-      });
-      setRegenTarget(null);
-      await load();
-    } catch (err) {
-      alert(formatApiError(err, 'Không tạo lại được bài mẫu.'));
-    } finally {
-      setRegenLoading(false);
-    }
-  };
-
-  const handleResumeStudyPack = async (sessionId) => {
-    try {
-      const { data } = await libraryApi.resumeStudyPack(sessionId);
-      setPackProgressMap((m) => ({ ...m, [sessionId]: data }));
-    } catch (err) {
-      alert(formatApiError(err, 'Không tiếp tục tạo được.'));
-    }
-  };
-
-  const handleStartExamFromPack = async (sessionId) => {
-    if (!onStartPackExam || startingExamId) return;
-    setStartingExamId(sessionId);
-    try {
-      const { data } = await libraryApi.startExamFromPack(sessionId, 'exam');
-      onStartPackExam(data.session_id, data.mode);
-    } catch (err) {
-      alert(formatApiError(err, 'Không tạo được bài thi thử.'));
-    } finally {
-      setStartingExamId(null);
-    }
-  };
-
-  const handleDeleteSet = async (s) => {
-    const label = s.is_study_pack ? 'Bộ 50 câu ôn tập' : `Bộ đề #${s.set_number ?? s.session_number ?? s.session_id}`;
-    if (!window.confirm(`Xóa ${label}?`)) return;
-    try {
-      await sessionApi.delete(s.session_id);
-      await load();
-    } catch (err) {
-      alert(formatApiError(err, 'Không xóa được.'));
-    }
-  };
-
-  const handleDeleteAllSets = async () => {
-    setMenuOpen(false);
-    if (!sets.length) return;
-    if (!window.confirm('Xóa toàn bộ bộ ôn tập và bộ đề đã thi?')) return;
-    try {
-      await sessionApi.deleteAll();
-      setPlayer(null);
-      await load();
-    } catch (err) {
-      alert(formatApiError(err, 'Không xóa được.'));
-    }
-  };
-
-  const pollPlaylist = async (body, count) => {
-    try {
-      const res = await libraryApi.playlist(body);
-      const { ready, url, done, total } = res.data;
-      if (ready) {
-        setPlayer({ status: 'ready', url: resolveMediaUrl(url), done: total, total, count });
-        return;
-      }
-      setPlayer({ status: 'building', done, total, count });
-      pollRef.current = setTimeout(() => pollPlaylist(body, count), POLL_MS);
-    } catch (err) {
-      const detail = err.response?.data?.detail;
-      setPlayer({ status: 'error', count, message: typeof detail === 'string' ? detail : detail?.message || 'Không tạo được file nghe.' });
     }
   };
 
@@ -1063,52 +1691,158 @@ export const QuestionLibrary = ({ onStartPackExam }) => {
         }))
       );
     } catch (err) {
-      alert(formatApiError(err, 'Không lưu được lịch ôn tập.'));
+      notify.error(formatApiError(err, 'Không lưu được lịch ôn tập.'));
     }
   };
 
-  const handleStartListening = async (session, questionsToPlay, pauseOverride = null) => {
-    const usePause = pauseOverride !== null ? pauseOverride : shadowingPause;
-    lastListenArgsRef.current = { session, questionsToPlay };
-    const listenable = questionsToPlay.filter((q) => q.question_type !== 'self_intro');
-    if (!listenable.length) return;
-    clearTimeout(pollRef.current);
-
-    const readyQs = listenable.filter((q) => q.model_answers?.length > 0);
-    const ids = (readyQs.length ? readyQs : listenable).map((q) => q.id);
-    setPlayer({ status: 'preparing', done: 0, total: ids.length, count: ids.length });
-
-    if (!readyQs.length) {
-      await generateMissingModelAnswers(ids, session.default_model_level || 'IM');
-      await load();
-    }
-    pollPlaylist(
-      {
-        question_ids: ids,
-        include_question: includeQuestion,
-        level: session.default_model_level || 'IM',
-        shadowing_pause: usePause,
-      },
-      ids.length
-    );
-  };
-
-  useEffect(() => {
-    if (player?.status !== 'ready' || !('mediaSession' in navigator)) return;
+  const handlePrioritize = async (questionId, level) => {
+    setPrioritizingQId(questionId);
     try {
-      navigator.mediaSession.metadata = new window.MediaMetadata({
-        title: `Ôn tập OPIc · ${player.count} câu`,
-        artist: 'Eva · OPIc Practice Studio',
-        album: 'Study Pack',
+      await libraryApi.prioritizeQuestion(questionId, level);
+      await load();
+      notify.success('Đã tạo xong bài mẫu cho câu này.');
+    } catch (err) {
+      notify.error(formatApiError(err, 'Không tạo được bài mẫu.'));
+    } finally {
+      setPrioritizingQId(null);
+    }
+  };
+
+  const handleConfirmRegenerate = async (customInstruction) => {
+    if (!regenTarget) return;
+    setRegenLoading(true);
+    try {
+      await questionApi.regenerateModel(regenTarget.question.id, {
+        level: regenTarget.level || 'IM',
+        custom_instruction: customInstruction || undefined,
       });
-    } catch (e) {}
-  }, [player?.status, player?.url]);
+      setRegenTarget(null);
+      await load();
+      notify.success('Đã viết lại bài mẫu mới.');
+    } catch (err) {
+      notify.error(formatApiError(err, 'Không viết lại được bài mẫu.'));
+    } finally {
+      setRegenLoading(false);
+    }
+  };
 
-  useEffect(() => {
-    if (audioRef.current) audioRef.current.loop = loop;
-  }, [loop, player?.url]);
+  const handleAddVariant = async (questionId, payload) => {
+    const { data } = await libraryApi.addPromptVariant(questionId, payload);
+    setSets((prev) =>
+      prev.map((s) => ({
+        ...s,
+        questions: s.questions.map((item) =>
+          item.id === questionId ? { ...item, prompt_variants: data.prompt_variants } : item
+        ),
+      }))
+    );
+    notify.success('Đã lưu biến thể câu hỏi.');
+  };
 
-  // ---------- Render Screen 3: Full-Screen SRS Flashcard Review ----------
+  const handleDeleteSlot = async (q) => {
+    const ok = await confirmDialog({
+      title: 'Xóa câu khỏi kho ôn tập?',
+      message: `Bạn có chắc chắn muốn xóa câu "${q.topic}" khỏi kho ôn tập hiện tại không?`,
+      confirmLabel: 'Xóa câu này',
+      cancelLabel: 'Hủy',
+      tone: 'danger',
+    });
+    if (!ok) return;
+    try {
+      await libraryApi.deleteStudySlot(q.id);
+      if (mobileFocusIds) setMobileFocusIds(null);
+      await load();
+      notify.success('Đã xóa câu khỏi kho ôn tập.');
+    } catch (err) {
+      notify.error(formatApiError(err, 'Không xóa được câu này.'));
+    }
+  };
+
+  const handleResumeGeneration = async () => {
+    if (!masterPack) return;
+    try {
+      const { data } = await libraryApi.resumeStudyPack(masterPack.session_id);
+      setPackProgressMap((m) => ({ ...m, [masterPack.session_id]: data }));
+      notify.info('Đã tiếp tục sinh các bài mẫu còn lại trong nền.');
+    } catch (err) {
+      notify.error(formatApiError(err, 'Không tiếp tục tạo được.'));
+    }
+  };
+
+  const builderSelection = useMemo(() => {
+    if (builderSource.startsWith('exam_')) {
+      const sid = Number(builderSource.replace('exam_', ''));
+      const sess = examSets.find((s) => s.session_id === sid);
+      if (!sess) return null;
+      const qs = sess.questions.filter((q) => q.question_type !== 'self_intro');
+      return {
+        session: sess,
+        questions: qs,
+        defaultTitle: `Bài thi #${sess.set_number ?? sess.session_number ?? sess.session_id} · ${sess.default_model_level}`,
+      };
+    }
+    if (!masterPack) return null;
+    const lvl = masterPack.default_model_level || 'IM';
+    if (builderSource === 'pack_unmastered') {
+      const qs = allPackQuestions.filter((q) => q.study_status !== 'mastered');
+      return { session: masterPack, questions: qs, defaultTitle: `Câu chưa thuộc · ${lvl}` };
+    }
+    if (builderSource.startsWith('pack_group_')) {
+      const gKey = builderSource.replace('pack_group_', '');
+      const gLabel = TOPIC_GROUPS.find((g) => g.key === gKey)?.label || gKey;
+      const qs = allPackQuestions.filter((q) => groupKeyOf(q.category) === gKey);
+      return { session: masterPack, questions: qs, defaultTitle: `${gLabel} · ${lvl}` };
+    }
+    return {
+      session: masterPack,
+      questions: allPackQuestions,
+      defaultTitle: `Toàn bộ kho · ${allPackQuestions.length} câu · ${lvl}`,
+    };
+  }, [builderSource, masterPack, allPackQuestions, examSets]);
+
+  const handleAutoChapterAlbums = async () => {
+    if (!masterPack) return;
+    const lvl = masterPack.default_model_level || 'IM';
+    const readyByGroup = [];
+    for (const grp of TOPIC_GROUPS) {
+      const qs = allPackQuestions.filter(
+        (q) => groupKeyOf(q.category) === grp.key && (q.model_answers || []).some((m) => m.level === lvl)
+      );
+      if (qs.length > 0) {
+        readyByGroup.push({ label: grp.label, qs });
+      }
+    }
+    if (!readyByGroup.length) {
+      notify.warning('Chưa có bài mẫu nào hoàn tất để chia chương.');
+      return;
+    }
+    for (const chapter of readyByGroup) {
+      try {
+        await libraryApi.playlist({
+          question_ids: chapter.qs.map((q) => q.id),
+          level: lvl,
+          include_question: builderIncludeQ,
+          shadowing_pause: builderShadowing,
+          title: `Album ${chapter.label} · ${chapter.qs.length} câu · ${lvl}`,
+          session_id: masterPack.session_id,
+          save: true,
+        });
+      } catch (err) {
+        console.warn('Chapter album build error', err);
+      }
+    }
+    await refreshPlaylists();
+  };
+
+  const filteredSavedPlaylists = useMemo(() => {
+    const q = playlistSearch.trim().toLowerCase();
+    if (!q) return savedPlaylists;
+    return savedPlaylists.filter(
+      (p) => (p.title || '').toLowerCase().includes(q) || (p.level || '').toLowerCase().includes(q)
+    );
+  }, [savedPlaylists, playlistSearch]);
+
+  // ---------- Full-Screen SRS Flashcard Overlay ----------
   if (flashcardCtx && flashcardCtx.questions.length > 0) {
     return (
       <FlashcardReview
@@ -1138,32 +1872,39 @@ export const QuestionLibrary = ({ onStartPackExam }) => {
           );
         }}
         onOpenVoicePractice={(targetQ) => {
-          const sess = flashcardCtx.session;
-          const allIds = sess.questions.map((x) => x.id);
-          const idx = Math.max(0, allIds.indexOf(targetQ.id));
           setFlashcardCtx(null);
-          setFocusContext({ sessionId: sess.session_id, questionIds: allIds, index: idx });
-          setPracticeMode({ startInRecordMode: true });
+          setPracticeTarget({ question: targetQ, startInRecordMode: true });
         }}
       />
     );
   }
 
-  // ---------- Render Screen 2B: Practice / Grading ----------
-  if (focusContext && practiceMode && activeFocusSession && activeFocusQuestions[focusContext.index]) {
-    const activeQ = activeFocusQuestions[focusContext.index];
-    const targetLvl = activeFocusSession.default_model_level || 'IM';
-    const activeModel = activeQ.model_answers?.find((m) => m.level === targetLvl) || activeQ.model_answers?.[0] || null;
+  // ---------- Speaking Practice & AI Grading Screen ----------
+  if (practiceTarget && masterPack) {
+    const liveQ = allPackQuestions.find((q) => q.id === practiceTarget.question.id) || practiceTarget.question;
+    const targetLvl = masterPack.default_model_level || 'IM';
+    const activeModel = liveQ.model_answers?.find((m) => m.level === targetLvl) || liveQ.model_answers?.[0] || null;
+    const idxInList = filteredQuestions.findIndex((q) => q.id === liveQ.id);
+    const hasNext = idxInList >= 0 && idxInList < filteredQuestions.length - 1;
 
     return (
       <FocusPracticeView
-        question={activeQ}
-        session={activeFocusSession}
+        question={liveQ}
+        session={masterPack}
         model={activeModel}
-        startInRecordMode={practiceMode.startInRecordMode}
-        studyStatus={activeQ.study_status || 'unlearned'}
-        onUpdateStudyStatus={(st) => handleSetStatus(activeQ.id, st)}
-        onReviewRating={(rating) => handleReviewQuestion(activeQ.id, rating)}
+        startInRecordMode={practiceTarget.startInRecordMode}
+        randomMode={!!practiceTarget.randomMode}
+        onPickAnotherRandom={() => {
+          const pool = filteredQuestions.length ? filteredQuestions : allPackQuestions;
+          const nextRandom = pickSmartRandomQuestion(pool, liveQ.id);
+          if (nextRandom) {
+            setDesktopSelectedId(nextRandom.id);
+            setPracticeTarget({ question: nextRandom, startInRecordMode: true, randomMode: true });
+          }
+        }}
+        studyStatus={liveQ.study_status || 'unlearned'}
+        onUpdateStudyStatus={(st) => handleSetStatus(liveQ.id, st)}
+        onReviewRating={(rating) => handleReviewQuestion(liveQ.id, rating)}
         onAnswerSaved={(qid, ansData) => {
           setSets((prev) =>
             prev.map((s) => ({
@@ -1177,118 +1918,92 @@ export const QuestionLibrary = ({ onStartPackExam }) => {
           );
         }}
         onBackToStudy={() => {
-          setPracticeMode(null);
+          setPracticeTarget(null);
           load();
         }}
-        hasNext={focusContext.index < activeFocusQuestions.length - 1}
+        hasNext={hasNext}
         onNextQuestion={() => {
-          setPracticeMode(null);
-          setFocusContext((c) => (c ? { ...c, index: Math.min(activeFocusQuestions.length - 1, c.index + 1) } : null));
+          if (hasNext) {
+            const nextQ = filteredQuestions[idxInList + 1];
+            setDesktopSelectedId(nextQ.id);
+            setPracticeTarget(null);
+          }
         }}
       />
     );
   }
 
-  // ---------- Render Screen 2A: Focus Study 1 Question ----------
-  if (focusContext && activeFocusSession && activeFocusQuestions.length > 0) {
+  // ---------- Mobile Focused Single-Slot View (Strictly Viewport-Locked: ZERO Outer Scroll!) ----------
+  if (mobileFocusIds && mobileFocusQuestions.length > 0 && masterPack) {
+    const activeQ = mobileFocusQuestions[Math.min(mobileFocusIdx, mobileFocusQuestions.length - 1)];
     return (
-      <>
-        <FocusStudyView
-          questions={activeFocusQuestions}
-          activeIndex={Math.min(focusContext.index, activeFocusQuestions.length - 1)}
-          session={activeFocusSession}
-          onChangeIndex={(nextIdx) => setFocusContext((c) => (c ? { ...c, index: nextIdx } : null))}
-          onBack={() => setFocusContext(null)}
-          onCycleStatus={handleCycleStatus}
-          onOpenRegenerate={(q, level) => setRegenTarget({ question: q, level })}
-          onGenerateMissing={handleGenerateOneMissing}
-          generating={generatingQId === activeFocusQuestions[focusContext.index]?.id}
-          onOpenPractice={(recordNow) => setPracticeMode({ startInRecordMode: recordNow })}
-        />
+      <div className="fixed inset-x-0 top-[calc(3.5rem+env(safe-area-inset-top))] bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 overflow-hidden overscroll-none bg-[#f3f6fc] dark:bg-[#090e1a] flex flex-col px-3.5 py-3">
+        <div className="w-full max-w-3xl mx-auto flex-1 min-h-0 flex flex-col">
+          <MasterScriptCard
+            question={activeQ}
+            session={masterPack}
+            onCycleStatus={handleCycleStatus}
+            onOpenRegenerate={(q, lvl) => setRegenTarget({ question: q, level: lvl })}
+            onPrioritize={handlePrioritize}
+            prioritizing={prioritizingQId === activeQ.id}
+            onAddVariant={handleAddVariant}
+            onDeleteSlot={handleDeleteSlot}
+            onOpenPractice={(recordNow) => setPracticeTarget({ question: activeQ, startInRecordMode: recordNow })}
+            isMobileFocus
+            onBackMobile={() => setMobileFocusIds(null)}
+            hasPrev={mobileFocusIdx > 0}
+            hasNext={mobileFocusIdx < mobileFocusQuestions.length - 1}
+            onPrev={() => setMobileFocusIdx((i) => Math.max(0, i - 1))}
+            onNext={() => setMobileFocusIdx((i) => Math.min(mobileFocusQuestions.length - 1, i + 1))}
+            positionLabel={`${mobileFocusIdx + 1}/${mobileFocusQuestions.length}`}
+          />
+        </div>
         <RegenerateModal
           isOpen={!!regenTarget}
           onClose={() => !regenLoading && setRegenTarget(null)}
           onConfirm={handleConfirmRegenerate}
           loading={regenLoading}
-          title={`Tạo lại bài mẫu Q${regenTarget?.question?.order_index || ''}`}
+          title={`Viết lại · ${regenTarget?.question?.topic || ''}`}
           levelLabel={regenTarget?.level || 'IM'}
         />
-      </>
+      </div>
     );
   }
 
-  // ---------- Render Screen 1: Clean 2-Line List ----------
-  const filteredStudyQuestions = activeStudyPack
-    ? activeStudyPack.questions.filter((q) => {
-        if (groupFilter !== 'all' && groupKeyOf(q.category) !== groupFilter) return false;
-        if (onlyUnmastered && q.study_status === 'mastered') return false;
-        return true;
-      })
-    : [];
-
-  const renderCleanRow = (q, session, listForFocus, idx) => {
-    const stKey = q.study_status || 'unlearned';
-    const stMeta = STUDY_STATUS_META[stKey] || STUDY_STATUS_META.unlearned;
-    const isDue = !!q.is_due_today;
-    const hasModel = (q.model_answers || []).length > 0;
-
-    return (
-      <button
-        key={q.id}
-        type="button"
-        onClick={() =>
-          setFocusContext({
-            sessionId: session.session_id,
-            questionIds: listForFocus.map((item) => item.id),
-            index: idx,
-          })
-        }
-        className="w-full text-left px-4 py-3.5 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 active:bg-slate-100 dark:active:bg-slate-800/70 transition-colors cursor-pointer"
-      >
-        <div className="flex-1 min-w-0 flex flex-col gap-1">
-          <div className="flex items-center gap-2 text-[11px]">
-            <span className="font-bold text-brand-600 dark:text-brand-400 shrink-0">Q{q.order_index}</span>
-            <span className="text-slate-500 dark:text-slate-400 truncate">{q.topic || q.category_label}</span>
-            <span
-              className={`ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold shrink-0 ${
-                isDue
-                  ? 'bg-orange-50 dark:bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-500/40'
-                  : stMeta.cls
-              }`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${isDue ? 'bg-orange-500' : stMeta.dot}`} />
-              {isDue ? 'Ôn ngay' : stMeta.label}
-            </span>
-          </div>
-          <p className="text-sm text-slate-900 dark:text-slate-100 leading-snug line-clamp-2">
-            {q.question_text}
-          </p>
-          {!hasModel && (
-            <span className="text-[10px] text-amber-600 dark:text-amber-400">Đang chờ tạo bài mẫu...</span>
-          )}
-        </div>
-        <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-      </button>
-    );
-  };
+  const prog = masterPack ? packProgressMap[masterPack.session_id] || masterPack.study_progress : null;
+  const isGeneratingModels = prog && prog.running && prog.done < prog.total;
+  const isIncompleteModels = prog && !prog.running && prog.done < prog.total;
+  const dueQs = allPackQuestions.filter((q) => q.is_due_today);
+  const targetLvl = masterPack?.default_model_level || 'IM';
+  const unmasteredReady = allPackQuestions.filter(
+    (q) => q.study_status !== 'mastered' && (q.model_answers || []).some((m) => m.level === targetLvl)
+  );
+  const flashcardList = dueQs.length
+    ? dueQs
+    : (unmasteredReady.length ? unmasteredReady : allPackQuestions).slice(0, 12);
 
   return (
-    <div className={`max-w-3xl mx-auto px-4 sm:px-6 py-5 sm:py-7 flex flex-col gap-4 ${player ? 'pb-48 md:pb-36' : ''}`}>
-      {/* Minimal Top Bar: 2 Tabs + Overflow Menu */}
-      <div className="flex items-center justify-between gap-2 relative">
-        <div className="inline-flex p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+    <div
+      className={`w-full max-w-[1380px] mx-auto px-3.5 sm:px-6 lg:px-8 py-3 sm:py-5 lg:py-6 lg:h-full lg:min-h-0 lg:overflow-hidden flex flex-col gap-3 sm:gap-4 ${
+        player ? 'pb-44 lg:pb-24' : ''
+      }`}
+    >
+      {/* Slim Top Bar: Minimal 3 Sub-Tabs + Add Topics CTA (Always Pinned) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 dark:border-slate-800 pb-3 shrink-0">
+        <div className="inline-flex items-center gap-1 p-1 rounded-2xl bg-slate-200/75 dark:bg-slate-800/85 border border-slate-200 dark:border-slate-700/60">
           {[
-            { key: 'study', label: 'Ôn 50 câu' },
-            { key: 'history', label: `Đề đã thi (${examSets.length})` },
+            { key: 'topics', label: pick('Chủ đề', 'Topics') },
+            { key: 'listening', label: pick('Nghe', 'Audio') },
+            { key: 'vocab', label: pick('Từ vựng', 'Vocab') },
           ].map((tab) => (
             <button
               key={tab.key}
               type="button"
-              onClick={() => setMainTab(tab.key)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors ${
-                mainTab === tab.key
-                  ? 'bg-brand-500 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300'
+              onClick={() => setSubTab(tab.key)}
+              className={`px-4 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer transition-all whitespace-nowrap ${
+                subTab === tab.key
+                  ? 'bg-gradient-to-r from-indigo-600 to-sky-500 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               {tab.label}
@@ -1296,372 +2011,678 @@ export const QuestionLibrary = ({ onStartPackExam }) => {
           ))}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setMenuOpen((v) => !v)}
-          aria-label="Tùy chọn khác"
-          className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer"
-        >
-          <MoreHorizontal className="w-4 h-4" />
-        </button>
-
-        {menuOpen && (
-          <div className="absolute right-0 top-11 z-40 w-60 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-2 flex flex-col gap-1 text-xs">
+        {subTab === 'topics' && (
+          <div className="flex flex-wrap items-center gap-2">
+            {masterPack && filteredQuestions.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const picked = pickSmartRandomQuestion(filteredQuestions);
+                  if (picked) {
+                    setDesktopSelectedId(picked.id);
+                    setPracticeTarget({ question: picked, startInRecordMode: true, randomMode: true });
+                  }
+                }}
+                title={pick('Bốc ngẫu nhiên 1 câu từ nhóm đang lọc để luyện phản xạ nói', 'Pick a random question from the current filter for blind speaking practice')}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-violet-50 dark:bg-violet-500/20 hover:bg-violet-100 dark:hover:bg-violet-500/30 text-violet-700 dark:text-violet-200 border border-violet-200/90 dark:border-violet-500/40 text-xs font-extrabold shadow-xs transition-all cursor-pointer whitespace-nowrap"
+              >
+                <Shuffle className="w-3.5 h-3.5 text-violet-600 dark:text-violet-300" />
+                <span>{pick('Ngẫu nhiên', 'Random')}</span>
+              </button>
+            )}
+            {masterPack && flashcardList.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setFlashcardCtx({ session: masterPack, questions: flashcardList })}
+                title={pick('Tự nhẩm lại cả câu/đoạn trả lời rồi lật kiểm tra bài mẫu', 'Recall the full answer paragraph, then flip to check the model script')}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-500/20 dark:to-orange-500/20 hover:from-amber-100 hover:to-orange-100 text-amber-800 dark:text-amber-200 border border-amber-300/80 dark:border-amber-500/40 text-xs font-extrabold shadow-xs transition-all cursor-pointer whitespace-nowrap"
+              >
+                <Flame className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                <span>{pick('Ôn bài mẫu', 'Script Recall')}</span>
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => { setMenuOpen(false); setShowStudyModal(true); }}
-              className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2 cursor-pointer"
+              onClick={() => setShowCurriculumModal(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl btn-brand-gradient text-xs font-extrabold cursor-pointer whitespace-nowrap"
             >
-              <Plus className="w-4 h-4 text-emerald-500" />
-              <span>Tạo bộ 50 câu ôn tập mới</span>
+              <Plus className="w-3.5 h-3.5" />
+              <span>{pick('Thêm chủ đề', 'Add Topics')}</span>
             </button>
-            <label className="px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-300 cursor-pointer">
-              <input type="checkbox" checked={includeQuestion} onChange={(e) => setIncludeQuestion(e.target.checked)} />
-              <span>Đọc câu hỏi trước bài mẫu</span>
-            </label>
-            <label className="px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-300 cursor-pointer">
-              <input type="checkbox" checked={shadowingPause} onChange={(e) => setShadowingPause(e.target.checked)} />
-              <span>Khoảng lặng nhại theo (MP3)</span>
-            </label>
-            {activeStudyPack && (
-              <button
-                type="button"
-                onClick={() => { setMenuOpen(false); handleDeleteSet(activeStudyPack); }}
-                className="w-full text-left px-3 py-2 rounded-xl hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-2 cursor-pointer"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Xóa bộ 50 câu hiện tại</span>
-              </button>
-            )}
-            {sets.length > 0 && (
-              <button
-                type="button"
-                onClick={handleDeleteAllSets}
-                className="w-full text-left px-3 py-2 rounded-xl hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-2 cursor-pointer"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Xóa tất cả bộ đề</span>
-              </button>
-            )}
           </div>
         )}
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-16 text-slate-400 gap-2 text-sm">
-          <Loader2 className="w-5 h-5 animate-spin" /> Đang tải...
+        <div className="flex-1 flex items-center justify-center py-20 text-slate-400 gap-2 text-sm">
+          <Loader2 className="w-5 h-5 animate-spin text-indigo-500" /> Đang tải...
         </div>
-      ) : mainTab === 'study' ? (
-        !activeStudyPack ? (
-          /* Empty state: 1 clean card, 1 button */
-          <div className="glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-6 sm:p-8 text-center border border-slate-200 dark:border-slate-800 flex flex-col items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <GraduationCap className="w-6 h-6" />
+      ) : subTab === 'vocab' ? (
+        <VocabularyNotebook embedded onGoPractice={onOpenDaily} />
+      ) : subTab === 'listening' ? (
+        /* ---------- Sub-Tab 2: Bounded 2-Column MP3 Audio Studio (Zero Outer Scroll) ---------- */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch lg:flex-1 lg:min-h-0">
+          {/* Left Column (5 cols): Studio Creator Card */}
+          <div className="lg:col-span-5 lg:h-full lg:overflow-y-auto">
+            <div className="glass-panel rounded-3xl overflow-hidden flex flex-col">
+              <div className="h-1.5 w-full bg-gradient-to-r from-indigo-500 via-sky-500 to-teal-400" />
+              <div className="p-5 flex flex-col gap-3.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white flex items-center justify-center shadow-md shadow-indigo-500/25 shrink-0">
+                      <Headphones className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-extrabold text-slate-900 dark:text-white">{pick('Tạo bài nghe mới', 'Create New Audio Track')}</h2>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">{pick('Ghép MP3 liền mạch nghe khi tắt màn hình', 'Seamless MP3 compilation for lock-screen listening')}</p>
+                    </div>
+                  </div>
+                  {masterPack && allPackQuestions.length > 45 && (
+                    <button
+                      type="button"
+                      onClick={handleAutoChapterAlbums}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-teal-50 dark:bg-teal-500/15 border border-teal-200 dark:border-teal-500/30 text-teal-700 dark:text-teal-300 text-[11px] font-bold cursor-pointer hover:bg-teal-100 transition-colors shrink-0"
+                    >
+                      <Layers className="w-3.5 h-3.5" />
+                      <span>{pick('Tự chia chương', 'Auto Chapters')}</span>
+                    </button>
+                  )}
+                </div>
+
+                {builderSelection ? (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{pick('Nguồn câu hỏi', 'Question Source')}</label>
+                      <select
+                        value={builderSource}
+                        onChange={(e) => setBuilderSource(e.target.value)}
+                        className="w-full theme-input rounded-xl px-3.5 py-2 text-xs font-bold"
+                      >
+                        {masterPack && (
+                          <optgroup label={pick('Kho ôn tập', 'Study Hub')}>
+                            <option value="pack_all">{pick(`Toàn bộ kho · ${allPackQuestions.length} câu`, `Entire Pack · ${allPackQuestions.length} Qs`)}</option>
+                            <option value="pack_unmastered">{pick('Câu chưa thuộc', 'Unmastered Questions')}</option>
+                            {TOPIC_GROUPS.filter((g) => (groupStats[g.key]?.total || 0) > 0).map((g) => (
+                              <option key={g.key} value={`pack_group_${g.key}`}>
+                                {pick(g.label, g.labelEn)} · {pick(`${groupStats[g.key].total} câu`, `${groupStats[g.key].total} Qs`)}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {examSets.length > 0 && (
+                          <optgroup label={pick('Đề đã thi', 'Past Exam Sets')}>
+                            {examSets.map((s) => (
+                              <option key={s.session_id} value={`exam_${s.session_id}`}>
+                                {pick(`Bài thi #${s.set_number ?? s.session_number ?? s.session_id}`, `Exam #${s.set_number ?? s.session_number ?? s.session_id}`)}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{pick('Tên bài nghe', 'Track Title')}</label>
+                      <input
+                        type="text"
+                        value={builderTitle}
+                        onChange={(e) => setBuilderTitle(e.target.value)}
+                        placeholder={builderSelection.defaultTitle}
+                        className="w-full theme-input rounded-xl px-3.5 py-2 text-xs"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <label
+                        className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${
+                          builderIncludeQ
+                            ? 'bg-indigo-50/80 dark:bg-indigo-500/15 border-indigo-300 dark:border-indigo-500/40 text-indigo-800 dark:text-sky-200'
+                            : 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        <input type="checkbox" checked={builderIncludeQ} onChange={(e) => setBuilderIncludeQ(e.target.checked)} />
+                        <span>{pick('Đọc câu hỏi trước', 'Read prompt first')}</span>
+                      </label>
+                      <label
+                        className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${
+                          builderShadowing
+                            ? 'bg-emerald-50/80 dark:bg-emerald-500/15 border-emerald-300 dark:border-emerald-500/40 text-emerald-800 dark:text-emerald-200'
+                            : 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        <input type="checkbox" checked={builderShadowing} onChange={(e) => setBuilderShadowing(e.target.checked)} />
+                        <span>{pick('Khoảng lặng nhại', 'Shadowing pause')}</span>
+                      </label>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={!builderSelection.questions.length}
+                      onClick={() => {
+                        const customTitle = builderTitle.trim() || builderSelection.defaultTitle;
+                        startListening({
+                          session: builderSelection.session,
+                          questionsToPlay: builderSelection.questions,
+                          title: customTitle,
+                          pauseOverride: builderShadowing,
+                          includeQuestion: builderIncludeQ,
+                          onModelsPrepared: load,
+                        });
+                        setBuilderTitle('');
+                      }}
+                      className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl btn-brand-gradient text-xs font-extrabold cursor-pointer disabled:opacity-50"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>{pick(`Tạo bài nghe · ${builderSelection.questions.length} câu`, `Build Audio · ${builderSelection.questions.length} Qs`)}</span>
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Hãy thêm chủ đề ở mục Chủ đề trước để tạo bài nghe MP3.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column (7 cols): Independently Scrollable Saved Playlists Library */}
+          <div className="lg:col-span-7 lg:h-full lg:min-h-0 flex flex-col gap-3">
+            {savedPlaylists.length >= 3 && (
+              <div className="relative shrink-0">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={playlistSearch}
+                  onChange={(e) => setPlaylistSearch(e.target.value)}
+                  placeholder="Tìm bài nghe đã lưu..."
+                  className="w-full theme-input rounded-xl pl-10 pr-3 py-2 text-xs"
+                />
+              </div>
+            )}
+
+            <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+              {filteredSavedPlaylists.length === 0 ? (
+                <div className="glass-card rounded-3xl p-10 text-center flex flex-col items-center gap-3">
+                  <div className="w-14 h-14 rounded-2xl bg-indigo-500/15 text-indigo-600 dark:text-sky-400 flex items-center justify-center">
+                    <Headphones className="w-7 h-7" />
+                  </div>
+                  <p className="text-sm font-extrabold text-slate-800 dark:text-slate-200">
+                    {savedPlaylists.length === 0 ? 'Chưa có bài nghe nào được lưu' : 'Không tìm thấy bài nghe phù hợp'}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed">
+                    Mọi bài nghe bạn tạo sẽ tự lưu tại đây và đồng bộ vào bộ nhớ trình duyệt để nghe lại mọi lúc, kể cả khi tắt màn hình.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3 pb-2">
+                  {filteredSavedPlaylists.map((pl) => {
+                    const isActive = player?.playlistId === pl.id;
+                    const isBuildingPl = pl.status === 'building';
+                    const isErrorPl = pl.status === 'error';
+                    const isCachedLocally = !!cachedKeys[pl.playlist_key];
+                    const isReadyServer = pl.status === 'ready' && pl.file_available && pl.audio_path;
+                    const isPlayableNow = isCachedLocally || isReadyServer;
+                    const needsRebuild = !isCachedLocally && ((pl.status === 'ready' && !pl.file_available) || isErrorPl);
+                    const pct = pl.total > 0 ? Math.min(100, Math.round((pl.done / pl.total) * 100)) : 0;
+                    const coverGrad = LEVEL_COVER_GRAD[pl.level] || LEVEL_COVER_GRAD.IM;
+
+                    return (
+                      <div
+                        key={pl.id}
+                        className={`glass-card rounded-2xl p-4 flex flex-col gap-2.5 transition-all hover:shadow-lg ${
+                          isActive ? 'ring-2 ring-indigo-500 border-indigo-400' : ''
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${coverGrad} text-white flex items-center justify-center shadow-md shrink-0`}>
+                            <Headphones className="w-5 h-5" />
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            {editingPlId === pl.id ? (
+                              <form
+                                onSubmit={async (e) => {
+                                  e.preventDefault();
+                                  await renameSavedPlaylist(pl.id, editingPlTitle);
+                                  setEditingPlId(null);
+                                  setEditingPlTitle('');
+                                }}
+                                className="flex items-center gap-1.5"
+                              >
+                                <input
+                                  type="text"
+                                  value={editingPlTitle}
+                                  onChange={(e) => setEditingPlTitle(e.target.value)}
+                                  autoFocus
+                                  className="flex-1 min-w-0 theme-input rounded-lg px-2.5 py-1 text-xs font-semibold"
+                                />
+                                <button type="submit" className="p-1.5 rounded-lg bg-emerald-600 text-white cursor-pointer">
+                                  <Check className="w-3.5 h-3.5" />
+                                </button>
+                                <button type="button" onClick={() => setEditingPlId(null)} className="p-1.5 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer">
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </form>
+                            ) : (
+                              <p className="text-sm font-extrabold text-slate-900 dark:text-white truncate">{pl.title}</p>
+                            )}
+
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                              <span className="px-2 py-0.5 rounded-md bg-indigo-500/15 text-indigo-700 dark:text-sky-300 font-extrabold text-[10px]">
+                                {pl.level}
+                              </span>
+                              <span className="font-semibold">{pl.question_count} câu</span>
+                              {pl.shadowing_pause && (
+                                <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold text-[10px]">
+                                  Nhại
+                                </span>
+                              )}
+                              {isCachedLocally && (
+                                <span className="px-2 py-0.5 rounded-md bg-teal-500/15 text-teal-700 dark:text-teal-300 font-bold text-[10px]">
+                                  Lưu trên máy
+                                </span>
+                              )}
+                              {pl.duration_seconds > 0 && (
+                                <span className="inline-flex items-center gap-0.5">
+                                  <Clock className="w-3 h-3" />
+                                  {formatDurationVi(pl.duration_seconds)}
+                                </span>
+                              )}
+                              {pl.file_size_bytes > 0 && <span>· {formatFileSize(pl.file_size_bytes)}</span>}
+                              {pl.updated_at && <span>· {formatShortDate(pl.updated_at)}</span>}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingPlId(pl.id);
+                                setEditingPlTitle(pl.title);
+                              }}
+                              title="Đổi tên"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-sky-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const ok = await confirmDialog({
+                                  title: 'Xóa bài nghe đã lưu?',
+                                  message: `Bài nghe "${pl.title}" sẽ bị xóa khỏi danh sách và bộ nhớ đệm trên máy.`,
+                                  confirmLabel: 'Xóa bài nghe',
+                                  cancelLabel: 'Hủy',
+                                  tone: 'danger',
+                                });
+                                if (ok) {
+                                  try {
+                                    await deleteSavedPlaylist(pl);
+                                    notify.success('Đã xóa bài nghe.');
+                                  } catch (err) {
+                                    notify.error(formatApiError(err, 'Không xóa được bài nghe.'));
+                                  }
+                                }
+                              }}
+                              title="Xóa"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {isBuildingPl && (
+                          <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center justify-between text-[11px] text-indigo-700 dark:text-sky-300 font-bold">
+                              <span className="inline-flex items-center gap-1.5">
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                {pl.phase === 'queued'
+                                  ? 'Đang chờ lượt tạo âm thanh...'
+                                  : pl.phase === 'stitching'
+                                    ? 'Đang ghép file MP3...'
+                                    : `Đang tạo ${pl.done}/${pl.total} đoạn...`}
+                              </span>
+                              <span>{pct}%</span>
+                            </div>
+                            <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                              <div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-sky-400 transition-all" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        )}
+
+                        {isErrorPl && !isCachedLocally && (
+                          <div className="flex items-start gap-1.5 text-[11px] text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 rounded-xl px-3 py-2">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                            <span>{pl.error_message || 'Tạo file nghe bị lỗi. Bấm Thử lại để tiếp tục.'}</span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2">
+                          {isPlayableNow ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => playSavedPlaylist(pl)}
+                                className={`flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-extrabold cursor-pointer transition-all ${
+                                  isActive
+                                    ? 'btn-speak-gradient'
+                                    : 'btn-brand-gradient'
+                                }`}
+                              >
+                                <Play className="w-3.5 h-3.5 fill-current" />
+                                <span>{isActive ? 'Đang mở trình phát' : 'Phát ngay'}</span>
+                              </button>
+                              {isReadyServer && (
+                                <a
+                                  href={resolveMediaUrl(pl.audio_path)}
+                                  download={`${(pl.title || 'opic-audio').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-') || 'opic-audio'}.mp3`}
+                                  className="inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 hover:border-indigo-400 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                  <span>Tải MP3</span>
+                                </a>
+                              )}
+                            </>
+                          ) : needsRebuild ? (
+                            <button
+                              type="button"
+                              onClick={() => rebuildSavedPlaylist(pl)}
+                              className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:brightness-105 text-white text-xs font-extrabold cursor-pointer shadow-sm"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" />
+                              <span>{isErrorPl ? 'Thử lại' : 'Tạo lại & Phát'}</span>
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : !masterPack || allPackQuestions.length === 0 ? (
+        /* ---------- Empty State for Master Curriculum ---------- */
+        <div className="flex-1 flex items-center justify-center">
+          <div className="max-w-xl glass-panel rounded-3xl p-10 text-center flex flex-col items-center gap-5 relative overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-indigo-500 via-sky-500 to-teal-400" />
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-teal-400 text-white flex items-center justify-center shadow-xl shadow-indigo-500/25">
+              <BookOpen className="w-8 h-8" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">Bộ 50 câu ôn tập chuẩn IM</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm leading-relaxed">
-                Tạo sẵn 50 câu hỏi phủ đủ Survey & 3 chủ đề chính của bạn kèm bài mẫu IM và dịch tiếng Việt để học thuộc trước khi thi.
+              <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">Khởi tạo Kho chủ đề ôn tập</h2>
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
+                Chọn một lần toàn bộ chủ đề bạn cần học — không giới hạn 50 câu. Mỗi chủ đề giữ duy nhất 1 bài mẫu gốc và tự gom các câu hỏi tương tự.
               </p>
             </div>
             <button
               type="button"
-              onClick={() => setShowStudyModal(true)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md shadow-emerald-600/20 cursor-pointer"
+              onClick={() => setShowCurriculumModal(true)}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl btn-brand-gradient text-sm font-extrabold cursor-pointer"
             >
               <Sparkles className="w-4 h-4" />
-              <span>Tạo bộ 50 câu ôn tập (IM)</span>
+              <span>Chọn chủ đề ngay</span>
             </button>
           </div>
-        ) : (() => {
-          const total = activeStudyPack.questions.length;
-          const mastered = activeStudyPack.questions.filter((q) => q.study_status === 'mastered').length;
-          const dueQs = activeStudyPack.questions.filter((q) => q.is_due_today);
-          const unmasteredReady = activeStudyPack.questions.filter(
-            (q) => q.study_status !== 'mastered' && (q.model_answers || []).length > 0
-          );
-          const flashcardList = dueQs.length
-            ? dueQs
-            : (unmasteredReady.length ? unmasteredReady : activeStudyPack.questions).slice(0, 10);
-          const prog = packProgressMap[activeStudyPack.session_id] || activeStudyPack.study_progress;
-          const isBuilding = prog && prog.running && prog.done < prog.total;
-          const isIncomplete = prog && !prog.running && prog.done < prog.total;
+        </div>
+      ) : (
+        /* ---------- Sub-Tab 1: Zero-Page-Scroll Desktop Split-View / Mobile 1-Col ---------- */
+        <div className="flex flex-col gap-3 lg:flex-1 lg:min-h-0">
+          {/* Background Model Generation Progress Banner */}
+          {isGeneratingModels && (
+            <div className="glass-card rounded-2xl px-4 py-2 flex items-center justify-between gap-2 text-xs text-indigo-700 dark:text-sky-300 border-indigo-200 dark:border-sky-500/30 bg-indigo-50/75 dark:bg-sky-500/10 shrink-0">
+              <span className="inline-flex items-center gap-2 font-bold">
+                <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                Đang sinh bài mẫu {prog.target_level}: {prog.done}/{prog.total} câu — bấm mở câu bất kỳ để tạo ưu tiên ngay
+              </span>
+            </div>
+          )}
+          {isIncompleteModels && (
+            <div className="glass-card rounded-2xl px-4 py-2 flex items-center justify-between gap-2 text-xs text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-500/30 bg-amber-50/75 dark:bg-amber-500/10 shrink-0">
+              <span className="font-semibold">Đã xong {prog.done}/{prog.total} bài mẫu trong kho.</span>
+              <button
+                type="button"
+                onClick={handleResumeGeneration}
+                className="px-3 py-1 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-extrabold cursor-pointer shrink-0 shadow-xs"
+              >
+                Tạo tiếp
+              </button>
+            </div>
+          )}
 
-          return (
-            <>
-              {/* 1 Compact Summary Card */}
-              <div className="glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-4 border border-emerald-200 dark:border-emerald-500/30 flex flex-col gap-3 shadow-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                      Bộ ôn tập {total} câu · Mức {activeStudyPack.default_model_level}
-                    </h2>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      Đã thuộc <strong className="text-emerald-600 dark:text-emerald-400">{mastered}/{total}</strong> câu
-                    </p>
-                  </div>
-                  <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                    {Math.round((mastered / Math.max(1, total)) * 100)}%
-                  </span>
-                </div>
+          {/* Tier 1: Macro OPIc Category Filter Ribbon */}
+          <div className="flex flex-col gap-2 shrink-0">
+            <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+              <button
+                type="button"
+                onClick={() => handleSelectGroup('all')}
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-extrabold border whitespace-nowrap transition-all cursor-pointer shrink-0 ${
+                  groupFilter === 'all'
+                    ? 'bg-gradient-to-r from-indigo-600 to-sky-500 text-white border-transparent shadow-sm'
+                    : 'bg-white/95 dark:bg-[#141e33]/90 text-slate-700 dark:text-slate-200 border-slate-200/80 dark:border-slate-700/60 hover:border-indigo-300'
+                }`}
+              >
+                <span>{pick('Tất cả', 'All')}</span>
+                <span className={`text-[11px] font-bold ${groupFilter === 'all' ? 'text-white/85' : 'text-slate-400'}`}>
+                  {allPackQuestions.filter((q) => q.study_status === 'mastered').length}/{allPackQuestions.length}
+                </span>
+              </button>
 
-                <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                  <div
-                    className="h-full bg-emerald-500 transition-all"
-                    style={{ width: `${Math.round((mastered / Math.max(1, total)) * 100)}%` }}
-                  />
-                </div>
-
-                {isBuilding && (
-                  <div className="flex items-center justify-between gap-2 text-[11px] text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-500/10 rounded-xl px-3 py-2">
-                    <span className="flex items-center gap-1.5 font-medium">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
-                      Đang tạo bài mẫu {prog.target_level}: {prog.done}/{prog.total} câu (bấm học ngay câu đã xong)
-                    </span>
-                  </div>
-                )}
-
-                {isIncomplete && (
-                  <div className="flex items-center justify-between gap-2 text-[11px] text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-500/10 rounded-xl px-3 py-2">
-                    <span>Đã xong {prog.done}/{prog.total} bài mẫu.</span>
-                    <button
-                      type="button"
-                      onClick={() => handleResumeStudyPack(activeStudyPack.session_id)}
-                      className="px-2.5 py-1 rounded-lg bg-amber-500 text-white font-bold cursor-pointer shrink-0"
-                    >
-                      Tạo tiếp {prog.total - prog.done} câu
-                    </button>
-                  </div>
-                )}
-
-                {/* 1 single row of 3 compact action buttons (same height!) */}
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setFlashcardCtx({ session: activeStudyPack, questions: flashcardList })}
-                    className={`flex items-center justify-center gap-1 py-2.5 px-2 rounded-xl border text-xs font-bold cursor-pointer ${
-                      dueQs.length > 0
-                        ? 'bg-orange-500 hover:bg-orange-600 text-white border-orange-500 shadow-xs'
-                        : 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30'
-                    }`}
-                  >
-                    <Flame className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">{dueQs.length > 0 ? `Ôn (${dueQs.length})` : 'Thẻ ôn'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleStartListening(activeStudyPack, unmasteredReady.length ? unmasteredReady : activeStudyPack.questions)}
-                    className="flex items-center justify-center gap-1 py-2.5 px-2 rounded-xl bg-brand-50 dark:bg-brand-500/15 hover:bg-brand-100 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-500/30 text-xs font-bold cursor-pointer"
-                  >
-                    <Headphones className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">Nghe</span>
-                  </button>
-
-                  {onStartPackExam && (
-                    <button
-                      type="button"
-                      onClick={() => handleStartExamFromPack(activeStudyPack.session_id)}
-                      disabled={startingExamId === activeStudyPack.session_id}
-                      className="flex items-center justify-center gap-1 py-2.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs cursor-pointer disabled:opacity-60"
-                    >
-                      {startingExamId === activeStudyPack.session_id ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <Play className="w-3.5 h-3.5 fill-current shrink-0" />}
-                      <span className="truncate">Thi 15</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* 1 Single Horizontal Filter Strip */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
-                {GROUP_FILTERS.map((g) => (
+              {TOPIC_GROUPS.filter((g) => (groupStats[g.key]?.total || 0) > 0).map((g) => {
+                const Icon = g.icon;
+                const st = groupStats[g.key] || { total: 0, mastered: 0 };
+                const active = groupFilter === g.key;
+                return (
                   <button
                     key={g.key}
                     type="button"
-                    onClick={() => setGroupFilter(g.key)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border whitespace-nowrap cursor-pointer transition-colors ${
-                      groupFilter === g.key
-                        ? 'bg-brand-500 border-brand-500 text-white'
-                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300'
+                    onClick={() => handleSelectGroup(active ? 'all' : g.key)}
+                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-extrabold border whitespace-nowrap transition-all cursor-pointer shrink-0 ${
+                      active ? g.activeRing : `${g.cardBg} shadow-2xs`
                     }`}
                   >
-                    {g.label}
+                    <span className={`w-5 h-5 rounded-md bg-gradient-to-br ${g.grad} text-white flex items-center justify-center shrink-0`}>
+                      <Icon className="w-3 h-3" />
+                    </span>
+                    <span className="text-slate-900 dark:text-white">{pick(g.label, g.labelEn)}</span>
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                      {st.mastered}/{st.total}
+                    </span>
                   </button>
-                ))}
+                );
+              })}
+            </div>
+
+            {/* Tier 2: One-Click Sub-Topic Filter Chips (Auto-shown when a macro group has > 1 topic) */}
+            {groupFilter !== 'all' && subTopicsInGroup.length > 1 && (
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 pl-0.5 animate-in fade-in">
+                <button
+                  type="button"
+                  onClick={() => setSubTopicFilter('all')}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border whitespace-nowrap transition-all cursor-pointer shrink-0 ${
+                    subTopicFilter === 'all'
+                      ? 'bg-slate-900 dark:bg-sky-500 text-white border-transparent shadow-xs'
+                      : 'bg-white/90 dark:bg-slate-900/70 text-slate-600 dark:text-slate-300 border-slate-200/90 dark:border-slate-700/70 hover:border-indigo-400'
+                  }`}
+                >
+                  <span>{pick('Tất cả mục', 'All topics')}</span>
+                  <span className={subTopicFilter === 'all' ? 'text-white/80' : 'text-slate-400'}>
+                    {groupStats[groupFilter]?.total || 0}
+                  </span>
+                </button>
+                {subTopicsInGroup.map((st) => {
+                  const active = subTopicFilter === st.topic;
+                  return (
+                    <button
+                      key={st.topic}
+                      type="button"
+                      onClick={() => setSubTopicFilter(active ? 'all' : st.topic)}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border whitespace-nowrap transition-all cursor-pointer shrink-0 ${
+                        active
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                          : 'bg-white/90 dark:bg-slate-900/70 text-slate-700 dark:text-slate-200 border-slate-200/90 dark:border-slate-700/70 hover:border-indigo-400'
+                      }`}
+                    >
+                      <span>{st.topic}</span>
+                      <span className={`text-[10px] font-bold ${active ? 'text-white/85' : 'text-slate-400'}`}>
+                        {st.mastered}/{st.total}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Full-Height Bounded Split-View Workspace (Each pane manages its own clean scroll!) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch lg:flex-1 lg:min-h-0">
+            {/* Left Column (5 cols): Search Bar + Full-Height Question Slots List */}
+            <div className="lg:col-span-5 lg:h-full lg:min-h-0 flex flex-col gap-2.5">
+              {/* Search + Compact Action Strip */}
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="relative flex-1">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={topicSearch}
+                    onChange={(e) => setTopicSearch(e.target.value)}
+                    placeholder={pick('Tìm chủ đề hoặc câu hỏi...', 'Search topics or prompts...')}
+                    className="w-full theme-input rounded-xl pl-8 pr-3 py-2 text-xs"
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={() => setOnlyUnmastered((v) => !v)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border whitespace-nowrap cursor-pointer transition-colors ${
+                  className={`px-3 py-2 rounded-xl text-xs font-extrabold border whitespace-nowrap cursor-pointer transition-all ${
                     onlyUnmastered
-                      ? 'bg-amber-500 border-amber-500 text-white'
-                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300'
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white border-transparent shadow-xs'
+                      : 'bg-white dark:bg-[#141e33] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-amber-400'
                   }`}
                 >
-                  Chưa thuộc
+                  {pick('Chưa thuộc', 'Unmastered')}
                 </button>
-              </div>
-
-              {/* Clean 2-Line Question List */}
-              <div className="glass-card bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden divide-y divide-slate-200/80 dark:divide-slate-800/80">
-                {filteredStudyQuestions.length > 0 ? (
-                  filteredStudyQuestions.map((q, idx) => renderCleanRow(q, activeStudyPack, filteredStudyQuestions, idx))
-                ) : (
-                  <div className="p-8 text-center text-xs text-slate-500">
-                    Không có câu nào trong nhóm đang lọc.
-                  </div>
-                )}
-              </div>
-            </>
-          );
-        })()
-      ) : (
-        /* Tab 2: Past 15-Question Exam/Practice Sets */
-        examSets.length === 0 ? (
-          <div className="glass-card bg-white dark:bg-slate-900/90 rounded-2xl p-8 text-center border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
-            Chưa có bộ đề thi nào.
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {examSets.map((s) => {
-              const isOpen = !!expandedHistory[s.session_id];
-              return (
-                <div key={s.session_id} className="glass-card bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-                  <div className="p-4 flex items-center justify-between gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setExpandedHistory((p) => ({ ...p, [s.session_id]: !isOpen }))}
-                      className="flex items-center gap-2 min-w-0 text-left cursor-pointer flex-1"
-                    >
-                      {isOpen ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                          Bộ đề #{s.set_number ?? s.session_number ?? s.session_id} · {new Date(s.started_at).toLocaleDateString()}
-                        </p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                          Mức {s.default_model_level} · {s.questions.length} câu · {s.mode === 'exam' ? 'Thi thử' : 'Luyện tập'}
-                        </p>
-                      </div>
-                    </button>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleStartListening(s, s.questions)}
-                        className="p-2 rounded-lg bg-brand-50 dark:bg-brand-500/15 text-brand-600 dark:text-brand-300 cursor-pointer"
-                        title="Nghe bộ đề này"
-                      >
-                        <Headphones className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteSet(s)}
-                        className="p-2 rounded-lg text-slate-400 hover:text-rose-500 cursor-pointer"
-                        title="Xóa bộ đề"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                  {isOpen && (
-                    <div className="border-t border-slate-200 dark:border-slate-800 divide-y divide-slate-200/80 dark:divide-slate-800/80">
-                      {s.questions.map((q, idx) => renderCleanRow(q, s, s.questions, idx))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )
-      )}
-
-      {/* Compact Sticky Audio Player (only shown when user clicked Nghe ôn tập) */}
-      {player && (
-        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0 z-30 border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md">
-          <div className="max-w-3xl mx-auto px-4 py-3 flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                <Headphones className="w-4 h-4 text-brand-500" />
-                <span>Nghe ôn tập ({player.count} câu)</span>
-              </span>
-              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
+                  disabled={!filteredQuestions.length}
                   onClick={() => {
-                    const next = !shadowingPause;
-                    setShadowingPause(next);
-                    if (lastListenArgsRef.current) {
-                      handleStartListening(
-                        lastListenArgsRef.current.session,
-                        lastListenArgsRef.current.questionsToPlay,
-                        next
-                      );
-                    }
+                    const gObj = TOPIC_GROUPS.find((g) => g.key === groupFilter);
+                    const gLabel = subTopicFilter !== 'all' ? subTopicFilter : (gObj ? pick(gObj.label, gObj.labelEn) : null);
+                    const title = gLabel
+                      ? `${gLabel} · ${filteredQuestions.length} ${pick('câu', 'Qs')} · ${targetLvl}`
+                      : `${pick('Kho ôn tập', 'Study Pack')} · ${filteredQuestions.length} ${pick('câu', 'Qs')} · ${targetLvl}`;
+                    startListening({
+                      session: masterPack,
+                      questionsToPlay: filteredQuestions,
+                      title,
+                      onModelsPrepared: load,
+                    });
                   }}
-                  title="Chèn khoảng lặng sau câu hỏi (5s) và giữa từng câu (3.5s) để tự bật ý & đọc nhại theo"
-                  className={`px-2 py-1 rounded-lg text-[11px] font-semibold border cursor-pointer flex items-center gap-1 ${
-                    shadowingPause ? 'border-emerald-400 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10' : 'border-slate-300 dark:border-slate-700 text-slate-500'
-                  }`}
+                  title={pick('Nghe nhóm đang lọc', 'Listen to filtered group')}
+                  className="p-2 rounded-xl bg-indigo-50 dark:bg-sky-500/15 text-indigo-600 dark:text-sky-300 border border-indigo-200 dark:border-sky-500/30 hover:bg-indigo-100 dark:hover:bg-sky-500/25 cursor-pointer disabled:opacity-40 transition-colors"
                 >
-                  <Pause className="w-3 h-3" />
-                  <span>Nhại</span>
+                  <Headphones className="w-4 h-4" />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setLoop((v) => !v)}
-                  className={`px-2 py-1 rounded-lg text-[11px] font-semibold border cursor-pointer flex items-center gap-1 ${
-                    loop ? 'border-brand-400 text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-500/10' : 'border-slate-300 dark:border-slate-700 text-slate-500'
-                  }`}
-                >
-                  <Repeat className="w-3 h-3" />
-                  <span>Lặp</span>
-                </button>
-                {player.status === 'ready' && (
-                  <a
-                    href={player.url}
-                    download={`opic-on-tap-${player.count}-cau.mp3`}
-                    className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 flex items-center gap-1"
-                  >
-                    <Download className="w-3 h-3" />
-                    <span>MP3</span>
-                  </a>
+              </div>
+
+              {/* Full-Height Bounded Master Slots List */}
+              <div className="glass-card rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800/80 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
+                {filteredQuestions.length > 0 ? (
+                  filteredQuestions.map((q, idx) => {
+                    const stMeta = STUDY_STATUS_META[q.study_status || 'unlearned'] || STUDY_STATUS_META.unlearned;
+                    const isSelectedDesktop = activeDesktopQuestion?.id === q.id;
+                    const hasModel = (q.model_answers || []).some((m) => m.level === targetLvl);
+                    const variantCount = (q.prompt_variants || []).length;
+
+                    return (
+                      <button
+                        key={q.id}
+                        type="button"
+                        onClick={() => {
+                          setDesktopSelectedId(q.id);
+                          if (window.innerWidth < 1024) {
+                            setMobileFocusIds(filteredQuestions.map((x) => x.id));
+                            setMobileFocusIdx(idx);
+                          }
+                        }}
+                        className={`w-full text-left px-3.5 py-2.5 flex items-center gap-3 transition-all cursor-pointer border-l-[3px] ${
+                          isSelectedDesktop
+                            ? 'border-l-transparent lg:border-l-indigo-500 dark:lg:border-l-sky-400 lg:bg-indigo-50/90 dark:lg:bg-sky-500/20'
+                            : 'border-l-transparent hover:bg-slate-50/80 dark:hover:bg-slate-800/50'
+                        }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${q.is_due_today ? 'bg-orange-500 ring-2 ring-orange-500/25' : stMeta.dot}`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="font-extrabold text-slate-900 dark:text-white truncate">{q.topic}</span>
+                            <span className={`text-[10px] font-semibold shrink-0 ${isSelectedDesktop ? 'text-slate-600 dark:text-sky-200' : 'text-slate-500 dark:text-slate-400'}`}>
+                              {isVi ? (QUESTION_TYPE_VI[q.question_type] || q.question_type) : (QUESTION_TYPE_EN[q.question_type] || q.question_type)}
+                            </span>
+                            {variantCount > 0 && (
+                              <span className="ml-auto px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-extrabold shrink-0">
+                                +{variantCount}
+                              </span>
+                            )}
+                          </div>
+                          <p className={`text-xs line-clamp-1 mt-0.5 ${isSelectedDesktop ? 'text-slate-700 dark:text-slate-200' : 'text-slate-600 dark:text-slate-400'}`}>
+                            {q.question_text}
+                          </p>
+                          {!hasModel && (
+                            <span className="text-[10px] text-indigo-600 dark:text-sky-400 font-semibold">{pick('Chờ sinh bài mẫu', 'Generating model...')}</span>
+                          )}
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 lg:hidden" />
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="p-8 text-center text-xs text-slate-500">{pick('Không tìm thấy câu nào phù hợp.', 'No matching questions found.')}</div>
                 )}
-                <button
-                  type="button"
-                  onClick={() => { setPlayer(null); clearTimeout(pollRef.current); }}
-                  className="p-1 text-slate-400 hover:text-rose-500 cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
               </div>
             </div>
 
-            {(player.status === 'preparing' || player.status === 'building') && (
-              <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>
-                  {player.status === 'preparing'
-                    ? 'Đang chuẩn bị bài mẫu...'
-                    : `Eva đang ghép âm thanh ${player.done}/${player.total} đoạn...`}
-                </span>
-              </div>
-            )}
-            {player.status === 'error' && <p className="text-[11px] text-rose-500">{player.message}</p>}
-            {player.status === 'ready' && (
-              <audio ref={audioRef} src={player.url} controls autoPlay loop={loop} preload="auto" className="w-full h-10" />
-            )}
+            {/* Right Column (7 cols): Full-Height Bounded Master Script Studio Card */}
+            <div className="hidden lg:flex lg:flex-col lg:col-span-7 lg:h-full lg:min-h-0">
+              <MasterScriptCard
+                question={activeDesktopQuestion}
+                session={masterPack}
+                onCycleStatus={handleCycleStatus}
+                onOpenRegenerate={(q, lvl) => setRegenTarget({ question: q, level: lvl })}
+                onPrioritize={handlePrioritize}
+                prioritizing={prioritizingQId === activeDesktopQuestion?.id}
+                onAddVariant={handleAddVariant}
+                onDeleteSlot={handleDeleteSlot}
+                onOpenPractice={(recordNow) =>
+                  activeDesktopQuestion &&
+                  setPracticeTarget({ question: activeDesktopQuestion, startInRecordMode: recordNow })
+                }
+              />
+            </div>
           </div>
         </div>
       )}
 
-      {/* Study Pack Creation Bottom Sheet */}
-      <StudyPackModal
-        isOpen={showStudyModal}
-        onClose={() => setShowStudyModal(false)}
-        initialTopics={latestUserTopics}
-        onCreated={(progData) => {
+      {/* Unlimited Topic Curriculum Picker Modal */}
+      <CurriculumModal
+        isOpen={showCurriculumModal}
+        onClose={() => setShowCurriculumModal(false)}
+        currentLevel={targetLvl}
+        onSynced={(progData) => {
           setPackProgressMap((m) => ({ ...m, [progData.session_id]: progData }));
-          setMainTab('study');
+          setSubTab('topics');
           load();
         }}
+      />
+
+      {/* Custom Model Answer Regenerate Modal */}
+      <RegenerateModal
+        isOpen={!!regenTarget}
+        onClose={() => !regenLoading && setRegenTarget(null)}
+        onConfirm={handleConfirmRegenerate}
+        loading={regenLoading}
+        title={`Viết lại · ${regenTarget?.question?.topic || ''}`}
+        levelLabel={regenTarget?.level || 'IM'}
       />
     </div>
   );

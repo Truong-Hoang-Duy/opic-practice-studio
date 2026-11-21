@@ -34,6 +34,7 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
       },
       animation: {
         'pulse-subtle': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
@@ -42,8 +43,8 @@ export default {
       },
       keyframes: {
         soundWave: {
-          '0%, 100%': { height: '8px' },
-          '50%': { height: '32px' },
+          '0%, 100%': { transform: 'scaleY(0.28)' },
+          '50%': { transform: 'scaleY(1)' },
         }
       }
     },
